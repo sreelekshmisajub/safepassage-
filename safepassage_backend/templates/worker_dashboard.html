@@ -1,0 +1,477 @@
+{% extends "dashboard_base.html" %}
+
+{% block title %}Night Worker Dashboard - SafePassage India{% endblock %}
+
+{% block dashboard_css %}
+<style>
+    .worker-shell {
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+    }
+    .worker-hero {
+        background: linear-gradient(135deg, #ffffff 0%, #eff6ff 100%);
+        border: 1px solid rgba(148, 163, 184, 0.18);
+        border-radius: 30px;
+        box-shadow: 0 16px 40px rgba(15, 23, 42, 0.08);
+        padding: 28px;
+    }
+    .worker-pills {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-bottom: 16px;
+    }
+    .worker-pill {
+        align-items: center;
+        background: rgba(37, 99, 235, 0.08);
+        border-radius: 999px;
+        color: #1d4ed8;
+        display: inline-flex;
+        font-size: 0.84rem;
+        font-weight: 700;
+        gap: 8px;
+        padding: 10px 16px;
+    }
+    .metric-grid {
+        display: grid;
+        gap: 16px;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        margin-top: 24px;
+    }
+    .metric-card,
+    .worker-card {
+        background: #ffffff;
+        border: 1px solid rgba(148, 163, 184, 0.18);
+        border-radius: 24px;
+        box-shadow: 0 12px 32px rgba(15, 23, 42, 0.06);
+        padding: 22px;
+    }
+    .metric-label {
+        color: #64748b;
+        font-size: 0.76rem;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        margin-bottom: 10px;
+        text-transform: uppercase;
+    }
+    .metric-value {
+        color: #0f172a;
+        font-size: 1.8rem;
+        font-weight: 800;
+        margin-bottom: 10px;
+    }
+    .metric-note {
+        color: #475569;
+        font-size: 0.9rem;
+        margin-bottom: 0;
+    }
+    .status-badge {
+        border-radius: 999px;
+        display: inline-flex;
+        font-size: 0.78rem;
+        font-weight: 800;
+        padding: 8px 14px;
+        text-transform: uppercase;
+    }
+    .risk-low,
+    .shift-active {
+        background: rgba(34, 197, 94, 0.14);
+        color: #166534;
+    }
+    .risk-medium {
+        background: rgba(245, 158, 11, 0.18);
+        color: #b45309;
+    }
+    .risk-high,
+    .shift-idle {
+        background: rgba(239, 68, 68, 0.14);
+        color: #b91c1c;
+    }
+    .risk-unavailable {
+        background: rgba(148, 163, 184, 0.18);
+        color: #475569;
+    }
+    .content-grid {
+        display: grid;
+        gap: 24px;
+        grid-template-columns: minmax(0, 1.3fr) minmax(0, 0.9fr);
+    }
+    .map-card {
+        padding: 0;
+        overflow: hidden;
+    }
+    #workerDashboardMap {
+        height: 520px;
+        width: 100%;
+    }
+    .map-caption {
+        background: rgba(255, 255, 255, 0.96);
+        border-top: 1px solid rgba(148, 163, 184, 0.16);
+        color: #475569;
+        padding: 14px 18px;
+    }
+    .stack-list {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+    }
+    .stack-item {
+        background: rgba(248, 250, 252, 0.92);
+        border: 1px solid rgba(148, 163, 184, 0.14);
+        border-radius: 18px;
+        padding: 16px;
+    }
+    .stack-item strong {
+        color: #0f172a;
+        display: block;
+        margin-bottom: 6px;
+    }
+    .meta-row {
+        color: #64748b;
+        display: flex;
+        flex-wrap: wrap;
+        font-size: 0.8rem;
+        gap: 12px;
+        margin-top: 8px;
+    }
+    .action-grid {
+        display: grid;
+        gap: 12px;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        margin-top: 18px;
+    }
+    .empty-state {
+        background: rgba(248, 250, 252, 0.92);
+        border: 1px dashed rgba(148, 163, 184, 0.4);
+        border-radius: 18px;
+        color: #64748b;
+        padding: 16px;
+    }
+    @media (max-width: 1199.98px) {
+        .metric-grid,
+        .content-grid,
+        .action-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block dashboard_content %}
+<div class="container-fluid py-2">
+    <div class="worker-shell" id="workerDashboardRoot">
+        <section class="worker-hero">
+            <div class="worker-pills">
+                <span class="worker-pill"><i class="bi bi-geo-alt-fill"></i><span id="workerLocationLabel">Detecting live location</span></span>
+                <span class="worker-pill"><i class="bi bi-moon-stars-fill"></i><span id="workerNightWindow">Night monitoring pending</span></span>
+                <span class="worker-pill"><i class="bi bi-person-badge-fill"></i><span id="workerIdentity">{{ user.get_full_name|default:user.first_name|default:user.username }}</span></span>
+            </div>
+            <h1 class="fw-bold mb-2">Night Worker Dashboard</h1>
+            <p class="text-muted mb-0">Live safety monitoring for shift work, safe-route support, check-ins, emergency response, and nearby safe havens.</p>
+            <div class="action-grid">
+                <button class="btn btn-success rounded-pill py-3 fw-bold" type="button" id="workerStartShiftButton">Start Shift</button>
+                <a href="{% url 'worker_safe_route' %}" class="btn btn-primary rounded-pill py-3 fw-bold">Safe Route</a>
+                <a href="{% url 'worker_sos' %}" class="btn btn-danger rounded-pill py-3 fw-bold">SOS</a>
+            </div>
+            <div class="metric-grid">
+                <div class="metric-card">
+                    <div class="metric-label">Night Risk Score</div>
+                    <div class="metric-value" id="workerRiskScore">--</div>
+                    <div class="status-badge risk-unavailable" id="workerRiskBadge">UNAVAILABLE</div>
+                    <p class="metric-note mt-3" id="workerRiskAdvice">Waiting for live worker risk analysis.</p>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">Shift Status</div>
+                    <div class="metric-value" id="workerShiftState">IDLE</div>
+                    <div class="status-badge shift-idle" id="workerShiftBadge">Inactive</div>
+                    <p class="metric-note mt-3" id="workerShiftMeta">Shift tracking will begin after activation.</p>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">Next Check-In</div>
+                    <div class="metric-value" id="workerCheckinDue">--</div>
+                    <p class="metric-note" id="workerCheckinMeta">No active shift check-in schedule yet.</p>
+                    <div class="row g-2 mt-3">
+                        <div class="col-6">
+                            <button class="btn btn-outline-primary rounded-pill w-100" type="button" id="workerCheckinButton">Check In</button>
+                        </div>
+                        <div class="col-6">
+                            <button class="btn btn-outline-dark rounded-pill w-100" type="button" id="workerCheckoutButton">Check Out</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">Nearby Safe Havens</div>
+                    <div class="metric-value" id="workerHavenCount">0</div>
+                    <p class="metric-note" id="workerHavenMeta">Waiting for live nearby haven lookup.</p>
+                </div>
+            </div>
+        </section>
+
+        <div class="content-grid">
+            <section class="worker-card map-card">
+                <div id="workerDashboardMap"></div>
+                <div class="map-caption">
+                    <strong>Worker Safety Map</strong>
+                    <div id="workerMapMeta">Live map will center on your current shift location.</div>
+                </div>
+            </section>
+
+            <div class="d-flex flex-column gap-4">
+                <section class="worker-card">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="fw-bold mb-0">Real-Time Alerts</h5>
+                        <a href="{% url 'worker_alerts' %}" class="small text-decoration-none">Open Alerts</a>
+                    </div>
+                    <div class="stack-list" id="workerAlertList">
+                        <div class="empty-state">Worker alerts will appear after live data sync.</div>
+                    </div>
+                </section>
+
+                <section class="worker-card">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="fw-bold mb-0">Nearby Safe Havens</h5>
+                        <a href="{% url 'worker_safe_havens' %}" class="small text-decoration-none">View Map</a>
+                    </div>
+                    <div class="stack-list" id="workerHavenList">
+                        <div class="empty-state">Safe haven data will appear after GPS sync.</div>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let workerDashboardMap;
+    let workerMarkers = [];
+
+    function workerSetText(id, value) {
+        const node = document.getElementById(id);
+        if (node) node.textContent = value;
+    }
+
+    function workerBadgeClass(label) {
+        const normalized = String(label || '').toUpperCase();
+        if (normalized === 'LOW') return 'status-badge risk-low';
+        if (normalized === 'MEDIUM') return 'status-badge risk-medium';
+        if (normalized === 'HIGH') return 'status-badge risk-high';
+        return 'status-badge risk-unavailable';
+    }
+
+    function workerFetchJson(url, options) {
+        return fetch(url, options).then((response) => {
+            if (!response.ok) throw new Error(`Request failed: ${response.status}`);
+            return response.json();
+        });
+    }
+
+    function workerRenderStack(containerId, items, builder, emptyMessage) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+        if (!Array.isArray(items) || !items.length) {
+            container.innerHTML = `<div class="empty-state">${emptyMessage}</div>`;
+            return;
+        }
+        container.innerHTML = items.map(builder).join('');
+    }
+
+    function workerInitMap() {
+        if (workerDashboardMap) return;
+        workerDashboardMap = L.map('workerDashboardMap').setView([9.9674, 76.2454], 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(workerDashboardMap);
+    }
+
+    function workerResetMarkers() {
+        workerMarkers.forEach((marker) => workerDashboardMap.removeLayer(marker));
+        workerMarkers = [];
+    }
+
+    function workerPlotMap(payload) {
+        workerInitMap();
+        workerResetMarkers();
+
+        const lat = payload.coordinates.latitude;
+        const lng = payload.coordinates.longitude;
+        workerDashboardMap.setView([lat, lng], 14);
+
+        const selfMarker = L.marker([lat, lng]).addTo(workerDashboardMap).bindPopup(payload.location || 'Current worker location');
+        workerMarkers.push(selfMarker);
+
+        (payload.nearby_safe_havens || []).forEach((haven) => {
+            const marker = L.circleMarker([haven.latitude, haven.longitude], {
+                radius: 8,
+                color: '#2563eb',
+                fillColor: '#60a5fa',
+                fillOpacity: 0.85,
+            }).addTo(workerDashboardMap).bindPopup(`<strong>${haven.name}</strong><br>${haven.type}`);
+            workerMarkers.push(marker);
+        });
+
+        (payload.risk_hotspots || []).forEach((hotspot) => {
+            const marker = L.circle([hotspot.latitude, hotspot.longitude], {
+                radius: 180,
+                color: '#ef4444',
+                fillColor: '#fca5a5',
+                fillOpacity: 0.22,
+            }).addTo(workerDashboardMap).bindPopup(`<strong>${hotspot.city || hotspot.risk_type}</strong><br>${hotspot.description || 'Risk zone'}`);
+            workerMarkers.push(marker);
+        });
+
+        workerSetText('workerMapMeta', `Live zone: ${payload.location || 'Unknown area'} | Hotspots: ${(payload.risk_hotspots || []).length} | Safe havens: ${(payload.nearby_safe_havens || []).length}`);
+    }
+
+    function workerRenderDashboard(payload) {
+        workerSetText('workerLocationLabel', payload.location || 'Live area unavailable');
+        workerSetText('workerNightWindow', payload.night_window ? 'Night monitoring active' : 'Daylight fallback mode');
+        workerSetText('workerRiskScore', payload.risk_score == null ? '--' : `${payload.risk_score}%`);
+        const riskBadge = document.getElementById('workerRiskBadge');
+        if (riskBadge) {
+            riskBadge.className = workerBadgeClass(payload.risk_label);
+            riskBadge.textContent = payload.risk_label || 'UNAVAILABLE';
+        }
+        workerSetText('workerRiskAdvice', payload.risk_advice || 'Night worker advice unavailable.');
+
+        const shiftActive = !!payload.shift_active;
+        workerSetText('workerShiftState', shiftActive ? 'ACTIVE' : 'IDLE');
+        const shiftBadge = document.getElementById('workerShiftBadge');
+        if (shiftBadge) {
+            shiftBadge.className = shiftActive ? 'status-badge shift-active' : 'status-badge shift-idle';
+            shiftBadge.textContent = shiftActive ? 'Active' : 'Inactive';
+        }
+        workerSetText('workerShiftMeta', shiftActive && payload.active_shift ? `Shift started at ${new Date(payload.active_shift.actual_start).toLocaleTimeString()}` : 'Shift tracking will begin after activation.');
+        workerSetText('workerCheckinDue', payload.next_checkin_due_minutes == null ? '--' : `${payload.next_checkin_due_minutes} min`);
+        workerSetText(
+            'workerCheckinMeta',
+            payload.last_checkin
+                ? `Last check-in: ${new Date(payload.last_checkin.timestamp).toLocaleTimeString()}${payload.last_checkin.location_label ? ` | ${payload.last_checkin.location_label}` : ''}`
+                : 'No worker check-in recorded yet.'
+        );
+        workerSetText('workerHavenCount', String((payload.nearby_safe_havens || []).length));
+        workerSetText('workerHavenMeta', `${(payload.nearby_safe_havens || []).length} verified safe stops within the current search radius.`);
+
+        const startButton = document.getElementById('workerStartShiftButton');
+        if (startButton) {
+            startButton.textContent = shiftActive ? 'End Shift' : 'Start Shift';
+            startButton.className = shiftActive ? 'btn btn-danger rounded-pill py-3 fw-bold' : 'btn btn-success rounded-pill py-3 fw-bold';
+            startButton.onclick = shiftActive ? workerEndShift : workerStartShift;
+        }
+
+        workerRenderStack(
+            'workerAlertList',
+            payload.alerts || [],
+            (item) => `
+                <article class="stack-item">
+                    <strong>${item.title || 'Worker alert'}</strong>
+                    <div>${item.description || 'No description available.'}</div>
+                    <div class="meta-row">
+                        <span>${item.severity || 'UNAVAILABLE'}</span>
+                        <span>${item.source || 'signal'}</span>
+                    </div>
+                </article>
+            `,
+            'No live worker alerts are stored for this location right now.'
+        );
+
+        workerRenderStack(
+            'workerHavenList',
+            payload.nearby_safe_havens || [],
+            (haven) => `
+                <article class="stack-item">
+                    <strong>${haven.name}</strong>
+                    <div>${haven.address || 'Address unavailable'}</div>
+                    <div class="meta-row">
+                        <span>${haven.type}</span>
+                        <span>${haven.distance_km} km away</span>
+                        <span>${haven.phone || 'No phone listed'}</span>
+                    </div>
+                </article>
+            `,
+            'No verified safe havens are stored near this live location.'
+        );
+
+        workerPlotMap(payload);
+    }
+
+    function workerRefreshDashboard(lat, lng) {
+        const params = new URLSearchParams();
+        if (lat != null && lng != null) {
+            params.set('lat', lat);
+            params.set('lng', lng);
+        }
+        const endpoint = params.toString() ? `/api/worker/dashboard-data/?${params.toString()}` : '/api/worker/dashboard-data/';
+        workerFetchJson(endpoint)
+            .then((payload) => {
+                workerRenderDashboard(payload);
+                if (lat != null && lng != null) {
+                    fetch('/update-location/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': '{{ csrf_token }}',
+                        },
+                        body: JSON.stringify({ latitude: lat, longitude: lng }),
+                    }).catch(() => {});
+                }
+            })
+            .catch(() => {
+                workerSetText('workerLocationLabel', 'Live worker data unavailable');
+                workerSetText('workerRiskAdvice', 'No live or saved worker location could be loaded. Enable GPS and retry.');
+            });
+    }
+
+    function workerStartShift() {
+        resolveCurrentLocation().then((coords) => {
+            const payload = coords ? { lat: coords.lat, lng: coords.lng } : {};
+            workerFetchJson('/api/worker/start-shift/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}',
+                },
+                body: JSON.stringify(payload),
+            }).then(() => workerRefreshDashboard(window.currentLocation.lat, window.currentLocation.lng));
+        });
+    }
+
+    function workerEndShift() {
+        workerFetchJson('/api/worker/end-shift/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}',
+            },
+            body: JSON.stringify({}),
+        }).then(() => workerRefreshDashboard(window.currentLocation.lat, window.currentLocation.lng));
+    }
+
+    function workerSubmitCheckin(status = 'ok') {
+        resolveCurrentLocation().then((coords) => {
+            if (!coords) return;
+            return workerFetchJson('/api/worker/submit-checkin/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}',
+                },
+                body: JSON.stringify({ status: status, lat: coords.lat, lng: coords.lng }),
+            }).then(() => workerRefreshDashboard(coords.lat, coords.lng));
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        workerInitMap();
+        const ciBtn = document.getElementById('workerCheckinButton');
+        if (ciBtn) ciBtn.addEventListener('click', () => workerSubmitCheckin('ok'));
+        const coBtn = document.getElementById('workerCheckoutButton');
+        if (coBtn) coBtn.addEventListener('click', () => workerSubmitCheckin('checkout'));
+        resolveCurrentLocation().then((coords) => {
+            workerRefreshDashboard(coords ? coords.lat : null, coords ? coords.lng : null);
+        });
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}SafePassage - AI-Powered Safety Platform{% endblock %}</title>
+
+    <!-- Fonts -->
+    <link
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
+
+    <!-- Core CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+
+    <!-- Maps & Visualization -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <style>
+        :root {
+            --primary: #1e3a8a;
+            --primary-light: #3b82f6;
+            --secondary: #1e1b4b;
+            --accent: #6366f1;
+            --danger: #ef4444;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --glass: rgba(255, 255, 255, 0.1);
+            --glass-blur: blur(12px);
+            --card-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.1);
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: #f8fafc;
+            color: #1e293b;
+            overflow-x: hidden;
+        }
+
+        h1,
+        h2,
+        h3,
+        h4,
+        h5,
+        h6 {
+            font-weight: 700;
+            letter-spacing: -0.02em;
+        }
+
+        /* Premium Navbar */
+        .navbar {
+            background: rgba(255, 255, 255, 0.8) !important;
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+            padding: 1.2rem 0;
+            transition: all 0.3s ease;
+        }
+
+        .navbar-brand {
+            font-size: 1.8rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .nav-link {
+            font-weight: 500;
+            color: #475569 !important;
+            margin: 0 10px;
+            transition: color 0.3s ease;
+        }
+
+        .nav-link:hover {
+            color: var(--primary-light) !important;
+        }
+
+        .btn-premium {
+            background: var(--primary);
+            color: #fff;
+            padding: 10px 24px;
+            border-radius: 12px;
+            font-weight: 600;
+            border: none;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .btn-premium:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(30, 58, 138, 0.3);
+            color: #fff;
+        }
+
+        /* Global Emergency Button */
+        .panic-btn {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            width: 70px;
+            height: 70px;
+            background: var(--danger);
+            color: #fff;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            box-shadow: 0 10px 30px rgba(239, 68, 68, 0.4);
+            cursor: pointer;
+            z-index: 1050;
+            transition: all 0.3s ease;
+            border: 4px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .panic-btn:hover {
+            transform: scale(1.1);
+            background: hsla(0, 84%, 55%, 1);
+        }
+
+        .panic-pulse {
+            animation: pulse-red 2s infinite;
+        }
+
+        @keyframes pulse-red {
+            0% {
+                box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+            }
+
+            70% {
+                box-shadow: 0 0 0 20px rgba(239, 68, 68, 0);
+            }
+
+            100% {
+                box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+            }
+        }
+
+        /* Footer */
+        footer {
+            background: var(--secondary);
+            color: #e2e8f0;
+            padding: 80px 0 40px;
+        }
+    </style>
+    {% block extra_css %}{% endblock %}
+</head>
+
+<body>
+
+    <!-- Header / Navbar -->
+    {% block navbar %}
+    <nav class="navbar navbar-expand-lg sticky-top">
+        <div class="container">
+            <a class="navbar-brand fw-bold" href="/">SafePassage</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto align-items-center">
+                    <li class="nav-item"><a class="nav-link" href="/">Home</a></li>
+                    <li class="nav-item">
+                        <a class="nav-link"
+                            href="{% if user.is_authenticated and user.role == 'worker' %}/worker/map/{% elif user.is_authenticated and user.role == 'admin' %}/admin/risk-monitor/{% else %}/map/{% endif %}">Safety
+                            Map</a>
+                    </li>
+                    <li class="nav-item"><a class="nav-link" href="/#features">Features</a></li>
+                    {% if user.is_authenticated %}
+                    <li class="nav-item ms-lg-3">
+                        <a href="{% if user.role == 'tourist' %}/dashboard/?mode=tourist{% elif user.role == 'worker' %}/worker/dashboard/{% elif user.role == 'admin' %}/admin/dashboard/{% else %}/employer/dashboard/{% endif %}"
+                            class="btn-premium">Dashboard</a>
+                    </li>
+                    <li class="nav-item px-3"><a class="nav-link" href="/logout/">Logout</a></li>
+                    {% else %}
+                    <li class="nav-item px-3"><a class="nav-link" href="/login/">Login</a></li>
+                    <li class="nav-item ms-lg-3">
+                        <a href="/register/" class="btn-premium">Register</a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+    </nav>
+    {% endblock %}
+
+    <!-- Main Content -->
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Global Emergency Button -->
+    {% if not user.is_authenticated or user.role == 'tourist' or user.role == 'worker' %}
+    <a class="panic-btn panic-pulse text-decoration-none" id="globalPanicBtn"
+        href="{% if not user.is_authenticated %}/login/{% elif user.role == 'worker' %}/worker/sos/{% else %}/sos/{% endif %}"
+        aria-label="Emergency SOS">
+        <i class="bi bi-shield-fill-exclamation text-white"></i>
+    </a>
+    {% endif %}
+
+    <!-- Footer -->
+    {% block footer %}
+    <footer>
+        <div class="container">
+            <div class="row">
+                <div class="col-lg-4 mb-4">
+                    <h3 class="text-white mb-4">SafePassage AI</h3>
+                    <p>An intelligent dual-mode safety platform protecting tourists and night workers through proactive
+                        AI predictions and cultural intelligence.</p>
+                </div>
+                <div class="col-lg-2 mb-4">
+                    <h5 class="text-white mb-3">Links</h5>
+                    <ul class="list-unstyled">
+                        <li><a href="/about/" class="text-decoration-none text-muted">About Us</a></li>
+                        <li><a href="/contact/" class="text-decoration-none text-muted">Contact</a></li>
+                        <li><a href="/privacy/" class="text-decoration-none text-muted">Privacy Policy</a></li>
+                        <li><a href="/terms/" class="text-decoration-none text-muted">Terms of Use</a></li>
+                    </ul>
+                </div>
+                <div class="col-lg-2 mb-4">
+                    <h5 class="text-white mb-3">Account</h5>
+                    <ul class="list-unstyled">
+                        <li><a href="/login/" class="text-decoration-none text-muted">Login</a></li>
+                        <li><a href="/register/" class="text-decoration-none text-muted">Register</a></li>
+                        <li><a href="/support/" class="text-decoration-none text-muted">Help Center</a></li>
+                    </ul>
+                </div>
+                <div class="col-lg-4">
+                    <h5 class="text-white mb-3">Stay Protected</h5>
+                    <p class="text-muted">Real-time alerts and safety insights delivered to your fingertips.</p>
+                </div>
+            </div>
+            <hr class="mt-5 mb-4 border-secondary">
+            <div class="text-center text-muted">
+                <small>&copy; 2026 SafePassage India. All Rights Reserved. Data synced with local urban authority
+                    guidelines.</small>
+            </div>
+        </div>
+    </footer>
+    {% endblock %}
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    {% block extra_js %}{% endblock %}
+</body>
+
+</html>

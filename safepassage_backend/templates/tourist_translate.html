@@ -1,0 +1,145 @@
+{% extends "dashboard_base.html" %}
+
+{% block title %}Tourist Translate - SafePassage India{% endblock %}
+
+{% block dashboard_css %}
+<style>
+    .translate-shell {
+        background: linear-gradient(160deg, #0f172a 0%, #1e293b 100%);
+        color: white;
+        border-radius: 28px;
+        box-shadow: 0 16px 44px rgba(15, 23, 42, 0.22);
+        padding: 28px;
+    }
+    .translate-field, .translate-select {
+        width: 100%;
+        border: 1px solid rgba(148, 163, 184, 0.24);
+        border-radius: 16px;
+        padding: 12px 14px;
+        background: rgba(15, 23, 42, 0.36);
+        color: white;
+    }
+    .translate-output {
+        border-radius: 18px;
+        padding: 18px;
+        min-height: 150px;
+        background: rgba(15, 23, 42, 0.44);
+        border: 1px solid rgba(148, 163, 184, 0.18);
+    }
+</style>
+{% endblock %}
+
+{% block dashboard_content %}
+<div class="container-fluid py-2">
+    <div class="row justify-content-center">
+        <div class="col-xl-8">
+            <div class="translate-shell">
+                <h2 class="fw-bold mb-1">Language Assistance</h2>
+                <p class="text-light opacity-75 mb-4">Translate emergency phrases instantly for real-world travel support.</p>
+                <div class="row g-3 mb-3">
+                    <div class="col-lg-8">
+                        <label for="translatePhrase" class="small text-uppercase opacity-75 mb-2 d-block">Emergency phrase</label>
+                        <textarea id="translatePhrase" class="translate-field" rows="4" placeholder="Type the phrase you want translated"></textarea>
+                    </div>
+                    <div class="col-lg-4">
+                        <label for="translateTarget" class="small text-uppercase opacity-75 mb-2 d-block">Target language</label>
+                        <select id="translateTarget" class="translate-select">
+                            <option value="hi">Hindi</option>
+                            <option value="ml">Malayalam</option>
+                            <option value="ta">Tamil</option>
+                            <option value="te">Telugu</option>
+                            <option value="kn">Kannada</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="d-flex flex-wrap gap-2 mb-4">
+                    <button class="btn btn-primary rounded-pill px-4 fw-bold" type="button" id="translateNowButton">Translate</button>
+                    <button class="btn btn-outline-light rounded-pill px-4 fw-bold" type="button" id="translateSpeakButton">Speak</button>
+                </div>
+                <div class="translate-output">
+                    <div class="small text-uppercase opacity-75 mb-2">Output</div>
+                    <div class="h4 fw-bold text-info mb-2" id="translateOutput">Translator is waiting for your phrase.</div>
+                    <div class="small opacity-75" id="translateOutputNote">Type a phrase, then choose Translate.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let activeTranslation = '';
+
+    function setText(id, value) {
+        const node = document.getElementById(id);
+        if (node) node.textContent = value;
+    }
+
+    function fetchJson(url, options) {
+        return fetch(url, options).then((response) => {
+            if (!response.ok) throw new Error(`Request failed: ${response.status}`);
+            return response.json();
+        });
+    }
+
+    function doTranslation() {
+        const phrase = document.getElementById('translatePhrase').value.trim();
+        const target = document.getElementById('translateTarget').value;
+        if (!phrase) {
+            activeTranslation = '';
+            setText('translateOutput', 'Translator is waiting for your phrase.');
+            setText('translateOutputNote', 'Translation requires text input.');
+            return;
+        }
+        setText('translateOutput', 'Translating...');
+        setText('translateOutputNote', 'Contacting the phrase translation service.');
+        fetchJson('/api/translate/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}',
+            },
+            body: JSON.stringify({ text: phrase, target_language: target }),
+        }).then((data) => {
+            const translated = data.translated_text || (data.translations ? data.translations[target] : '');
+            if (!translated || data.translation_mode === 'unavailable') {
+                activeTranslation = '';
+                setText('translateOutput', 'No translation is available for this phrase right now.');
+                setText('translateOutputNote', data.note || 'Try a supported emergency phrase such as help, police, or ambulance.');
+                return;
+            }
+            activeTranslation = translated;
+            setText('translateOutput', activeTranslation);
+            setText(
+                'translateOutputNote',
+                data.translation_mode === 'phrasebook'
+                    ? 'Exact emergency phrase matched from the local phrasebook.'
+                    : data.translation_mode === 'intent-match'
+                    ? (data.note || 'Matched your request to the nearest supported emergency phrase.')
+                    : (data.note || 'Offline translation completed.')
+            );
+        }).catch(() => {
+            activeTranslation = '';
+            setText('translateOutput', 'Translation unavailable.');
+            setText('translateOutputNote', 'Translation service is unavailable right now.');
+        });
+    }
+
+    function speakTranslation() {
+        const phrase = activeTranslation || document.getElementById('translatePhrase').value.trim();
+        if (!phrase) return;
+        if (!window.speechSynthesis) {
+            alert('Speech playback is not supported in this browser.');
+            return;
+        }
+        window.speechSynthesis.cancel();
+        window.speechSynthesis.speak(new SpeechSynthesisUtterance(phrase));
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        document.getElementById('translateNowButton').addEventListener('click', doTranslation);
+        document.getElementById('translateSpeakButton').addEventListener('click', speakTranslation);
+    });
+</script>
+{% endblock %}

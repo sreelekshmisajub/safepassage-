@@ -1,0 +1,84 @@
+{% extends "admin_control/module_base.html" %}
+
+{% block admin_content %}
+<section class="summary-grid">
+    <article class="summary-card">
+        <div class="summary-label">Total Alerts</div>
+        <div class="summary-value">{{ sos_payload.summary.total }}</div>
+        <div class="summary-subtext">All stored SOS triggers currently in the emergency workflow.</div>
+    </article>
+    <article class="summary-card">
+        <div class="summary-label">Active</div>
+        <div class="summary-value">{{ sos_payload.summary.active }}</div>
+        <div class="summary-subtext">Alerts still waiting for direct operational handling.</div>
+    </article>
+    <article class="summary-card">
+        <div class="summary-label">In Progress</div>
+        <div class="summary-value">{{ sos_payload.summary.in_progress }}</div>
+        <div class="summary-subtext">Alerts currently being investigated or acted upon.</div>
+    </article>
+    <article class="summary-card">
+        <div class="summary-label">Resolved</div>
+        <div class="summary-value">{{ sos_payload.summary.resolved }}</div>
+        <div class="summary-subtext">Alerts already closed out by the admin workflow.</div>
+    </article>
+</section>
+
+<section class="panel-card">
+    <div class="panel-header">
+        <div>
+            <h2 class="panel-title">SOS Queue</h2>
+            <p class="panel-subtitle">Update live SOS status as response work moves from active to resolved.</p>
+        </div>
+    </div>
+    {% if sos_payload.alerts %}
+    <div class="table-responsive">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>User</th>
+                    <th>Mode</th>
+                    <th>Location</th>
+                    <th>Time</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for alert in sos_payload.alerts %}
+                <tr>
+                    <td>
+                        <div class="metric-stack">
+                            <strong>{{ alert.user }}</strong>
+                            <small>{{ alert.role_display }}</small>
+                        </div>
+                    </td>
+                    <td>{{ alert.mode }}</td>
+                    <td>{{ alert.location_label }}</td>
+                    <td>
+                        <div class="metric-stack">
+                            <strong>{{ alert.timestamp_relative }}</strong>
+                            <small>{{ alert.timestamp }}</small>
+                        </div>
+                    </td>
+                    <td>
+                        <form method="post" class="action-row">
+                            {% csrf_token %}
+                            <input type="hidden" name="alert_id" value="{{ alert.id }}">
+                            <select name="status" class="form-select form-select-sm">
+                                <option value="Active" {% if alert.status == "Active" %}selected{% endif %}>Active</option>
+                                <option value="In Progress" {% if alert.status == "In Progress" %}selected{% endif %}>In Progress</option>
+                                <option value="Resolved" {% if alert.status == "Resolved" %}selected{% endif %}>Resolved</option>
+                            </select>
+                            <button class="btn btn-outline-primary btn-sm rounded-pill" type="submit">Update</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">No SOS alerts are stored yet.</div>
+    {% endif %}
+</section>
+{% endblock %}

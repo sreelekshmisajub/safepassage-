@@ -1,0 +1,795 @@
+{% extends "dashboard_base.html" %}
+
+{% block title %}Cultural Safety - SafePassage India{% endblock %}
+
+{% block dashboard_css %}
+<style>
+    .culture-shell {
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+    }
+    .culture-hero {
+        background: linear-gradient(140deg, rgba(15, 23, 42, 0.96) 0%, rgba(30, 64, 175, 0.92) 100%);
+        border-radius: 30px;
+        box-shadow: 0 18px 48px rgba(15, 23, 42, 0.18);
+        color: #f8fafc;
+        overflow: hidden;
+        padding: 32px;
+        position: relative;
+    }
+    .culture-hero::after {
+        background: radial-gradient(circle at top right, rgba(125, 211, 252, 0.35), transparent 42%);
+        content: "";
+        inset: 0;
+        pointer-events: none;
+        position: absolute;
+    }
+    .culture-hero > * {
+        position: relative;
+        z-index: 1;
+    }
+    .hero-badges {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-bottom: 18px;
+    }
+    .hero-pill {
+        align-items: center;
+        background: rgba(255, 255, 255, 0.12);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 999px;
+        color: #e2e8f0;
+        display: inline-flex;
+        font-size: 0.85rem;
+        font-weight: 700;
+        gap: 8px;
+        padding: 10px 16px;
+    }
+    .hero-subtitle {
+        color: rgba(226, 232, 240, 0.82);
+        margin-bottom: 0;
+        max-width: 700px;
+    }
+    .metric-grid {
+        display: grid;
+        gap: 16px;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        margin-top: 28px;
+    }
+    .metric-card {
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 24px;
+        min-height: 100%;
+        padding: 20px;
+    }
+    .metric-label {
+        color: rgba(226, 232, 240, 0.78);
+        font-size: 0.78rem;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        margin-bottom: 10px;
+        text-transform: uppercase;
+    }
+    .metric-value {
+        color: #ffffff;
+        font-size: 1.95rem;
+        font-weight: 800;
+        line-height: 1;
+        margin-bottom: 10px;
+    }
+    .metric-note {
+        color: rgba(226, 232, 240, 0.8);
+        font-size: 0.92rem;
+        margin-bottom: 0;
+    }
+    .risk-badge {
+        border-radius: 999px;
+        display: inline-flex;
+        font-size: 0.78rem;
+        font-weight: 800;
+        letter-spacing: 0.05em;
+        padding: 8px 14px;
+        text-transform: uppercase;
+    }
+    .risk-low {
+        background: rgba(34, 197, 94, 0.14);
+        color: #166534;
+    }
+    .risk-medium {
+        background: rgba(245, 158, 11, 0.18);
+        color: #b45309;
+    }
+    .risk-high {
+        background: rgba(239, 68, 68, 0.14);
+        color: #b91c1c;
+    }
+    .risk-unavailable {
+        background: rgba(148, 163, 184, 0.2);
+        color: #334155;
+    }
+    .content-grid {
+        display: grid;
+        gap: 24px;
+        grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.95fr);
+    }
+    .column-stack {
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+    }
+    .info-card {
+        background: rgba(255, 255, 255, 0.92);
+        border: 1px solid rgba(148, 163, 184, 0.16);
+        border-radius: 28px;
+        box-shadow: 0 14px 36px rgba(15, 23, 42, 0.08);
+        overflow: hidden;
+    }
+    .info-card-header {
+        align-items: center;
+        display: flex;
+        gap: 12px;
+        justify-content: space-between;
+        padding: 22px 24px 0;
+    }
+    .info-card-title {
+        color: #0f172a;
+        font-size: 1.1rem;
+        font-weight: 800;
+        margin: 0;
+    }
+    .info-card-subtitle {
+        color: #64748b;
+        font-size: 0.87rem;
+        margin: 6px 24px 0;
+    }
+    .info-card-body {
+        padding: 20px 24px 24px;
+    }
+    .stack-list {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+    }
+    .stack-item {
+        background: rgba(248, 250, 252, 0.96);
+        border: 1px solid rgba(148, 163, 184, 0.14);
+        border-radius: 20px;
+        padding: 16px;
+    }
+    .stack-item strong {
+        color: #0f172a;
+        display: block;
+        font-size: 0.98rem;
+        margin-bottom: 6px;
+    }
+    .stack-item p,
+    .stack-item span,
+    .stack-item div {
+        color: #475569;
+        font-size: 0.92rem;
+        margin: 0;
+    }
+    .meta-row {
+        color: #64748b;
+        display: flex;
+        flex-wrap: wrap;
+        font-size: 0.8rem;
+        gap: 12px;
+        margin-top: 10px;
+    }
+    .quick-help-grid,
+    .line-grid {
+        display: grid;
+        gap: 12px;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .quick-help-card,
+    .line-card {
+        background: rgba(248, 250, 252, 0.96);
+        border: 1px solid rgba(148, 163, 184, 0.14);
+        border-radius: 20px;
+        padding: 16px;
+    }
+    .line-card a {
+        color: #0f172a;
+        font-size: 1.02rem;
+        font-weight: 800;
+        text-decoration: none;
+    }
+    .toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 18px;
+    }
+    .toolbar .form-select {
+        border-radius: 999px;
+        max-width: 220px;
+    }
+    .empty-state {
+        background: rgba(248, 250, 252, 0.92);
+        border: 1px dashed rgba(148, 163, 184, 0.4);
+        border-radius: 18px;
+        color: #64748b;
+        padding: 16px;
+    }
+    .dataset-chip {
+        background: rgba(59, 130, 246, 0.08);
+        border-radius: 999px;
+        color: #1d4ed8;
+        display: inline-flex;
+        font-size: 0.8rem;
+        font-weight: 700;
+        margin: 6px 8px 0 0;
+        padding: 8px 12px;
+    }
+    .status-text {
+        color: #64748b;
+        font-size: 0.85rem;
+        font-weight: 700;
+    }
+    @media (max-width: 1199.98px) {
+        .metric-grid,
+        .content-grid,
+        .quick-help-grid,
+        .line-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+    @media (max-width: 767.98px) {
+        .culture-hero {
+            padding: 24px;
+        }
+        .info-card-header,
+        .info-card-body {
+            padding-left: 18px;
+            padding-right: 18px;
+        }
+        .info-card-subtitle {
+            margin-left: 18px;
+            margin-right: 18px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const culturalState = {
+        language: '{{ current_language|default:"en"|escapejs }}',
+        assistLanguage: 'hi',
+        location: null,
+        watchId: null,
+    };
+
+    function cultureSetText(id, value) {
+        const node = document.getElementById(id);
+        if (node) {
+            node.textContent = value;
+        }
+    }
+
+    function cultureEscapeHtml(value) {
+        return String(value || '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    function cultureFetchJson(url) {
+        return fetch(url, {
+            headers: {
+                'Accept': 'application/json',
+            },
+            credentials: 'same-origin',
+        }).then((response) => {
+            if (!response.ok) {
+                throw new Error(`Request failed: ${response.status}`);
+            }
+            return response.json();
+        });
+    }
+
+    function cultureRiskClass(label) {
+        const normalized = String(label || '').toUpperCase();
+        if (normalized === 'LOW') return 'risk-low';
+        if (normalized === 'MEDIUM') return 'risk-medium';
+        if (normalized === 'HIGH') return 'risk-high';
+        return 'risk-unavailable';
+    }
+
+    function cultureFormatCoordinateLabel(lat, lng) {
+        return `Live coordinates: ${Number(lat).toFixed(5)}, ${Number(lng).toFixed(5)}`;
+    }
+
+    function cultureFormatLocationLabel(location) {
+        return location || 'Unnamed live zone';
+    }
+
+    function cultureFormatDistance(value) {
+        if (value === null || value === undefined || value === '') {
+            return 'Distance unavailable';
+        }
+        return `${Number(value).toFixed(1)} km away`;
+    }
+
+    function renderStackItems(containerId, items, builder, emptyMessage) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+        if (!Array.isArray(items) || !items.length) {
+            container.innerHTML = `<div class="empty-state">${cultureEscapeHtml(emptyMessage)}</div>`;
+            return;
+        }
+        container.innerHTML = items.map(builder).join('');
+    }
+
+    function renderCultureTips(payload) {
+        renderStackItems(
+            'dosContainer',
+            payload.dos,
+            (item) => `
+                <article class="stack-item">
+                    <strong>${cultureEscapeHtml(item.title || 'Recommended behavior')}</strong>
+                    <p>${cultureEscapeHtml(item.content || '')}</p>
+                </article>
+            `,
+            'No do guidance is stored for this language and location yet.'
+        );
+        renderStackItems(
+            'dontsContainer',
+            payload.donts,
+            (item) => `
+                <article class="stack-item">
+                    <strong>${cultureEscapeHtml(item.title || 'Avoid')}</strong>
+                    <p>${cultureEscapeHtml(item.content || '')}</p>
+                </article>
+            `,
+            'No caution guidance is stored for this language and location yet.'
+        );
+        const doCount = Array.isArray(payload.dos) ? payload.dos.length : 0;
+        const dontCount = Array.isArray(payload.donts) ? payload.donts.length : 0;
+        cultureSetText('cultureTipStatus', `${doCount} do tips | ${dontCount} caution tips`);
+    }
+
+    function renderRestrictedZones(items) {
+        renderStackItems(
+            'restrictedContainer',
+            items,
+            (item) => `
+                <article class="stack-item">
+                    <strong>${cultureEscapeHtml(item.name || 'Sensitive zone')}</strong>
+                    <p>${cultureEscapeHtml(item.description || 'Sensitive-zone information available for this area.')}</p>
+                    <div class="meta-row">
+                        <span>${cultureEscapeHtml(item.risk_label || 'UNAVAILABLE')}</span>
+                        <span>${cultureEscapeHtml(cultureFormatDistance(item.distance_km))}</span>
+                        <span>${cultureEscapeHtml(item.source || 'risk-zone')}</span>
+                    </div>
+                </article>
+            `,
+            'No restricted or sensitive zone records were found near this live location.'
+        );
+    }
+
+    function renderAlerts(items) {
+        renderStackItems(
+            'alertContainer',
+            items,
+            (item) => `
+                <article class="stack-item">
+                    <div class="d-flex justify-content-between align-items-start gap-3">
+                        <strong>${cultureEscapeHtml(item.title || 'Nearby alert')}</strong>
+                        <span class="risk-badge ${cultureRiskClass(item.severity)}">${cultureEscapeHtml(item.severity || 'UNAVAILABLE')}</span>
+                    </div>
+                    <p>${cultureEscapeHtml(item.description || 'No description available.')}</p>
+                    <div class="meta-row">
+                        <span>${cultureEscapeHtml(item.incident_type || item.source || 'signal')}</span>
+                        <span>${cultureEscapeHtml(cultureFormatDistance(item.distance_km))}</span>
+                    </div>
+                </article>
+            `,
+            'No live alerts are stored for this location right now.'
+        );
+    }
+
+    function renderScamAwareness(items) {
+        renderStackItems(
+            'scamContainer',
+            items,
+            (item) => `
+                <article class="stack-item">
+                    <div class="d-flex justify-content-between align-items-start gap-3">
+                        <strong>${cultureEscapeHtml(item.title || 'Scam warning')}</strong>
+                        <span class="risk-badge ${cultureRiskClass(item.severity)}">${cultureEscapeHtml(item.severity || 'UNAVAILABLE')}</span>
+                    </div>
+                    <p>${cultureEscapeHtml(item.description || 'Scam-related alert recorded near this area.')}</p>
+                    <div class="meta-row">
+                        <span>${cultureEscapeHtml(cultureFormatDistance(item.distance_km))}</span>
+                        <span>${cultureEscapeHtml(item.source || 'alert')}</span>
+                    </div>
+                </article>
+            `,
+            'No scam or fraud alerts are stored near this live location right now.'
+        );
+    }
+
+    function renderQuickHelp(items) {
+        const container = document.getElementById('quickHelpContainer');
+        if (!container) return;
+        if (!Array.isArray(items) || !items.length) {
+            container.innerHTML = '<div class="empty-state">Quick help translations are unavailable for this language right now.</div>';
+            return;
+        }
+        container.innerHTML = items.map((item) => `
+            <article class="quick-help-card">
+                <div class="text-uppercase small text-muted fw-bold mb-2">${cultureEscapeHtml(item.translation_mode || 'translation')}</div>
+                <strong class="d-block text-dark mb-2">${cultureEscapeHtml(item.source_text || '')}</strong>
+                <div class="text-primary fw-bold">${cultureEscapeHtml(item.translated_text || 'Translation unavailable')}</div>
+            </article>
+        `).join('');
+    }
+
+    function renderEmergency(emergency) {
+        const embassy = emergency && emergency.embassy ? emergency.embassy : {};
+        cultureSetText('cultureEmbassyName', embassy.embassy_name || 'Embassy details pending');
+        cultureSetText('cultureEmbassyAddress', embassy.address || 'Embassy address unavailable.');
+        cultureSetText('cultureEmbassyPhone', embassy.phone || embassy.emergency_number || 'No direct number');
+        cultureSetText(
+            'cultureEmergencyCount',
+            `Emergency contacts: ${Number(emergency && emergency.emergency_contacts_count ? emergency.emergency_contacts_count : 0)}`
+        );
+        cultureSetText('cultureEmbassyAlert', embassy.zone_alert || 'Zone-specific embassy guidance unavailable.');
+
+        const callLink = document.getElementById('cultureEmbassyCall');
+        if (callLink) {
+            const phone = embassy.phone || embassy.emergency_number || '';
+            if (phone) {
+                callLink.classList.remove('disabled');
+                callLink.href = `tel:${phone}`;
+            } else {
+                callLink.classList.add('disabled');
+                callLink.href = '#';
+            }
+        }
+
+        const lineGrid = document.getElementById('officialLineGrid');
+        const lines = emergency && Array.isArray(emergency.official_lines) ? emergency.official_lines : [];
+        if (lineGrid) {
+            if (!lines.length) {
+                lineGrid.innerHTML = '<div class="empty-state">Official emergency lines are unavailable.</div>';
+            } else {
+                lineGrid.innerHTML = lines.map((line) => `
+                    <article class="line-card">
+                        <div class="small text-uppercase text-muted fw-bold mb-2">${cultureEscapeHtml(line.label || 'Emergency')}</div>
+                        <a href="tel:${cultureEscapeHtml(line.phone || '')}">${cultureEscapeHtml(line.phone || 'Unavailable')}</a>
+                        <p class="mb-0 mt-2">${cultureEscapeHtml(line.description || '')}</p>
+                    </article>
+                `).join('');
+            }
+        }
+
+        renderStackItems(
+            'emergencyResourceContainer',
+            emergency && Array.isArray(emergency.nearby_resources) ? emergency.nearby_resources : [],
+            (item) => `
+                <article class="stack-item">
+                    <strong>${cultureEscapeHtml(item.name || 'Emergency resource')}</strong>
+                    <p>${cultureEscapeHtml(item.address || 'Address unavailable')}</p>
+                    <div class="meta-row">
+                        <span>${cultureEscapeHtml(item.type || 'resource')}</span>
+                        <span>${cultureEscapeHtml(cultureFormatDistance(item.distance_km))}</span>
+                        <span>${cultureEscapeHtml(item.phone || 'No phone listed')}</span>
+                    </div>
+                </article>
+            `,
+            'No verified police or hospital resources were found near this location.'
+        );
+    }
+
+    function renderDatasetContext(datasetContext) {
+        const container = document.getElementById('datasetContextContainer');
+        if (!container) return;
+        if (!datasetContext || !datasetContext.available) {
+            container.innerHTML = '<div class="empty-state">No dataset city match was found for this live location yet.</div>';
+            return;
+        }
+        const topCrimes = Array.isArray(datasetContext.top_crimes) ? datasetContext.top_crimes : [];
+        const topDomains = Array.isArray(datasetContext.top_domains) ? datasetContext.top_domains : [];
+        container.innerHTML = `
+            <div class="stack-item">
+                <strong>${cultureEscapeHtml(datasetContext.city || 'Matched city')}</strong>
+                <p>${cultureEscapeHtml(`Matched ${datasetContext.report_count || 0} dataset records for the nearest city context.`)}</p>
+                <div class="mt-3">
+                    ${topCrimes.length ? topCrimes.map((item) => `<span class="dataset-chip">${cultureEscapeHtml(item)}</span>`).join('') : '<span class="text-muted">No top crime labels available.</span>'}
+                </div>
+                <div class="mt-3">
+                    ${topDomains.length ? topDomains.map((item) => `<span class="dataset-chip">${cultureEscapeHtml(item)}</span>`).join('') : '<span class="text-muted">No domain tags available.</span>'}
+                </div>
+            </div>
+        `;
+    }
+
+    function renderRiskReasons(items) {
+        renderStackItems(
+            'riskExplanationList',
+            items,
+            (item) => `
+                <article class="stack-item">
+                    <strong>Live risk signal</strong>
+                    <p>${cultureEscapeHtml(item)}</p>
+                </article>
+            `,
+            'No explanation is available because this zone has no nearby stored signals yet.'
+        );
+    }
+
+    function syncLocation(position) {
+        culturalState.location = {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+            accuracy: position.coords.accuracy || null,
+        };
+        cultureSetText('cultureGpsBadge', 'Live GPS locked');
+        cultureSetText('cultureCoordinates', cultureFormatCoordinateLabel(culturalState.location.lat, culturalState.location.lng));
+        refreshCulture(culturalState.location.lat, culturalState.location.lng);
+    }
+
+    function handleLocationError(error) {
+        const message = error && error.code === 1
+            ? 'Location access denied. Enable browser GPS to load live cultural safety data.'
+            : 'Live location is unavailable right now. Cultural data needs browser GPS permission.';
+        cultureSetText('cultureGpsBadge', 'GPS unavailable');
+        cultureSetText('cultureCoordinates', message);
+        cultureSetText('cultureDatasetStatus', 'Unavailable');
+        cultureSetText('cultureDatasetMeta', 'The page does not use fake location data. Enable GPS to load real records.');
+    }
+
+    function refreshCulture(lat, lng) {
+        cultureSetText('cultureDatasetStatus', 'Loading');
+        cultureSetText('cultureDatasetMeta', 'Fetching cultural guidance, alerts, emergency info, and dataset context.');
+        const params = new URLSearchParams({
+            lat: String(lat),
+            lng: String(lng),
+            language: culturalState.language,
+            assist_language: culturalState.assistLanguage,
+        });
+        cultureFetchJson(`/cultural-data/?${params.toString()}`)
+            .then((payload) => {
+                cultureSetText('cultureZoneLabel', cultureFormatLocationLabel(payload.location));
+                cultureSetText('cultureRiskScore', payload.risk_score === null || payload.risk_score === undefined ? '--' : `${payload.risk_score}%`);
+                const riskBadge = document.getElementById('cultureRiskBadge');
+                if (riskBadge) {
+                    riskBadge.textContent = payload.risk_label || 'UNAVAILABLE';
+                    riskBadge.className = `risk-badge ${cultureRiskClass(payload.risk_label)}`;
+                }
+                cultureSetText('cultureRiskAdvice', payload.risk_advice || 'No cultural risk advice is available for this zone.');
+                cultureSetText('cultureAssistBadge', `Quick help language: ${document.getElementById('assistLanguageSelect').selectedOptions[0].text}`);
+                cultureSetText('cultureDatasetStatus', payload.data_available ? 'Live' : 'Limited');
+                const context = payload.dataset_context || {};
+                const summaryBits = [];
+                if (context.available && context.city) {
+                    summaryBits.push(`City dataset matched: ${context.city}`);
+                }
+                summaryBits.push(`Language: ${(payload.language || culturalState.language).toUpperCase()}`);
+                cultureSetText('cultureDatasetMeta', summaryBits.join(' | '));
+                const alerts = Array.isArray(payload.real_time_alerts) ? payload.real_time_alerts : [];
+                cultureSetText('cultureAlertStatus', String(alerts.length));
+                cultureSetText(
+                    'cultureAlertMeta',
+                    alerts.length ? 'Nearby incident and hotspot alerts are active for this tourist zone.' : 'No nearby alerts stored for this zone right now.'
+                );
+                renderRiskReasons(payload.risk_explanation || []);
+                renderCultureTips(payload);
+                renderRestrictedZones(payload.restricted_zones || []);
+                renderAlerts(payload.real_time_alerts || []);
+                renderScamAwareness(payload.scam_alerts || []);
+                renderQuickHelp(payload.quick_help || []);
+                renderEmergency(payload.emergency || {});
+                renderDatasetContext(payload.dataset_context || {});
+            })
+            .catch(() => {
+                cultureSetText('cultureDatasetStatus', 'Unavailable');
+                cultureSetText('cultureDatasetMeta', 'Cultural data request failed. The page is not falling back to synthetic content.');
+                cultureSetText('cultureAlertMeta', 'Live alert request failed.');
+            });
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const assistSelect = document.getElementById('assistLanguageSelect');
+        culturalState.assistLanguage = assistSelect.value;
+        assistSelect.addEventListener('change', () => {
+            culturalState.assistLanguage = assistSelect.value;
+            cultureSetText('cultureAssistBadge', `Quick help language: ${assistSelect.selectedOptions[0].text}`);
+            if (culturalState.location) {
+                refreshCulture(culturalState.location.lat, culturalState.location.lng);
+            }
+        });
+
+        if (!navigator.geolocation) {
+            handleLocationError();
+            return;
+        }
+
+        navigator.geolocation.getCurrentPosition(syncLocation, handleLocationError, {
+            enableHighAccuracy: true,
+            timeout: 12000,
+            maximumAge: 30000,
+        });
+
+        culturalState.watchId = navigator.geolocation.watchPosition(syncLocation, handleLocationError, {
+            enableHighAccuracy: true,
+            maximumAge: 30000,
+            timeout: 15000,
+        });
+    });
+</script>
+{% endblock %}
+
+{% block dashboard_content %}
+<div class="container-fluid py-2">
+    <div class="culture-shell">
+        <section class="culture-hero">
+            <div class="hero-badges">
+                <span class="hero-pill"><i class="bi bi-geo-alt-fill"></i><span id="cultureGpsBadge">Detecting live location</span></span>
+                <span class="hero-pill"><i class="bi bi-translate"></i><span id="cultureAssistBadge">Quick help language: Hindi</span></span>
+                <span class="hero-pill"><i class="bi bi-shield-check"></i><span id="cultureZoneLabel">Awaiting live zone</span></span>
+            </div>
+            <h1 class="fw-bold mb-2">Cultural Safety Guide</h1>
+            <p class="hero-subtitle">Location-aware tourist guidance built from live GPS, nearby incident records, stored cultural guidance, emergency contacts, and city crime datasets.</p>
+            <div class="toolbar">
+                <select class="form-select" id="assistLanguageSelect" aria-label="Quick help language">
+                    <option value="hi">Hindi</option>
+                    <option value="ml">Malayalam</option>
+                    <option value="ta">Tamil</option>
+                    <option value="te">Telugu</option>
+                    <option value="kn">Kannada</option>
+                </select>
+                <span class="status-text" id="cultureCoordinates">Waiting for browser geolocation permission.</span>
+            </div>
+            <div class="metric-grid">
+                <div class="metric-card">
+                    <div class="metric-label">Cultural Risk Score</div>
+                    <div class="metric-value" id="cultureRiskScore">--</div>
+                    <div class="risk-badge risk-unavailable" id="cultureRiskBadge">UNAVAILABLE</div>
+                    <p class="metric-note mt-3" id="cultureRiskAdvice">Live cultural risk analysis will start after GPS sync.</p>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">Dataset Coverage</div>
+                    <div class="metric-value" id="cultureDatasetStatus">Pending</div>
+                    <p class="metric-note" id="cultureDatasetMeta">Waiting to match your live zone with available cultural and incident data.</p>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">Alert Pulse</div>
+                    <div class="metric-value" id="cultureAlertStatus">0</div>
+                    <p class="metric-note" id="cultureAlertMeta">No live alerts loaded yet.</p>
+                </div>
+            </div>
+        </section>
+
+        <div class="content-grid">
+            <div class="column-stack">
+                <section class="info-card">
+                    <div class="info-card-header">
+                        <h2 class="info-card-title"><i class="bi bi-lightning-charge-fill text-warning me-2"></i>Why This Zone Scores This Way</h2>
+                    </div>
+                    <p class="info-card-subtitle">Backend-generated explanation of the active cultural risk score.</p>
+                    <div class="info-card-body">
+                        <div class="stack-list" id="riskExplanationList">
+                            <div class="empty-state">Risk explanation will appear after live data is loaded for your location.</div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="info-card">
+                    <div class="info-card-header">
+                        <h2 class="info-card-title"><i class="bi bi-check-circle-fill text-success me-2"></i>Location-Based Cultural Tips</h2>
+                        <span class="status-text" id="cultureTipStatus">No live data yet</span>
+                    </div>
+                    <p class="info-card-subtitle">Real do's and don'ts from stored cultural guidance, filtered for the active language.</p>
+                    <div class="info-card-body">
+                        <div class="stack-list mb-4" id="dosContainer">
+                            <div class="empty-state">Live do guidance has not been loaded yet.</div>
+                        </div>
+                        <div class="stack-list" id="dontsContainer">
+                            <div class="empty-state">Live caution guidance has not been loaded yet.</div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="info-card">
+                    <div class="info-card-header">
+                        <h2 class="info-card-title"><i class="bi bi-sign-stop-fill text-danger me-2"></i>Restricted or Sensitive Zones</h2>
+                    </div>
+                    <p class="info-card-subtitle">Derived from nearby risk zones and incident patterns around your current position.</p>
+                    <div class="info-card-body">
+                        <div class="stack-list" id="restrictedContainer">
+                            <div class="empty-state">No sensitive-zone records loaded yet.</div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="info-card">
+                    <div class="info-card-header">
+                        <h2 class="info-card-title"><i class="bi bi-bell-fill text-primary me-2"></i>Real-Time Alerts</h2>
+                    </div>
+                    <p class="info-card-subtitle">Nearby incident reports and hotspot records within the tourist safety radius.</p>
+                    <div class="info-card-body">
+                        <div class="stack-list" id="alertContainer">
+                            <div class="empty-state">No alerts have been pulled for this location yet.</div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <div class="column-stack">
+                <section class="info-card">
+                    <div class="info-card-header">
+                        <h2 class="info-card-title"><i class="bi bi-exclamation-diamond-fill text-danger me-2"></i>Scam Awareness</h2>
+                    </div>
+                    <p class="info-card-subtitle">Scam and fraud warnings sourced from incident reports and nearby hotspot descriptions.</p>
+                    <div class="info-card-body">
+                        <div class="stack-list" id="scamContainer">
+                            <div class="empty-state">Scam awareness data has not loaded yet.</div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="info-card">
+                    <div class="info-card-header">
+                        <h2 class="info-card-title"><i class="bi bi-chat-left-quote-fill text-info me-2"></i>Quick Help Translation</h2>
+                    </div>
+                    <p class="info-card-subtitle">Emergency phrases translated for the assist language selected above.</p>
+                    <div class="info-card-body">
+                        <div class="quick-help-grid" id="quickHelpContainer">
+                            <div class="empty-state">Emergency phrase translations will appear after live sync.</div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="info-card">
+                    <div class="info-card-header">
+                        <h2 class="info-card-title"><i class="bi bi-hospital-fill text-danger me-2"></i>Embassy and Emergency Info</h2>
+                    </div>
+                    <p class="info-card-subtitle">Nearest diplomatic support, official helplines, and verified emergency resources.</p>
+                    <div class="info-card-body">
+                        <div class="stack-item mb-3">
+                            <strong id="cultureEmbassyName">Embassy details pending</strong>
+                            <p id="cultureEmbassyAddress">Grant live location and update nationality in profile to load the correct embassy contact.</p>
+                            <div class="meta-row">
+                                <span id="cultureEmbassyPhone">No direct number</span>
+                                <span id="cultureEmergencyCount">Emergency contacts: 0</span>
+                            </div>
+                            <div class="mt-2">
+                                <a href="#" id="cultureEmbassyCall" class="btn btn-outline-danger rounded-pill px-3 py-2 disabled">Call Embassy</a>
+                            </div>
+                            <p class="mt-3 mb-0" id="cultureEmbassyAlert">Zone alert guidance will appear here.</p>
+                        </div>
+                        <div class="line-grid mb-3" id="officialLineGrid">
+                            <div class="empty-state">Official emergency lines will appear here.</div>
+                        </div>
+                        <div class="stack-list" id="emergencyResourceContainer">
+                            <div class="empty-state">Nearby hospitals and police support points will appear here.</div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="info-card">
+                    <div class="info-card-header">
+                        <h2 class="info-card-title"><i class="bi bi-database-fill text-primary me-2"></i>City Crime Dataset Context</h2>
+                    </div>
+                    <p class="info-card-subtitle">Matched against the local city-level dataset stored in the project.</p>
+                    <div class="info-card-body">
+                        <div id="datasetContextContainer">
+                            <div class="empty-state">Dataset context is waiting for a city match from your live location.</div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

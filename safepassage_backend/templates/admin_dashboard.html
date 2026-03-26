@@ -1,0 +1,288 @@
+{% extends "dashboard_base.html" %}
+{% load static %}
+
+{% block title %}Admin Dashboard - SafePassage India{% endblock %}
+
+{% block dashboard_css %}
+<style>
+    :root {
+        --admin-dark: #1a1a2e;
+        --admin-primary: #6366f1;
+        --admin-success: #10b981;
+        --admin-warning: #f59e0b;
+        --admin-danger: #ef4444;
+    }
+
+    .dashboard-container {
+        background: #0f0f23;
+    }
+
+    .admin-card {
+        background: rgba(26, 26, 46, 0.9);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(99, 102, 241, 0.2);
+        border-radius: 20px;
+        padding: 24px;
+        transition: all 0.3s ease;
+        color: #f8fafc;
+    }
+
+    .admin-card:hover {
+        border-color: var(--admin-primary);
+        box-shadow: 0 0 20px rgba(99, 102, 241, 0.3);
+        transform: translateY(-2px);
+    }
+
+    .stat-card {
+        background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(99, 102, 241, 0.05));
+        border: 1px solid rgba(99, 102, 241, 0.2);
+        border-radius: 15px;
+        padding: 20px;
+        text-align: center;
+        transition: all 0.3s ease;
+    }
+
+    .stat-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 10px 25px rgba(99, 102, 241, 0.2);
+    }
+
+    .stat-number {
+        font-size: 2.5rem;
+        font-weight: 800;
+        color: #fff;
+        margin-bottom: 8px;
+    }
+
+    .stat-label {
+        color: #94a3b8;
+        font-size: 0.9rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+
+    .admin-header {
+        background: linear-gradient(135deg, var(--admin-primary), #4f46e5);
+        color: white;
+        padding: 30px;
+        border-radius: 20px;
+        margin-bottom: 30px;
+    }
+
+    .user-table {
+        background: rgba(26, 26, 46, 0.6);
+        border-radius: 15px;
+        overflow: hidden;
+    }
+
+    .user-table th {
+        background: rgba(99, 102, 241, 0.2);
+        color: #fff;
+        font-weight: 600;
+        border: none;
+        padding: 15px;
+    }
+
+    .user-table td {
+        color: #e2e8f0;
+        border: none;
+        padding: 15px;
+        vertical-align: middle;
+    }
+
+    .user-table tbody tr:hover {
+        background: rgba(99, 102, 241, 0.1);
+    }
+
+    .role-badge {
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        text-transform: uppercase;
+    }
+
+    .role-tourist { background: rgba(34, 197, 94, 0.2); color: #22c55e; }
+    .role-worker { background: rgba(59, 130, 246, 0.2); color: #3b82f6; }
+    .role-employer { background: rgba(168, 85, 247, 0.2); color: #a855f7; }
+    .role-admin { background: rgba(239, 68, 68, 0.2); color: #ef4444; }
+</style>
+{% endblock %}
+
+{% block dashboard_content %}
+<div class="container-fluid">
+    <!-- Admin Header -->
+    <div class="admin-header">
+        <div class="row align-items-center">
+            <div class="col-md-6">
+                <h2 class="fw-bold mb-0">
+                    <i class="bi bi-shield-check me-3"></i>
+                    Admin Control Center
+                </h2>
+                <p class="mb-0 opacity-75">SafePassage India - Kerala Operations</p>
+            </div>
+            <div class="col-md-6 text-end">
+                <div class="d-flex align-items-center justify-content-end">
+                    <div class="me-4">
+                        <small class="d-block opacity-75">Logged in as</small>
+                        <strong>{{ request.user.get_full_name|default:request.user.username }}</strong>
+                    </div>
+                    <div class="text-end">
+                        <small class="d-block opacity-75">Role</small>
+                        <span class="role-badge role-admin">ADMIN</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistics Overview -->
+    <div class="row g-4 mb-4">
+        <div class="col-xl-3 col-md-6">
+            <div class="stat-card">
+                <div class="stat-number">{{ total_users }}</div>
+                <div class="stat-label">Total Users</div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="stat-card">
+                <div class="stat-number">{{ total_tourists }}</div>
+                <div class="stat-label">Tourists</div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="stat-card">
+                <div class="stat-number">{{ total_workers }}</div>
+                <div class="stat-label">Night Workers</div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="stat-card">
+                <div class="stat-number">{{ total_employers }}</div>
+                <div class="stat-label">Employers</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4 mb-4">
+        <div class="col-xl-3 col-md-6">
+            <div class="stat-card">
+                <div class="stat-number">{{ total_admins }}</div>
+                <div class="stat-label">Admins</div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="stat-card">
+                <div class="stat-number">{{ total_havens }}</div>
+                <div class="stat-label">Safe Havens</div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="stat-card">
+                <div class="stat-number">{{ total_crimes }}</div>
+                <div class="stat-label">Crime Records</div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="stat-card">
+                <div class="stat-number">{{ active_shifts }}</div>
+                <div class="stat-label">Active Shifts</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Users Table -->
+    <div class="row">
+        <div class="col-12">
+            <div class="admin-card">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h4 class="fw-bold mb-0">
+                        <i class="bi bi-people-fill me-2"></i>
+                        Recent User Registrations
+                    </h4>
+                    <span class="badge bg-primary rounded-pill">{{ recent_users|length }} Users</span>
+                </div>
+                
+                <div class="table-responsive">
+                    <table class="table user-table">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Email</th>
+                                <th>Role</th>
+                                <th>Phone</th>
+                                <th>Registered</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for user in recent_users %}
+                            <tr>
+                                <td>
+                                    <strong>{{ user.get_full_name|default:user.username }}</strong>
+                                </td>
+                                <td>{{ user.email }}</td>
+                                <td>
+                                    <span class="role-badge role-{{ user.role }}">
+                                        {{ user.get_role_display }}
+                                    </span>
+                                </td>
+                                <td>{{ user.phone|default:"--" }}</td>
+                                <td>
+                                    <small>{{ user.created_at|date:"M d, Y" }}</small><br>
+                                    <small class="text-muted">{{ user.created_at|time:"g:i A" }}</small>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="5" class="text-center text-muted py-4">
+                                    <i class="bi bi-person-x fs-1 mb-2 d-block"></i>
+                                    No recent user registrations found
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="row g-4 mt-4">
+        <div class="col-md-4">
+            <div class="admin-card text-center">
+                <i class="bi bi-person-plus-fill fs-1 text-primary mb-3 d-block"></i>
+                <h5 class="fw-bold mb-3">Create Admin User</h5>
+                <p class="text-muted small mb-4">Create new admin accounts manually</p>
+                <button class="btn btn-primary w-100" onclick="alert('Use Django admin: /admin')">
+                    <i class="bi bi-gear-fill me-2"></i>
+                    Django Admin Panel
+                </button>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="admin-card text-center">
+                <i class="bi bi-geo-alt-fill fs-1 text-success mb-3 d-block"></i>
+                <h5 class="fw-bold mb-3">Manage Safe Havens</h5>
+                <p class="text-muted small mb-4">Update Kerala safe haven locations</p>
+                <button class="btn btn-success w-100" onclick="alert('Feature coming soon')">
+                    <i class="bi bi-map me-2"></i>
+                    Manage Locations
+                </button>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="admin-card text-center">
+                <i class="bi bi-shield-fill fs-1 text-warning mb-3 d-block"></i>
+                <h5 class="fw-bold mb-3">System Security</h5>
+                <p class="text-muted small mb-4">Monitor and manage security</p>
+                <button class="btn btn-warning w-100" onclick="alert('Feature coming soon')">
+                    <i class="bi bi-lock-fill me-2"></i>
+                    Security Center
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

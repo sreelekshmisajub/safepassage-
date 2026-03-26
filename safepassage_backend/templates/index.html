@@ -1,0 +1,586 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/landing_saas.css' %}">
+<style>
+    /* Inline overrides or specific logic-based styles */
+    .risk-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.45rem;
+        padding: 0.4rem 0.8rem;
+        border-radius: 999px;
+        font-size: 0.84rem;
+        font-weight: 700;
+        transition: all 0.3s ease;
+    }
+
+    .risk-low { background: rgba(22, 163, 74, 0.1); color: #16a34a; border: 1px solid rgba(22, 163, 74, 0.2); }
+    .risk-medium { background: rgba(217, 119, 6, 0.1); color: #d97706; border: 1px solid rgba(217, 119, 6, 0.2); }
+    .risk-high { background: rgba(220, 38, 38, 0.1); color: #dc2626; border: 1px solid rgba(220, 38, 38, 0.2); }
+    .risk-unavailable { background: rgba(100, 116, 139, 0.1); color: #64748b; border: 1px solid rgba(100, 116, 139, 0.2); }
+
+    .saas-sos-panel {
+        background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+        color: white;
+        border-radius: 32px;
+        padding: 60px;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .saas-sos-panel::after {
+        content: '';
+        position: absolute;
+        bottom: -50px;
+        right: -50px;
+        width: 300px;
+        height: 300px;
+        background: radial-gradient(circle, #ef4444 0%, transparent 70%);
+        opacity: 0.1;
+        filter: blur(50px);
+    }
+
+    .btn-sos-saas {
+        background: #ef4444;
+        color: white;
+        padding: 16px 40px;
+        border-radius: 12px;
+        font-weight: 800;
+        font-size: 18px;
+        border: none;
+        transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        box-shadow: 0 10px 30px rgba(239, 68, 68, 0.4);
+    }
+
+    .btn-sos-saas:hover {
+        transform: scale(1.05);
+        background: #dc2626;
+        box-shadow: 0 15px 40px rgba(239, 68, 68, 0.6);
+    }
+
+    .btn-sos-saas:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        transform: none;
+    }
+
+    .hotspot-card {
+        padding: 16px;
+        border-radius: 16px;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        margin-bottom: 12px;
+        transition: all 0.2s ease;
+    }
+
+    .hotspot-card:hover {
+        background: white;
+        border-color: #cbd5e1;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="saas-landing">
+    <!-- Hero Section -->
+    <header class="saas-hero">
+        <div class="container">
+            <div class="row align-items-center g-5">
+                <div class="col-lg-7">
+                    <div class="hero-content">
+                        <span class="hero-kicker-badge">
+                            <i class="bi bi-shield-check"></i> SafePassage AI
+                        </span>
+                        <h1 class="hero-title-saas">
+                            Stay Safe Anywhere <br> with <span>AI-Powered Protection</span>
+                        </h1>
+                        <p class="hero-subtitle-saas">
+                            Tourist and night worker safety in one platform. Real-time risk data, safer routing, and emergency response powered by live system intelligence.
+                        </p>
+                        <div class="saas-cta-group">
+                            <a href="{{ landing_routes.safe_route }}" class="btn-saas-primary">
+                                <i class="bi bi-sign-turn-right-fill me-2"></i> Get Safe Route
+                            </a>
+                            {% if user.is_authenticated %}
+                            <button type="button" class="btn-saas-secondary" data-bs-toggle="modal" data-bs-target="#modeSelectionModal">
+                                <i class="bi bi-shield-lock me-2"></i> Enable Safety Mode
+                            </button>
+                            {% else %}
+                            <a href="{{ landing_routes.login }}" class="btn-saas-secondary">
+                                <i class="bi bi-person-lock me-2"></i> Enable Safety Mode
+                            </a>
+                            {% endif %}
+                        </div>
+
+                        </div> <!-- hero-content -->
+                </div> <!-- col-lg-7 -->
+                <div class="col-lg-5">
+                    <div class="hero-visual-saas">
+                        <img src="{% static 'images/saas_hero.png' %}" alt="Saas High-Tech Safety Platform Visualization">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Mode Selection Section -->
+    <section class="saas-section" id="modes">
+        <div class="container">
+            <div class="saas-heading-center">
+                <span class="saas-tag">Tailored Protection</span>
+                <h2 class="saas-h2">Choose Your Safety Mode</h2>
+                <p class="text-muted mt-3 fs-5">Whether you're exploring a new city or commuting after dark, we've got a mode built specifically for your journey.</p>
+            </div>
+
+            <div class="saas-mode-row">
+                <!-- Tourist Mode -->
+                <div class="saas-mode-card">
+                    <div class="mode-icon-premium">
+                        <i class="bi bi-globe-central-south-asia"></i>
+                    </div>
+                    <h3 class="fw-bold mb-3">Tourist Mode</h3>
+                    <p class="text-muted">Designed for travelers in unfamiliar environments. Stay informed with cultural intelligence and local scam awareness.</p>
+                    <ul class="mode-feature-list">
+                        <li><i class="bi bi-check-circle-fill"></i> Cultural Safety Guidance</li>
+                        <li><i class="bi bi-check-circle-fill"></i> Real-time Scam Alerts</li>
+                        <li><i class="bi bi-check-circle-fill"></i> Emergency Translation Tools</li>
+                        <li><i class="bi bi-check-circle-fill"></i> Embassy Quick-Connect</li>
+                    </ul>
+                    <div class="mt-5">
+                        {% if user.is_authenticated and not landing_config.can_access_tourist_mode %}
+                        <div class="alert alert-info py-2 px-3 rounded-pill border-0 small d-inline-flex align-items-center">
+                            <i class="bi bi-info-circle me-2"></i> Current role: {{ user.get_role_display }}
+                        </div>
+                        <a href="{{ landing_routes.dashboard }}" class="btn btn-outline-primary rounded-pill w-100 mt-3 fw-bold">Switch to Dashboard</a>
+                        {% else %}
+                        <a href="{{ landing_routes.tourist_dashboard }}" class="btn btn-primary rounded-pill w-100 py-3 fw-bold shadow-sm">
+                            Launch Tourist Hub <i class="bi bi-arrow-right ms-2"></i>
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Night Worker Mode -->
+                <div class="saas-mode-card">
+                    <div class="mode-icon-premium" style="background: rgba(14, 165, 233, 0.05); color: #0ea5e9;">
+                        <i class="bi bi-moon-stars-fill"></i>
+                    </div>
+                    <h3 class="fw-bold mb-3">Night Worker Mode</h3>
+                    <p class="text-muted">Built for the night shift. Focused on shift-aware tracking, safe haven routing, and active check-in verification.</p>
+                    <ul class="mode-feature-list">
+                        <li><i class="bi bi-check-circle-fill"></i> Shift Monitoring & Tracking</li>
+                        <li><i class="bi bi-check-circle-fill"></i> AI-Optimized Safe Routing</li>
+                        <li><i class="bi bi-check-circle-fill"></i> Automated Check-in Verification</li>
+                        <li><i class="bi bi-check-circle-fill"></i> Verified Safe Haven Access</li>
+                    </ul>
+                    <div class="mt-5">
+                        {% if user.is_authenticated and not landing_config.can_access_worker_mode %}
+                        <div class="alert alert-info py-2 px-3 rounded-pill border-0 small d-inline-flex align-items-center">
+                            <i class="bi bi-info-circle me-2"></i> Current role: {{ user.get_role_display }}
+                        </div>
+                        <a href="{{ landing_routes.dashboard }}" class="btn btn-outline-info rounded-pill w-100 mt-3 fw-bold">Switch to Dashboard</a>
+                        {% else %}
+                        <a href="{{ landing_routes.worker_dashboard }}" class="btn btn-info text-white rounded-pill w-100 py-3 fw-bold shadow-sm" style="background: #0ea5e9; border: none;">
+                            Enter Worker Mode <i class="bi bi-arrow-right ms-2"></i>
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Risk Map Section -->
+    <section class="saas-section bg-light">
+        <div class="container">
+            <div class="saas-heading-center">
+                <span class="saas-tag">AI Risk Awareness</span>
+                <h2 class="saas-h2">Global Safety Intelligence</h2>
+                <p class="text-muted mt-3 fs-5">Monitor real-time risk zones and historical incident data globally. Our AI analyzes thousands of signals to keep you out of harm's way.</p>
+            </div>
+
+            <div class="saas-map-panel mt-5">
+                <div class="saas-map-side">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h4 class="fw-bold mb-0">Risk Hotspots</h4>
+                        <span id="sideRiskBadge" class="risk-pill risk-unavailable small">Live</span>
+                    </div>
+
+                    {% if landing_preview_zones %}
+                    <div class="hotspot-feed">
+                        {% for zone in landing_preview_zones|slice:":5" %}
+                        <div class="hotspot-card">
+                            <div class="d-flex justify-content-between mb-2">
+                                <span class="fw-bold">{{ zone.city|default:"Location Priority" }}</span>
+                                <span class="badge {% if zone.risk_score > 70 %}bg-danger{% elif zone.risk_score > 40 %}bg-warning{% else %}bg-success{% endif %} bg-opacity-10 text-dark border-0">
+                                    {{ zone.risk_score }}%
+                                </span>
+                            </div>
+                            <div class="small text-muted mb-2">
+                                <i class="bi bi-geo-alt me-1"></i> {{ zone.risk_type }} · {{ zone.risk_label }}
+                            </div>
+                            <div class="small border-top pt-2">{{ zone.description }}</div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-5">
+                        <i class="bi bi-database-exclamation fs-1 text-muted"></i>
+                        <p class="mt-3 text-muted">No RiskZone records found. System awaiting data ingestion.</p>
+                    </div>
+                    {% endif %}
+                    
+                    <a href="{{ landing_routes.map }}" class="btn btn-saas-secondary w-100 mt-4">
+                        Full Analytics Map <i class="bi bi-chevron-right ms-2"></i>
+                    </a>
+                </div>
+                <div class="saas-map-main">
+                    <div id="landingMap"></div>
+                    <!-- Legend Overlay -->
+                    <div style="position: absolute; bottom: 20px; right: 20px; z-index: 1000; background: white; padding: 12px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); font-size: 12px;">
+                        <div class="fw-bold mb-2">Risk Intensity</div>
+                        <div class="d-flex align-items-center gap-2 mb-1">
+                            <span style="width: 12px; height: 12px; border-radius: 3px; background: #dc2626; display: inline-block;"></span> High Risk
+                        </div>
+                        <div class="d-flex align-items-center gap-2 mb-1">
+                            <span style="width: 12px; height: 12px; border-radius: 3px; background: #d97706; display: inline-block;"></span> Moderate
+                        </div>
+                        <div class="d-flex align-items-center gap-2">
+                            <span style="width: 12px; height: 12px; border-radius: 3px; background: #16a34a; display: inline-block;"></span> Safe Zone
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Emergency Access Section -->
+    <section class="saas-section">
+        <div class="container">
+            <div class="saas-sos-panel">
+                <div class="row align-items-center">
+                    <div class="col-lg-7">
+                        <span class="text-danger fw-bold text-uppercase mb-3 d-block letter-spacing-1">Rapid Response</span>
+                        <h2 class="display-5 fw-bold text-white mb-4">Instant Emergency Rescue</h2>
+                        <p class="fs-5 text-white-50 mb-0">In an emergency, every second counts. Our proprietary SOS system captures your high-accuracy GPS and delivers a prioritized alert to local authorities and emergency contacts simultaneously.</p>
+                    </div>
+                    <div class="col-lg-5 text-lg-end mt-5 mt-lg-0">
+                        <div class="sos-trigger-box">
+                            <button type="button" id="landingSosButton" class="btn-sos-saas" onclick="handleLandingSOS()">
+                                <i class="bi bi-broadcast-pin me-2"></i> ACTIVATE SOS NOW
+                            </button>
+                            <div id="landingSosStatus" class="mt-3 text-white-50 small">
+                                {% if landing_config.can_trigger_emergency %}
+                                <i class="bi bi-circle-fill text-success me-1" style="font-size: 8px;"></i> System verified and armed.
+                                {% else %}
+                                <i class="bi bi-lock me-1"></i> Authenticated access required.
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Bento Section -->
+    <section class="saas-section" id="features">
+        <div class="container">
+            <div class="saas-heading-center">
+                <span class="saas-tag">Full Capabilities</span>
+                <h2 class="saas-h2">Engineered for Your Safety</h2>
+                <p class="text-muted mt-3 fs-5">Beyond basic tracking, SafePassage offers a comprehensive suite of safety tools.</p>
+            </div>
+
+            <div class="saas-bento-grid">
+                <div class="bento-card">
+                    <div class="bento-icon" style="background: rgba(37, 99, 235, 0.1); color: var(--saas-primary);">
+                        <i class="bi bi-sign-turn-right"></i>
+                    </div>
+                    <h3 class="bento-title">Smart Safe Routes</h3>
+                    <p class="bento-text">Intelligent navigation that prioritizes well-lit and monitored paths, avoiding known hotspots dynamically.</p>
+                </div>
+                <div class="bento-card">
+                    <div class="bento-icon" style="background: rgba(16, 185, 129, 0.1); color: #10b981;">
+                        <i class="bi bi-translate"></i>
+                    </div>
+                    <h3 class="bento-title">Crisis Translation</h3>
+                    <p class="bento-text">Break language barriers in critical moments with pre-loaded emergency phrases and real-time translation.</p>
+                </div>
+                <div class="bento-card">
+                    <div class="bento-icon" style="background: rgba(245, 158, 11, 0.1); color: #f59e0b;">
+                        <i class="bi bi-shield-lock"></i>
+                    </div>
+                    <h3 class="bento-title">Safe Havens</h3>
+                    <p class="bento-text">Instant access to verified 24/7 safe zones, including police stations, hospitals, and registered hubs.</p>
+                </div>
+                <div class="bento-card">
+                    <div class="bento-icon" style="background: rgba(139, 92, 246, 0.1); color: #8b5cf6;">
+                        <i class="bi bi-broadcast"></i>
+                    </div>
+                    <h3 class="bento-title">Live Alerts</h3>
+                    <p class="bento-text">Stay ahead of localized incidents with proactive push notifications tailored to your exact coordinates.</p>
+                </div>
+                <div class="bento-card">
+                    <div class="bento-icon" style="background: rgba(236, 72, 153, 0.1); color: #ec4899;">
+                        <i class="bi bi-people"></i>
+                    </div>
+                    <h3 class="bento-title">Community Feed</h3>
+                    <p class="bento-text">Crowdsourced safety reporting allows users to flag active risks and scams for the benefit of all.</p>
+                </div>
+                <div class="bento-card">
+                    <div class="bento-icon" style="background: rgba(14, 165, 233, 0.1); color: #0ea5e9;">
+                        <i class="bi bi-cpu"></i>
+                    </div>
+                    <h3 class="bento-title">AI Predictive Model</h3>
+                    <p class="bento-text">Our risk engine scores areas based on historical crime data, time of day, and environmental factors.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Notification Feed Section -->
+    {% if landing_alert_feed %}
+    <section class="saas-section bg-light border-top">
+        <div class="container">
+            <div class="row g-5">
+                <div class="col-lg-4">
+                    <h3 class="fw-bold mb-4">Live Alert Feed</h3>
+                    <p class="text-muted">The latest safety signals and system updates from around the network.</p>
+                    <a href="{{ landing_routes.alerts }}" class="btn btn-link text-primary p-0 fw-bold text-decoration-none">
+                        View All Alerts <i class="bi bi-arrow-right ms-1"></i>
+                    </a>
+                </div>
+                <div class="col-lg-8">
+                    <div class="row g-3">
+                        {% for alert in landing_alert_feed|slice:":4" %}
+                        <div class="col-md-6">
+                            <div class="bento-card p-4 h-100">
+                                <div class="badge {% if alert.kind == 'EMERGENCY' %}bg-danger{% else %}bg-primary{% endif %} bg-opacity-10 text-dark border-0 mb-3 d-inline-block" style="width: fit-content;">
+                                    {{ alert.kind }}
+                                </div>
+                                <h5 class="fw-bold">{{ alert.title }}</h5>
+                                <p class="small text-muted mb-3">{{ alert.detail }}</p>
+                                <div class="mt-auto d-flex justify-content-between align-items-center pt-3 border-top">
+                                    <span class="small fw-600">{{ alert.status }}</span>
+                                    <span class="small text-muted">{{ alert.timestamp_label }}</span>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+    {% endif %}
+
+    <!-- Final CTA -->
+    <section class="saas-section pb-5">
+        <div class="container">
+            <div class="saas-mode-card text-center p-5" style="background: white; border: 2px solid var(--saas-primary);">
+                <h2 class="saas-h2 mb-4">Ready for a Safer Journey?</h2>
+                <p class="text-muted fs-5 mb-5 mx-auto" style="max-width: 600px;">Create an account or sign in to enter the dashboard flow that matches your current travel or work mode.</p>
+                <div class="saas-cta-group justify-content-center mb-0">
+                    <a href="/register/" class="btn-saas-primary">Create Free Account</a>
+                    <a href="/login/" class="btn-saas-secondary">Login</a>
+                </div>
+            </div>
+        </div>
+    </section>
+</div>
+
+<!-- Mode Selection Modal -->
+<div class="modal fade" id="modeSelectionModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content rounded-4 border-0 shadow-lg">
+            <div class="modal-header border-0 pb-0">
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4 pt-0 text-center">
+                <div class="mb-4">
+                    <i class="bi bi-shield-lock-fill text-primary" style="font-size: 48px;"></i>
+                </div>
+                <h4 class="fw-bold mb-3">Activate Safety Mode</h4>
+                <p class="text-muted mb-4">Select the operational mode that matches your current activity to enable tailored AI monitoring.</p>
+                
+                <div class="row g-3">
+                    <div class="col-6">
+                        <a href="{{ landing_routes.tourist_dashboard }}" class="d-block p-4 rounded-4 border text-decoration-none transition-all hover-shadow bg-light">
+                            <i class="bi bi-globe2 fs-2 text-primary d-block mb-3"></i>
+                            <span class="fw-bold text-dark">Tourist</span>
+                        </a>
+                    </div>
+                    <div class="col-6">
+                        <a href="{{ landing_routes.worker_dashboard }}" class="d-block p-4 rounded-4 border text-decoration-none transition-all hover-shadow bg-light">
+                            <i class="bi bi-moon-stars fs-2 text-info d-block mb-3"></i>
+                            <span class="fw-bold text-dark">Worker</span>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Leaflet Integration for Landing Map
+    let landingMap;
+    const landData = {
+        zones: [
+            {% for zone in landing_preview_zones %}
+            {
+                lat: {{ zone.latitude }},
+                lng: {{ zone.longitude }},
+                label: "{{ zone.city|default:'Risk Zone' }}",
+                score: {{ zone.risk_score }},
+                type: "{{ zone.risk_type }}"
+            },
+            {% endfor %}
+        ]
+    };
+
+    function initLandingMap() {
+        // Default to a central view or current location
+        landingMap = L.map('landingMap', {
+            zoomControl: false,
+            attributionControl: false
+        }).setView([20.5937, 78.9629], 5); // India center
+
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+            maxZoom: 19
+        }).addTo(landingMap);
+
+        const markers = [];
+        landData.zones.forEach(z => {
+            const color = z.score > 70 ? '#dc2626' : (z.score > 40 ? '#d97706' : '#16a34a');
+            const circle = L.circle([z.lat, z.lng], {
+                color: color,
+                fillColor: color,
+                fillOpacity: 0.15,
+                radius: 1000 + (z.score * 50)
+            }).addTo(landingMap);
+            
+            circle.bindPopup(`<strong>${z.label}</strong><br>Risk: ${z.score}%<br>Type: ${z.type}`);
+            markers.push([z.lat, z.lng]);
+        });
+
+        if (markers.length > 0) {
+            landingMap.fitBounds(markers, { padding: [50, 50] });
+        }
+
+        // Try to get user location
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(pos => {
+                const { latitude, longitude } = pos.coords;
+                const userIcon = L.divIcon({
+                    className: 'user-marker',
+                    html: '<div style="width: 20px; height: 20px; background: #2563eb; border: 3px solid white; border-radius: 50%; box-shadow: 0 0 10px rgba(37, 99, 235, 0.5);"></div>'
+                });
+                L.marker([latitude, longitude], { icon: userIcon }).addTo(landingMap);
+                landingMap.setView([latitude, longitude], 12);
+                
+                // Update UI elements with live data
+                fetchLiveRisk(latitude, longitude);
+            });
+        }
+    }
+
+    async function fetchLiveRisk(lat, lng) {
+        try {
+            const res = await fetch(`${landingConfig.risk_endpoint}?lat=${lat}&lng=${lng}`);
+            const data = await res.json();
+            
+            const zone = Array.isArray(data.zones) && data.zones.length ? data.zones[0] : null;
+            if (zone) {
+                const score = zone.risk_score || 0;
+                const label = zone.risk_label || 'UNAVAILABLE';
+                
+                const scoreEl = document.getElementById('heroRiskScore');
+                const badgeEl = document.getElementById('heroRiskBadge');
+                const locEl = document.getElementById('heroLocation');
+                const sideBadge = document.getElementById('sideRiskBadge');
+
+                if(scoreEl) scoreEl.innerText = score + '%';
+                if(locEl) locEl.innerText = zone.location || 'Current live location';
+                
+                const riskClass = label.toLowerCase() === 'high' ? 'risk-high' : 
+                                 (label.toLowerCase() === 'medium' ? 'risk-medium' : 'risk-low');
+                
+                if(badgeEl) {
+                    badgeEl.className = 'risk-pill ' + riskClass;
+                    badgeEl.innerHTML = `<i class="bi bi-broadcast"></i> ${label} RISK`;
+                }
+
+                if(sideBadge) {
+                    sideBadge.className = 'risk-pill ' + riskClass + ' small';
+                    sideBadge.innerText = label;
+                }
+            }
+        } catch (e) { console.error('Risk fetch error', e); }
+    }
+
+    function handleLandingSOS() {
+        const btn = document.getElementById('landingSosButton');
+        const status = document.getElementById('landingSosStatus');
+
+        if (!landingConfig.is_authenticated) {
+            window.location.href = landingRoutes.login;
+            return;
+        }
+
+        if (!landingConfig.can_trigger_emergency) {
+            status.className = "mt-3 text-warning fw-bold";
+            status.innerText = "Landing-page SOS is available only for tourist and night worker accounts.";
+            return;
+        }
+        
+        if (!confirm("Are you sure you want to trigger an Emergency SOS? This will alert responders and your contacts.")) return;
+        
+        btn.disabled = true;
+        btn.innerText = "CAPTURING GPS...";
+        
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(async pos => {
+                btn.innerText = "DISPATCHING ALERT...";
+                try {
+                    const res = await fetch(landingConfig.emergency_endpoint, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': '{{ csrf_token }}'
+                        },
+                        body: JSON.stringify({
+                            lat: pos.coords.latitude,
+                            lng: pos.coords.longitude,
+                            mode: "silent"
+                        })
+                    });
+                    const data = await res.json();
+                    if (data.status === 'success') {
+                        btn.className = "btn-sos-saas bg-success";
+                        btn.innerText = "SOS DISPATCHED";
+                        status.className = "mt-3 text-success fw-bold";
+                        status.innerText = "Your emergency alert has been sent successfully.";
+                    } else {
+                        throw new Error(data.message || 'Dispatch failed');
+                    }
+                } catch (e) {
+                    btn.disabled = false;
+                    btn.innerText = "RETRY SOS";
+                    alert("Emergency dispatch failed: " + e.message);
+                }
+            }, err => {
+                btn.disabled = false;
+                btn.innerText = "RETRY SOS";
+                alert("Location access denied. Please enable GPS to trigger SOS.");
+            });
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', initLandingMap);
+</script>
+{% endblock %}

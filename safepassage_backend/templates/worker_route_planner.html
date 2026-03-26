@@ -1,0 +1,455 @@
+{% extends "dashboard_base.html" %}
+
+{% block title %}Worker Safe Route - SafePassage India{% endblock %}
+
+{% block dashboard_css %}
+<style>
+    .route-shell {
+        display: grid;
+        gap: 24px;
+        grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.25fr);
+    }
+    .route-card {
+        background: #ffffff;
+        border: 1px solid rgba(148, 163, 184, 0.18);
+        border-radius: 26px;
+        box-shadow: 0 12px 32px rgba(15, 23, 42, 0.06);
+        padding: 24px;
+    }
+    #workerRouteMap {
+        height: 680px;
+        width: 100%;
+        border-radius: 26px;
+    }
+    .route-field,
+    .route-select {
+        border: 1px solid rgba(148, 163, 184, 0.24);
+        border-radius: 16px;
+        padding: 12px 14px;
+        width: 100%;
+    }
+    .suggestion-list {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        margin-top: 14px;
+    }
+    .suggestion-item {
+        background: rgba(248, 250, 252, 0.96);
+        border: 1px solid rgba(148, 163, 184, 0.14);
+        border-radius: 16px;
+        cursor: pointer;
+        padding: 12px 14px;
+    }
+    .route-summary {
+        display: grid;
+        gap: 12px;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        margin-top: 18px;
+    }
+    .route-tier-grid {
+        display: grid;
+        gap: 12px;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        margin-top: 18px;
+    }
+    .route-tier-card {
+        background: rgba(248, 250, 252, 0.94);
+        border: 2px solid rgba(148, 163, 184, 0.14);
+        border-radius: 20px;
+        cursor: pointer;
+        padding: 16px;
+        text-align: left;
+        transition: all 0.2s ease;
+    }
+    .route-tier-card.active {
+        box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+        transform: translateY(-2px);
+    }
+    .tier-low {
+        border-color: rgba(34, 197, 94, 0.26);
+    }
+    .tier-medium {
+        border-color: rgba(245, 158, 11, 0.3);
+    }
+    .tier-high {
+        border-color: rgba(239, 68, 68, 0.28);
+    }
+    .tier-label {
+        display: inline-flex;
+        border-radius: 999px;
+        font-size: 0.76rem;
+        font-weight: 800;
+        letter-spacing: 0.05em;
+        padding: 6px 10px;
+        text-transform: uppercase;
+    }
+    .tier-label-low {
+        background: rgba(34, 197, 94, 0.14);
+        color: #166534;
+    }
+    .tier-label-medium {
+        background: rgba(245, 158, 11, 0.18);
+        color: #b45309;
+    }
+    .tier-label-high {
+        background: rgba(239, 68, 68, 0.14);
+        color: #b91c1c;
+    }
+    .tier-meta {
+        color: #64748b;
+        display: flex;
+        flex-wrap: wrap;
+        font-size: 0.82rem;
+        gap: 10px;
+        margin-top: 10px;
+    }
+    .summary-box {
+        background: rgba(248, 250, 252, 0.94);
+        border-radius: 18px;
+        padding: 14px;
+        text-align: center;
+    }
+    .stack-list {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        margin-top: 18px;
+    }
+    .stack-item,
+    .empty-state {
+        background: rgba(248, 250, 252, 0.94);
+        border: 1px solid rgba(148, 163, 184, 0.14);
+        border-radius: 18px;
+        padding: 14px;
+    }
+    .empty-state {
+        color: #64748b;
+    }
+    @media (max-width: 1199.98px) {
+        .route-shell,
+        .route-summary,
+        .route-tier-grid {
+            grid-template-columns: 1fr;
+        }
+        #workerRouteMap {
+            height: 440px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block dashboard_content %}
+<div class="container-fluid py-2">
+    <div class="route-shell">
+        <section class="route-card">
+            <h2 class="fw-bold mb-1">Worker Safe Route</h2>
+            <p class="text-muted mb-4">Build a live route that prioritizes verified havens, lower-risk corridors, and active night-shift safety signals.</p>
+            <div class="mb-3">
+                <label class="small text-uppercase text-muted fw-bold mb-2 d-block">Source</label>
+                <input class="route-field" id="workerRouteSource" type="text" value="Waiting for live GPS..." readonly>
+                <div class="small text-muted mt-2" id="workerRouteSourceMeta">Waiting for live location name.</div>
+            </div>
+            <div class="mb-3">
+                <label class="small text-uppercase text-muted fw-bold mb-2 d-block">Destination</label>
+                <input class="route-field" id="workerDestinationSearch" type="text" placeholder="Search a place in India">
+                <div class="suggestion-list" id="workerDestinationSuggestions">
+                    <div class="empty-state">Type at least 2 characters to search for a real destination.</div>
+                </div>
+            </div>
+            <button class="btn btn-primary rounded-pill py-3 w-100 fw-bold" type="button" id="workerGenerateRouteButton">Generate Safe Route</button>
+            <div class="route-tier-grid" id="workerRouteTierGrid">
+                <div class="empty-state">Low, medium, and high risk route options will appear after route generation.</div>
+            </div>
+            <div class="route-summary" id="workerRouteSummary">
+                <div class="summary-box"><div class="small text-muted text-uppercase fw-bold">Risk</div><div id="workerRouteRisk">--</div></div>
+                <div class="summary-box"><div class="small text-muted text-uppercase fw-bold">Distance</div><div id="workerRouteDistance">--</div></div>
+                <div class="summary-box"><div class="small text-muted text-uppercase fw-bold">Strategy</div><div id="workerRouteStrategy">--</div></div>
+            </div>
+            <div class="stack-list" id="workerRouteAdviceList">
+                <div class="empty-state">Route advisories will appear after a destination is selected.</div>
+            </div>
+        </section>
+
+        <section class="route-card p-0 overflow-hidden">
+            <div id="workerRouteMap"></div>
+        </section>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let workerRouteMap;
+    let workerRoutePolyline = null;
+    let workerRouteMarkers = [];
+    let workerSelectedDestination = null;
+    let workerRouteSearchResults = [];
+    let workerRouteOptions = [];
+    let workerActiveRouteId = null;
+
+    function routeFetchJson(url, options) {
+        return fetch(url, options).then((response) => {
+            if (!response.ok) throw new Error(`Request failed: ${response.status}`);
+            return response.json();
+        });
+    }
+
+    function routeInitMap() {
+        if (workerRouteMap) return;
+        workerRouteMap = L.map('workerRouteMap').setView([9.9674, 76.2454], 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(workerRouteMap);
+    }
+
+    function routeResetMap() {
+        if (workerRoutePolyline) workerRouteMap.removeLayer(workerRoutePolyline);
+        workerRouteMarkers.forEach((marker) => workerRouteMap.removeLayer(marker));
+        workerRouteMarkers = [];
+        workerRoutePolyline = null;
+    }
+
+    function routeChooseDestination(item) {
+        workerSelectedDestination = {
+            id: item.id,
+            name: item.name,
+            latitude: item.latitude,
+            longitude: item.longitude,
+        };
+        document.getElementById('workerDestinationSearch').value = workerSelectedDestination.name;
+    }
+
+    function routeRenderSuggestions(results) {
+        const container = document.getElementById('workerDestinationSuggestions');
+        if (!results.length) {
+            container.innerHTML = '<div class="empty-state">No live destination matches found.</div>';
+            return;
+        }
+        container.innerHTML = '';
+        results.forEach((item) => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'suggestion-item text-start';
+            button.innerHTML = `<strong></strong><br><span class="text-muted small"></span>`;
+            button.querySelector('strong').textContent = item.name || 'Destination';
+            button.querySelector('span').textContent = `${item.kind || ''} ${item.description || ''}`.trim();
+            button.addEventListener('click', () => routeChooseDestination(item));
+            container.appendChild(button);
+        });
+    }
+
+    function routeSearchPlaces(query) {
+        if (query.length < 2) {
+            workerRouteSearchResults = [];
+            routeRenderSuggestions([]);
+            return;
+        }
+        routeFetchJson(`/api/worker/place-search/?q=${encodeURIComponent(query)}`).then((payload) => {
+            workerRouteSearchResults = payload.results || [];
+            routeRenderSuggestions(workerRouteSearchResults);
+        }).catch(() => {
+            workerRouteSearchResults = [];
+            routeRenderSuggestions([]);
+        });
+    }
+
+    function routeResolveDestinationFromInput() {
+        if (workerSelectedDestination) {
+            return Promise.resolve(workerSelectedDestination);
+        }
+        const rawInput = document.getElementById('workerDestinationSearch').value.trim();
+        if (!rawInput) {
+            return Promise.resolve(null);
+        }
+        if (workerRouteSearchResults.length) {
+            const exact = workerRouteSearchResults.find((item) => (item.name || '').toLowerCase() === rawInput.toLowerCase());
+            const chosen = exact || workerRouteSearchResults[0];
+            routeChooseDestination(chosen);
+            return Promise.resolve(workerSelectedDestination);
+        }
+        return routeFetchJson(`/api/worker/place-search/?q=${encodeURIComponent(rawInput)}`)
+            .then((payload) => {
+                const results = payload.results || [];
+                workerRouteSearchResults = results;
+                routeRenderSuggestions(results);
+                if (!results.length) {
+                    return null;
+                }
+                const exact = results.find((item) => (item.name || '').toLowerCase() === rawInput.toLowerCase());
+                routeChooseDestination(exact || results[0]);
+                return workerSelectedDestination;
+            })
+            .catch(() => null);
+    }
+
+    function routeRenderPayload(payload) {
+        if (payload.source) {
+            document.getElementById('workerRouteSource').value = payload.source.display_label || payload.source.name || 'Source locked';
+            document.getElementById('workerRouteSourceMeta').textContent = payload.source.name
+                ? `Live source locked at ${payload.source.name}.`
+                : 'Source locked to current tracked coordinates.';
+        }
+        workerRouteOptions = payload.route_options || [{
+            id: 'default',
+            tier: 'medium',
+            tier_label: 'DEFAULT',
+            title: 'Route',
+            color: '#2563eb',
+            strategy: payload.strategy || '--',
+            strategy_label: payload.strategy_label || payload.strategy || '--',
+            route: payload.route || [],
+            polyline: payload.polyline || [],
+            route_summary: payload.route_summary || {},
+        }];
+        const selectedRouteId = payload.default_route_tier || workerRouteOptions[0].id;
+        routeRenderTierCards(workerRouteOptions, selectedRouteId);
+        routeSelectOption(selectedRouteId);
+    }
+
+    function routeRiskTone(tier) {
+        if (tier === 'low') return 'low';
+        if (tier === 'medium') return 'medium';
+        if (tier === 'high') return 'high';
+        return 'medium';
+    }
+
+    function routeRiskSummary(summary) {
+        if (!summary || summary.overall_risk_score == null) {
+            return summary && summary.overall_risk_label ? summary.overall_risk_label : '--';
+        }
+        return `${summary.overall_risk_label} | ${summary.overall_risk_score}%`;
+    }
+
+    function routeRenderTierCards(routeOptions, activeId) {
+        const container = document.getElementById('workerRouteTierGrid');
+        if (!container) return;
+        if (!routeOptions.length) {
+            container.innerHTML = '<div class="empty-state">No route options are available for this destination yet.</div>';
+            return;
+        }
+        container.innerHTML = routeOptions.map((option) => {
+            const tone = routeRiskTone(option.tier);
+            const summary = option.route_summary || {};
+            return `
+                <button
+                    type="button"
+                    class="route-tier-card tier-${tone} ${option.id === activeId ? 'active' : ''}"
+                    data-route-tier="${option.id}"
+                >
+                    <span class="tier-label tier-label-${tone}">${option.title}</span>
+                    <div class="fw-bold fs-5 mt-3">${routeRiskSummary(summary)}</div>
+                    <div class="tier-meta">
+                        <span>${summary.distance_km != null ? `${summary.distance_km} km` : '--'}</span>
+                        <span>${option.strategy_label || option.strategy || '--'}</span>
+                    </div>
+                </button>
+            `;
+        }).join('');
+        container.querySelectorAll('[data-route-tier]').forEach((button) => {
+            button.addEventListener('click', () => routeSelectOption(button.dataset.routeTier));
+        });
+    }
+
+    function routeSelectOption(routeId) {
+        const selectedOption = workerRouteOptions.find((option) => option.id === routeId);
+        if (!selectedOption) {
+            return;
+        }
+        workerActiveRouteId = routeId;
+        routeRenderTierCards(workerRouteOptions, workerActiveRouteId);
+
+        const summary = selectedOption.route_summary || {};
+        document.getElementById('workerRouteRisk').textContent = routeRiskSummary(summary);
+        document.getElementById('workerRouteDistance').textContent = summary.distance_km != null ? `${summary.distance_km} km` : '--';
+        document.getElementById('workerRouteStrategy').textContent = selectedOption.strategy_label || selectedOption.strategy || '--';
+        const adviceList = document.getElementById('workerRouteAdviceList');
+        const advisories = summary.advisories || [];
+        adviceList.innerHTML = advisories.length
+            ? advisories.map((item) => `<div class="stack-item">${item}</div>`).join('')
+            : '<div class="empty-state">No live advisories were returned for this route.</div>';
+
+        routeResetMap();
+        workerRoutePolyline = L.polyline(selectedOption.polyline || [], { color: selectedOption.color || '#2563eb', weight: 6, opacity: 0.85 }).addTo(workerRouteMap);
+        if ((selectedOption.polyline || []).length) {
+            workerRouteMap.fitBounds(workerRoutePolyline.getBounds(), { padding: [20, 20] });
+        }
+        (selectedOption.route || []).forEach((stop) => {
+            workerRouteMarkers.push(
+                L.marker([stop.latitude, stop.longitude]).addTo(workerRouteMap).bindPopup(`<strong>${stop.location}</strong><br>${stop.risk_label}`)
+            );
+        });
+    }
+
+    function routeGenerate() {
+        routeResolveDestinationFromInput().then((destination) => {
+            if (!destination) {
+                document.getElementById('workerRouteAdviceList').innerHTML = '<div class="empty-state">Select a live destination or wait for search results before generating the route.</div>';
+                return;
+            }
+            resolveCurrentLocation().then((coords) => {
+                const params = new URLSearchParams({
+                    destination_place: destination.id || destination.name,
+                    destination_name: destination.name || '',
+                });
+                if (coords) {
+                    params.set('source_lat', coords.lat);
+                    params.set('source_lng', coords.lng);
+                }
+                routeFetchJson(`/api/worker/safe-route/?${params.toString()}`)
+                    .then(routeRenderPayload)
+                    .catch(() => {
+                        document.getElementById('workerRouteAdviceList').innerHTML = '<div class="empty-state">No live route could be generated from your current or saved worker location.</div>';
+                    });
+            });
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        routeInitMap();
+        document.getElementById('workerDestinationSearch').addEventListener('input', (event) => {
+            if (workerSelectedDestination && event.target.value.trim() !== workerSelectedDestination.name) {
+                workerSelectedDestination = null;
+            }
+            routeSearchPlaces(event.target.value.trim());
+        });
+        document.getElementById('workerDestinationSearch').addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                routeGenerate();
+            }
+        });
+        document.getElementById('workerGenerateRouteButton').addEventListener('click', routeGenerate);
+        resolveCurrentLocation().then((coords) => {
+            const params = new URLSearchParams();
+            if (coords) {
+                workerRouteMap.setView([coords.lat, coords.lng], 13);
+                params.set('lat', coords.lat);
+                params.set('lng', coords.lng);
+            }
+            const endpoint = params.toString() ? `/api/worker/risk/?${params.toString()}` : '/api/worker/risk/';
+            routeFetchJson(endpoint)
+                .then((payload) => {
+                    const sourceCoordinates = payload.coordinates || {};
+                    const sourceLat = coords ? coords.lat : sourceCoordinates.latitude;
+                    const sourceLng = coords ? coords.lng : sourceCoordinates.longitude;
+                    document.getElementById('workerRouteSource').value = payload.location
+                        ? `${payload.location} (${Number(sourceLat).toFixed(5)}, ${Number(sourceLng).toFixed(5)})`
+                        : `${Number(sourceLat).toFixed(5)}, ${Number(sourceLng).toFixed(5)}`;
+                    document.getElementById('workerRouteSourceMeta').textContent = payload.location
+                        ? `Live source locked at ${payload.location}.`
+                        : 'Source locked to current tracked coordinates.';
+                })
+                .catch(() => {
+                    if (!coords) {
+                        document.getElementById('workerRouteSource').value = 'Source unavailable';
+                        document.getElementById('workerRouteSourceMeta').textContent = 'No live or saved worker location is available.';
+                        return;
+                    }
+                    document.getElementById('workerRouteSource').value = `${coords.lat.toFixed(5)}, ${coords.lng.toFixed(5)}`;
+                    document.getElementById('workerRouteSourceMeta').textContent = 'Source locked to current GPS coordinates.';
+                });
+        });
+    });
+</script>
+{% endblock %}

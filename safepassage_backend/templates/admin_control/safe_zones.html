@@ -1,0 +1,74 @@
+{% extends "admin_control/module_base.html" %}
+
+{% block admin_content %}
+<section class="summary-grid">
+    <article class="summary-card">
+        <div class="summary-label">Total Safe Havens</div>
+        <div class="summary-value">{{ safe_zones_payload.summary.total }}</div>
+        <div class="summary-subtext">Verified safe-zone records available to routes and emergency support.</div>
+    </article>
+    <article class="summary-card">
+        <div class="summary-label">24/7 Ready</div>
+        <div class="summary-value">{{ safe_zones_payload.summary.open_24_7 }}</div>
+        <div class="summary-subtext">Safe havens marked available around the clock.</div>
+    </article>
+    <article class="summary-card">
+        <div class="summary-label">Police</div>
+        <div class="summary-value">{{ safe_zones_payload.summary.police }}</div>
+        <div class="summary-subtext">Police facilities recorded as emergency stops.</div>
+    </article>
+    <article class="summary-card">
+        <div class="summary-label">Hospitals</div>
+        <div class="summary-value">{{ safe_zones_payload.summary.hospital }}</div>
+        <div class="summary-subtext">Hospital safe havens currently stored.</div>
+    </article>
+</section>
+
+<section class="panel-card">
+    <div class="panel-header">
+        <div>
+            <h2 class="panel-title">Safe Haven Coverage</h2>
+            <p class="panel-subtitle">Operational readiness of police stations, hospitals, public spaces, and safe businesses.</p>
+        </div>
+    </div>
+    {% if safe_zones_payload.safe_havens %}
+    <div class="table-responsive">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Type</th>
+                    <th>Address</th>
+                    <th>Nearby Pressure</th>
+                    <th>Availability</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for haven in safe_zones_payload.safe_havens %}
+                <tr>
+                    <td>
+                        <div class="metric-stack">
+                            <strong>{{ haven.name }}</strong>
+                            <small>{{ haven.coordinates }}</small>
+                        </div>
+                    </td>
+                    <td>{{ haven.type }}</td>
+                    <td>{{ haven.address }}</td>
+                    <td class="muted-text">{{ haven.nearby_incidents }} incidents, {{ haven.nearby_high_risk_zones }} high-risk zones</td>
+                    <td>
+                        {% if haven.is_open_24_7 %}
+                        <span class="status-pill status-low">24/7</span>
+                        {% else %}
+                        <span class="status-pill status-medium">Timed Access</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">No safe havens are stored yet.</div>
+    {% endif %}
+</section>
+{% endblock %}

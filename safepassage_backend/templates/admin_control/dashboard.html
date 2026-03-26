@@ -1,0 +1,196 @@
+{% extends "admin_control/module_base.html" %}
+
+{% block admin_content %}
+<section class="summary-grid">
+    <article class="summary-card">
+        <div class="summary-label">Total Users</div>
+        <div class="summary-value">{{ dashboard.summary.total_users }}</div>
+        <div class="summary-subtext">{{ dashboard.summary.tourists }} tourists and {{ dashboard.summary.workers }} night workers are registered.</div>
+    </article>
+    <article class="summary-card">
+        <div class="summary-label">Active Tracking</div>
+        <div class="summary-value">{{ dashboard.summary.active_tracking }}</div>
+        <div class="summary-subtext">Users with recent live locations in the current monitoring window.</div>
+    </article>
+    <article class="summary-card">
+        <div class="summary-label">SOS Alerts</div>
+        <div class="summary-value">{{ dashboard.summary.total_sos }}</div>
+        <div class="summary-subtext">{{ dashboard.summary.active_sos }} alerts are still unresolved or in progress.</div>
+    </article>
+    <article class="summary-card">
+        <div class="summary-label">High Risk Zones</div>
+        <div class="summary-value">{{ dashboard.summary.high_risk_zones }}</div>
+        <div class="summary-subtext">Zones currently classified as high risk by stored signals and AI-facing data.</div>
+    </article>
+</section>
+
+<section class="summary-grid">
+    <article class="summary-card">
+        <div class="summary-label">Open Incidents</div>
+        <div class="summary-value">{{ dashboard.summary.open_incidents }}</div>
+        <div class="summary-subtext">Reports still under review or pending resolution.</div>
+    </article>
+    <article class="summary-card">
+        <div class="summary-label">Safe Havens</div>
+        <div class="summary-value">{{ dashboard.summary.safe_havens }}</div>
+        <div class="summary-subtext">Verified police, hospital, business, and public safety stops.</div>
+    </article>
+    <article class="summary-card">
+        <div class="summary-label">Active Shifts</div>
+        <div class="summary-value">{{ dashboard.summary.active_shifts }}</div>
+        <div class="summary-subtext">Night worker shift sessions currently active.</div>
+    </article>
+    <article class="summary-card">
+        <div class="summary-label">AI Inputs</div>
+        <div class="summary-value">{{ dashboard.summary.risk_predictions }}</div>
+        <div class="summary-subtext">{{ dashboard.summary.crime_records }} crime records are feeding the broader safety context.</div>
+    </article>
+</section>
+
+<section class="panel-grid two-col">
+    <article class="panel-card">
+        <div class="panel-header">
+            <div>
+                <h2 class="panel-title">Recent Alerts</h2>
+                <p class="panel-subtitle">Latest SOS and incident events entering the control center.</p>
+            </div>
+        </div>
+        {% if dashboard.recent_alerts %}
+        <div class="list-stack">
+            {% for alert in dashboard.recent_alerts %}
+            <div class="list-item">
+                <div class="d-flex flex-wrap gap-2 justify-content-between">
+                    <div class="list-item-title">{{ alert.headline }}</div>
+                    <span class="status-pill status-{{ alert.severity_slug }}">{{ alert.severity }}</span>
+                </div>
+                <div class="muted-text mb-2">{{ alert.detail }}</div>
+                <div class="d-flex flex-wrap gap-2 align-items-center">
+                    <span class="status-pill status-{{ alert.kind_slug }}">{{ alert.kind }}</span>
+                    <span class="status-pill status-{{ alert.status_slug }}">{{ alert.status }}</span>
+                    <small class="muted-text">{{ alert.timestamp_relative }}</small>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state">No live alerts have been recorded yet.</div>
+        {% endif %}
+    </article>
+
+    <article class="panel-card">
+        <div class="panel-header">
+            <div>
+                <h2 class="panel-title">High-Risk Zones</h2>
+                <p class="panel-subtitle">Top hotspots currently stored in the risk-zone dataset.</p>
+            </div>
+        </div>
+        {% if dashboard.top_zones %}
+        <div class="table-responsive">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Zone</th>
+                        <th>Risk</th>
+                        <th>Type</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for zone in dashboard.top_zones %}
+                    <tr>
+                        <td>
+                            <div class="metric-stack">
+                                <strong>{{ zone.city }}</strong>
+                                <small>{{ zone.description }}</small>
+                            </div>
+                        </td>
+                        <td><span class="status-pill status-{{ zone.risk_label_slug }}">{{ zone.risk_score }} / {{ zone.risk_label }}</span></td>
+                        <td>{{ zone.risk_type }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">No high-risk zones are stored yet.</div>
+        {% endif %}
+    </article>
+</section>
+
+<section class="panel-grid two-col mt-4">
+    <article class="panel-card">
+        <div class="panel-header">
+            <div>
+                <h2 class="panel-title">Tracked Users</h2>
+                <p class="panel-subtitle">Users currently on shift or actively sending recent location updates.</p>
+            </div>
+        </div>
+        {% if dashboard.tracked_users %}
+        <div class="table-responsive">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>User</th>
+                        <th>Status</th>
+                        <th>Last Seen</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for user in dashboard.tracked_users %}
+                    <tr>
+                        <td>
+                            <div class="metric-stack">
+                                <strong>{{ user.display_name }}</strong>
+                                <small>{{ user.role_display }} | {{ user.location_label }}</small>
+                            </div>
+                        </td>
+                        <td><span class="status-pill status-{{ user.activity_state_slug }}">{{ user.activity_state }}</span></td>
+                        <td>{{ user.last_seen_relative }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">No tracked users are active right now.</div>
+        {% endif %}
+    </article>
+
+    <article class="panel-card">
+        <div class="panel-header">
+            <div>
+                <h2 class="panel-title">Recent Registrations</h2>
+                <p class="panel-subtitle">Newest accounts entering the SafePassage system.</p>
+            </div>
+        </div>
+        {% if dashboard.recent_users %}
+        <div class="table-responsive">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>User</th>
+                        <th>Role</th>
+                        <th>Joined</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for user in dashboard.recent_users %}
+                    <tr>
+                        <td>
+                            <div class="metric-stack">
+                                <strong>{{ user.display_name }}</strong>
+                                <small>{{ user.email }}</small>
+                            </div>
+                        </td>
+                        <td>{{ user.role_display }}</td>
+                        <td>{{ user.created_at }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">No users have registered yet.</div>
+        {% endif %}
+    </article>
+</section>
+{% endblock %}

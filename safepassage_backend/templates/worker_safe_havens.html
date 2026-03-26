@@ -1,0 +1,155 @@
+{% extends "dashboard_base.html" %}
+
+{% block title %}Worker Safe Havens - SafePassage India{% endblock %}
+
+{% block dashboard_css %}
+<style>
+    .haven-layout {
+        display: grid;
+        gap: 24px;
+        grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
+    }
+    .haven-card {
+        background: #ffffff;
+        border: 1px solid rgba(148, 163, 184, 0.18);
+        border-radius: 26px;
+        box-shadow: 0 12px 32px rgba(15, 23, 42, 0.06);
+        padding: 24px;
+    }
+    #workerHavenMap {
+        height: 680px;
+        width: 100%;
+        border-radius: 26px;
+    }
+    .stack-list {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+    .stack-item,
+    .empty-state {
+        background: rgba(248, 250, 252, 0.94);
+        border: 1px solid rgba(148, 163, 184, 0.14);
+        border-radius: 18px;
+        padding: 14px;
+    }
+    .empty-state {
+        color: #64748b;
+    }
+    .meta-row {
+        color: #64748b;
+        display: flex;
+        flex-wrap: wrap;
+        font-size: 0.8rem;
+        gap: 12px;
+        margin-top: 8px;
+    }
+    @media (max-width: 1199.98px) {
+        .haven-layout {
+            grid-template-columns: 1fr;
+        }
+        #workerHavenMap {
+            height: 440px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block dashboard_content %}
+<div class="container-fluid py-2">
+    <div class="haven-layout">
+        <section class="haven-card">
+            <h2 class="fw-bold mb-1">Safe Havens</h2>
+            <p class="text-muted mb-4">Nearby police stations, hospitals, verified businesses, and public spaces available as emergency stops during night shifts.</p>
+            <div class="small text-muted mb-4" id="workerHavenLocationMeta">Waiting for live location name.</div>
+            <div class="stack-list" id="workerSafeHavenList">
+                <div class="empty-state">Waiting for live GPS to load nearby safe havens.</div>
+            </div>
+        </section>
+        <section class="haven-card p-0 overflow-hidden">
+            <div id="workerHavenMap"></div>
+        </section>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let workerHavenMap;
+    let workerHavenMarkers = [];
+
+    function havenInitMap() {
+        if (workerHavenMap) return;
+        workerHavenMap = L.map('workerHavenMap').setView([9.9674, 76.2454], 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(workerHavenMap);
+    }
+
+    function havenResetMarkers() {
+        workerHavenMarkers.forEach((marker) => workerHavenMap.removeLayer(marker));
+        workerHavenMarkers = [];
+    }
+
+    function havenRender(payload) {
+        const list = document.getElementById('workerSafeHavenList');
+        const locationMeta = document.getElementById('workerHavenLocationMeta');
+        const havens = payload.havens || [];
+        if (locationMeta) {
+            locationMeta.textContent = payload.location
+                ? `Current live area: ${payload.location}`
+                : 'Current live area unavailable.';
+        }
+        list.innerHTML = havens.length
+            ? havens.map((haven) => `
+                <article class="stack-item">
+                    <strong>${haven.name}</strong>
+                    <div>${haven.address || 'Address unavailable'}</div>
+                    <div class="meta-row">
+                        <span>${haven.type}</span>
+                        <span>${haven.distance_km} km away</span>
+                        <span>${haven.phone || 'No phone listed'}</span>
+                    </div>
+                </article>
+            `).join('')
+            : '<div class="empty-state">No verified safe havens are stored near this live location.</div>';
+
+        havenInitMap();
+        havenResetMarkers();
+        workerHavenMap.setView([payload.coordinates.latitude, payload.coordinates.longitude], 14);
+        workerHavenMarkers.push(L.marker([payload.coordinates.latitude, payload.coordinates.longitude]).addTo(workerHavenMap).bindPopup(payload.location || 'Current worker location'));
+        havens.forEach((haven) => {
+            workerHavenMarkers.push(L.circleMarker([haven.latitude, haven.longitude], {
+                radius: 8,
+                color: '#2563eb',
+                fillColor: '#60a5fa',
+                fillOpacity: 0.85,
+            }).addTo(workerHavenMap).bindPopup(`<strong>${haven.name}</strong><br>${haven.type}`));
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        havenInitMap();
+        resolveCurrentLocation().then((coords) => {
+            const params = new URLSearchParams();
+            if (coords) {
+                params.set('lat', coords.lat);
+                params.set('lng', coords.lng);
+            }
+            const endpoint = params.toString() ? `/api/worker/safe-havens/?${params.toString()}` : '/api/worker/safe-havens/';
+            fetch(endpoint)
+                .then((response) => {
+                    if (!response.ok) {
+                        throw new Error(`Safe haven request failed: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(havenRender)
+                .catch(() => {
+                    document.getElementById('workerHavenLocationMeta').textContent = 'No live or saved worker location is available.';
+                    document.getElementById('workerSafeHavenList').innerHTML = '<div class="empty-state">No safe-haven data could be loaded for this worker account.</div>';
+                });
+        });
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,205 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Sign In - SafePassage AI{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --auth-bg: #f8fafc;
+        --card-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    }
+
+    body {
+        background-color: var(--auth-bg);
+    }
+
+    .login-container {
+        min-height: 85vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 2rem;
+    }
+
+    .login-card {
+        border: none;
+        border-radius: 24px;
+        box-shadow: var(--card-shadow);
+        background: white;
+        width: 100%;
+        max-width: 450px;
+        padding: 3rem;
+    }
+
+    .form-control {
+        border-radius: 12px;
+        padding: 0.75rem 1rem;
+        border: 1px solid #e2e8f0;
+        transition: all 0.2s ease;
+    }
+
+    .form-control:focus {
+        border-color: #2563eb;
+        box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1);
+    }
+
+    .input-group-text {
+        background: transparent;
+        border-right: none;
+        color: #64748b;
+        border-radius: 12px 0 0 12px;
+    }
+
+    .input-group .form-control {
+        border-left: none;
+        border-radius: 0 12px 12px 0;
+    }
+
+    .btn-login {
+        background: #2563eb;
+        color: white;
+        border-radius: 12px;
+        padding: 0.8rem;
+        font-weight: 600;
+        transition: all 0.2s ease;
+        border: none;
+        width: 100%;
+        margin-top: 1rem;
+    }
+
+    .btn-login:hover {
+        background: #1d4ed8;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
+    }
+
+    .role-select-box {
+        display: flex;
+        gap: 0.5rem;
+        margin-bottom: 2rem;
+        background: #f1f5f9;
+        padding: 0.4rem;
+        border-radius: 14px;
+    }
+
+    .role-option {
+        flex: 1;
+        position: relative;
+    }
+
+    .role-check {
+        display: none;
+    }
+
+    .role-label {
+        display: block;
+        padding: 0.6rem;
+        text-align: center;
+        border-radius: 10px;
+        cursor: pointer;
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: #64748b;
+        transition: all 0.2s ease;
+    }
+
+    .role-check:checked + .role-label {
+        background: white;
+        color: #2563eb;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    }
+
+    .password-eye {
+        cursor: pointer;
+        color: #94a3b8;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="login-container">
+    <div class="login-card">
+        <div class="text-center mb-5">
+            <h1 class="fw-bold h3 mb-2">Welcome back</h1>
+            <p class="text-muted small">Please enter your details to sign in.</p>
+        </div>
+
+        {% if messages %}
+        <div class="mb-4">
+            {% for message in messages %}
+            <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show border-0 rounded-4" role="alert">
+                <i class="bi bi-exclamation-circle me-2"></i> {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <form action="/login/" method="POST" id="loginForm">
+            {% csrf_token %}
+            
+            <div class="role-select-box">
+                <div class="role-option">
+                    <input type="radio" name="role" id="roleTourist" value="tourist" class="role-check" checked>
+                    <label for="roleTourist" class="role-label">Tourist</label>
+                </div>
+                <div class="role-option">
+                    <input type="radio" name="role" id="roleWorker" value="worker" class="role-check">
+                    <label for="roleWorker" class="role-label">Worker</label>
+                </div>
+                <div class="role-option">
+                    <input type="radio" name="role" id="roleAdmin" value="admin" class="role-check">
+                    <label for="roleAdmin" class="role-label" title="Administrator Only">Admin</label>
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label small fw-bold">Email Address</label>
+                <div class="input-group">
+                    <span class="input-group-text"><i class="bi bi-envelope"></i></span>
+                    <input type="email" name="email" class="form-control" placeholder="john@example.com" required>
+                </div>
+            </div>
+
+            <div class="mb-4">
+                <div class="d-flex justify-content-between mb-1">
+                    <label class="form-label small fw-bold mb-0">Password</label>
+                    <a href="#" class="small text-primary text-decoration-none fw-600">Forgot?</a>
+                </div>
+                <div class="input-group">
+                    <span class="input-group-text"><i class="bi bi-lock"></i></span>
+                    <input type="password" name="password" class="form-control" placeholder="••••••••" id="passwordInput" required>
+                    <span class="input-group-text password-eye" onclick="togglePassword()">
+                        <i class="bi bi-eye" id="toggleIcon"></i>
+                    </span>
+                </div>
+            </div>
+
+            <button type="submit" class="btn-login shadow-sm">
+                Sign In
+            </button>
+
+            <p class="text-center mt-4 small text-muted">
+                Don't have an account? <a href="/register/" class="text-primary fw-bold text-decoration-none">Sign up</a>
+            </p>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function togglePassword() {
+        const input = document.getElementById('passwordInput');
+        const icon = document.getElementById('toggleIcon');
+        if (input.type === 'password') {
+            input.type = 'text';
+            icon.classList.replace('bi-eye', 'bi-eye-slash');
+        } else {
+            input.type = 'password';
+            icon.classList.replace('bi-eye-slash', 'bi-eye');
+        }
+    }
+</script>
+{% endblock %}

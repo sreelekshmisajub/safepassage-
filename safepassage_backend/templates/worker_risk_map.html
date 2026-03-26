@@ -1,0 +1,303 @@
+{% extends "dashboard_base.html" %}
+
+{% block title %}Worker Risk Map - SafePassage India{% endblock %}
+
+{% block dashboard_css %}
+<style>
+    .map-layout {
+        display: grid;
+        gap: 24px;
+        grid-template-columns: minmax(320px, 0.95fr) minmax(0, 1.4fr);
+    }
+    .search-panel {
+        background: #ffffff;
+        border: 1px solid rgba(148, 163, 184, 0.18);
+        border-radius: 26px;
+        box-shadow: 0 12px 32px rgba(15, 23, 42, 0.06);
+        padding: 24px;
+    }
+    .map-shell {
+        background: #ffffff;
+        border: 1px solid rgba(148, 163, 184, 0.18);
+        border-radius: 26px;
+        box-shadow: 0 12px 32px rgba(15, 23, 42, 0.06);
+        overflow: hidden;
+    }
+    .search-field {
+        border: 1px solid rgba(148, 163, 184, 0.24);
+        border-radius: 16px;
+        padding: 12px 14px;
+        width: 100%;
+    }
+    .suggestion-list {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        margin-top: 14px;
+    }
+    .suggestion-item,
+    .search-empty {
+        background: rgba(248, 250, 252, 0.96);
+        border: 1px solid rgba(148, 163, 184, 0.14);
+        border-radius: 16px;
+        padding: 12px 14px;
+    }
+    .suggestion-item {
+        cursor: pointer;
+        text-align: left;
+    }
+    .search-empty {
+        color: #64748b;
+    }
+    #workerRiskMap {
+        height: 720px;
+        width: 100%;
+    }
+    .map-meta {
+        padding: 16px 20px;
+        color: #475569;
+    }
+    @media (max-width: 1199.98px) {
+        .map-layout {
+            grid-template-columns: 1fr;
+        }
+        #workerRiskMap {
+            height: 460px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block dashboard_content %}
+<div class="container-fluid py-2">
+    <div class="map-layout">
+        <section class="search-panel">
+            <h2 class="fw-bold mb-1">Worker Risk Search</h2>
+            <p class="text-muted mb-4">Use your tracked location or search a place manually to inspect the live worker-risk view for that area.</p>
+            <div class="mb-3">
+                <label class="small text-uppercase text-muted fw-bold mb-2 d-block" for="workerMapSearchInput">Search place</label>
+                <input class="search-field" id="workerMapSearchInput" type="text" placeholder="Search a place in India">
+            </div>
+            <div class="d-grid gap-3">
+                <button class="btn btn-primary rounded-pill py-3 fw-bold" type="button" id="workerMapSearchButton">Search Location</button>
+                <button class="btn btn-outline-primary rounded-pill py-3 fw-bold" type="button" id="workerMapTrackedButton">Use My Tracked Location</button>
+            </div>
+            <div class="small text-muted mt-3" id="workerMapSearchMeta">Search suggestions will appear here while you type.</div>
+            <div class="suggestion-list" id="workerMapSuggestions">
+                <div class="search-empty">Type at least 2 characters to search a location manually.</div>
+            </div>
+        </section>
+
+        <section class="map-shell">
+            <div id="workerRiskMap"></div>
+            <div class="map-meta" id="workerRiskMapMeta">Waiting for live worker location and risk data.</div>
+        </section>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let workerRiskMap;
+    let workerRiskLayers = [];
+    let workerMapSearchResults = [];
+    let workerMapSelectedPlace = null;
+
+    function workerRiskMapInit() {
+        if (workerRiskMap) return;
+        workerRiskMap = L.map('workerRiskMap').setView([9.9674, 76.2454], 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(workerRiskMap);
+    }
+
+    function workerRiskMapReset() {
+        workerRiskLayers.forEach((layer) => workerRiskMap.removeLayer(layer));
+        workerRiskLayers = [];
+    }
+
+    function workerMapRenderSuggestions(results) {
+        const container = document.getElementById('workerMapSuggestions');
+        if (!container) return;
+        if (!results.length) {
+            container.innerHTML = '<div class="search-empty">No manual location matches found.</div>';
+            return;
+        }
+        container.innerHTML = '';
+        results.forEach((item) => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'suggestion-item';
+            button.innerHTML = `<strong></strong><br><span class="text-muted small"></span>`;
+            button.querySelector('strong').textContent = item.name || 'Location';
+            button.querySelector('span').textContent = `${item.kind || ''} ${item.description || ''}`.trim();
+            button.addEventListener('click', () => workerMapChoosePlace(item));
+            container.appendChild(button);
+        });
+    }
+
+    function workerMapChoosePlace(place) {
+        workerMapSelectedPlace = place;
+        document.getElementById('workerMapSearchInput').value = place.name || '';
+        document.getElementById('workerMapSearchMeta').textContent = `Selected manual location: ${place.name || 'Location'}`;
+        workerMapLoadRisk(place.latitude, place.longitude, place.name || 'Selected location');
+    }
+
+    function workerMapSearchPlaces(query) {
+        if (query.length < 2) {
+            workerMapSearchResults = [];
+            workerMapRenderSuggestions([]);
+            return;
+        }
+        fetch(`/api/worker/place-search/?q=${encodeURIComponent(query)}`)
+            .then((response) => {
+                if (!response.ok) {
+                    throw new Error(`Worker place search failed: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then((payload) => {
+                workerMapSearchResults = payload.results || [];
+                workerMapRenderSuggestions(workerMapSearchResults);
+            })
+            .catch(() => {
+                workerMapSearchResults = [];
+                workerMapRenderSuggestions([]);
+            });
+    }
+
+    function workerMapResolvePlaceFromInput() {
+        if (workerMapSelectedPlace) {
+            return Promise.resolve(workerMapSelectedPlace);
+        }
+        const rawInput = document.getElementById('workerMapSearchInput').value.trim();
+        if (!rawInput) {
+            return Promise.resolve(null);
+        }
+        if (workerMapSearchResults.length) {
+            const exact = workerMapSearchResults.find((item) => (item.name || '').toLowerCase() === rawInput.toLowerCase());
+            const chosen = exact || workerMapSearchResults[0];
+            workerMapChoosePlace(chosen);
+            return Promise.resolve(chosen);
+        }
+        return fetch(`/api/worker/place-search/?q=${encodeURIComponent(rawInput)}`)
+            .then((response) => {
+                if (!response.ok) {
+                    throw new Error(`Worker place search failed: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then((payload) => {
+                const results = payload.results || [];
+                workerMapSearchResults = results;
+                workerMapRenderSuggestions(results);
+                if (!results.length) {
+                    return null;
+                }
+                const exact = results.find((item) => (item.name || '').toLowerCase() === rawInput.toLowerCase());
+                const chosen = exact || results[0];
+                workerMapChoosePlace(chosen);
+                return chosen;
+            })
+            .catch(() => null);
+    }
+
+    function workerMapRenderPayload(payload, preferredLabel) {
+        const focusCoordinates = payload.coordinates || {};
+        if (focusCoordinates.latitude == null || focusCoordinates.longitude == null) {
+            throw new Error('No worker coordinates available.');
+        }
+        workerRiskMapReset();
+        workerRiskMap.setView([focusCoordinates.latitude, focusCoordinates.longitude], 14);
+        workerRiskLayers.push(L.marker([focusCoordinates.latitude, focusCoordinates.longitude]).addTo(workerRiskMap).bindPopup(payload.location || preferredLabel || 'Current worker location'));
+        (payload.nearby_hotspots || []).forEach((hotspot) => {
+            workerRiskLayers.push(
+                L.circle([hotspot.latitude, hotspot.longitude], {
+                    radius: 180,
+                    color: '#ef4444',
+                    fillColor: '#fca5a5',
+                    fillOpacity: 0.22,
+                }).addTo(workerRiskMap).bindPopup(`<strong>${hotspot.city || hotspot.risk_type}</strong><br>${hotspot.description || 'Risk hotspot'}`)
+            );
+        });
+        (payload.nearby_safe_havens || []).forEach((haven) => {
+            workerRiskLayers.push(
+                L.circleMarker([haven.latitude, haven.longitude], {
+                    radius: 8,
+                    color: '#2563eb',
+                    fillColor: '#60a5fa',
+                    fillOpacity: 0.85,
+                }).addTo(workerRiskMap).bindPopup(`<strong>${haven.name}</strong><br>${haven.type}`)
+            );
+        });
+        document.getElementById('workerRiskMapMeta').textContent = `Location: ${payload.location || preferredLabel || 'Unknown area'} | Risk score: ${payload.risk_score == null ? '--' : payload.risk_score + '%'} | Hotspots: ${(payload.nearby_hotspots || []).length} | Safe havens: ${(payload.nearby_safe_havens || []).length}`;
+    }
+
+    function workerMapLoadRisk(lat, lng, label) {
+        const params = new URLSearchParams();
+        if (lat != null && lng != null) {
+            params.set('lat', lat);
+            params.set('lng', lng);
+        }
+        const endpoint = params.toString() ? `/api/worker/risk/?${params.toString()}` : '/api/worker/risk/';
+        return fetch(endpoint)
+            .then((response) => {
+                if (!response.ok) {
+                    throw new Error(`Worker risk request failed: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then((payload) => workerMapRenderPayload(payload, label))
+            .catch(() => {
+                document.getElementById('workerRiskMapMeta').textContent = 'No live or saved worker location is available for the risk map.';
+            });
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        workerRiskMapInit();
+        document.getElementById('workerMapSearchInput').addEventListener('input', (event) => {
+            if (workerMapSelectedPlace && event.target.value.trim() !== (workerMapSelectedPlace.name || '')) {
+                workerMapSelectedPlace = null;
+            }
+            workerMapSearchPlaces(event.target.value.trim());
+        });
+        document.getElementById('workerMapSearchInput').addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                workerMapResolvePlaceFromInput().then((place) => {
+                    if (!place) {
+                        document.getElementById('workerMapSearchMeta').textContent = 'No matching manual location was found.';
+                    }
+                });
+            }
+        });
+        document.getElementById('workerMapSearchButton').addEventListener('click', () => {
+            workerMapResolvePlaceFromInput().then((place) => {
+                if (!place) {
+                    document.getElementById('workerMapSearchMeta').textContent = 'No matching manual location was found.';
+                }
+            });
+        });
+        document.getElementById('workerMapTrackedButton').addEventListener('click', () => {
+            workerMapSelectedPlace = null;
+            resolveCurrentLocation().then((coords) => {
+                if (!coords) {
+                    document.getElementById('workerMapSearchMeta').textContent = 'No live or saved tracked location is available.';
+                    return;
+                }
+                document.getElementById('workerMapSearchMeta').textContent = 'Using your tracked worker location.';
+                workerMapLoadRisk(coords.lat, coords.lng, 'Tracked worker location');
+            });
+        });
+        resolveCurrentLocation().then((coords) => {
+            if (coords) {
+                document.getElementById('workerMapSearchMeta').textContent = 'Using your tracked worker location. You can also search a place manually.';
+                workerMapLoadRisk(coords.lat, coords.lng, 'Tracked worker location');
+                return;
+            }
+            document.getElementById('workerMapSearchMeta').textContent = 'Tracked location is unavailable. Search a place manually to inspect the risk map.';
+            workerMapLoadRisk(null, null, null);
+        });
+    });
+</script>
+{% endblock %}

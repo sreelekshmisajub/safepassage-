@@ -1,0 +1,61 @@
+﻿2460:def worker_checkins(request):
+2461:    active_shift = Shift.objects.filter(user=request.user, status="active").order_by("-actual_start", "-start_time").first()
+2462:    history = Shift.objects.filter(user=request.user).order_by("-start_time")[:10]
+2463:    recent_checkins = CheckIn.objects.filter(user=request.user).order_by("-timestamp")[:10]
+2464:    current_lat, current_lng = _resolve_user_coordinates(request.user)
+2465:    return render(
+2466:        request,
+2467:        "worker_checkins.html",
+2468:        {
+2469:            "worker": _get_or_create_worker_profile(request.user),
+2470:            "active_shift": active_shift,
+2471:            "history": history,
+2472:            "recent_checkins": recent_checkins,
+2473:            "recent_checkins_payload": [_serialize_checkin(checkin) for checkin in recent_checkins],
+2474:            "current_worker_location": _compose_location_label(current_lat, current_lng),
+2475:            "current_worker_location_display": _compose_location_label(current_lat, current_lng, include_coordinates=True),
+2476:        },
+2477:    )
+2478:
+2479:
+2480:@worker_required
+2481:def worker_risk_map(request):
+2482:    return render(request, "worker_risk_map.html", {"worker": _get_or_create_worker_profile(request.user)})
+2483:
+2484:@worker_required
+2485:def worker_emergency(request):
+2486:    latest_alert = EmergencyAlert.objects.filter(user=request.user).order_by("-timestamp").first()
+2487:    current_lat, current_lng = _resolve_user_coordinates(request.user)
+2488:    return render(
+2489:        request,
+2490:        "worker_emergency.html",
+2491:        {
+2492:            "worker": _get_or_create_worker_profile(request.user),
+2493:            "latest_alert": latest_alert,
+2494:            "latest_alert_location": _compose_location_label(latest_alert.latitude, latest_alert.longitude) if latest_alert else None,
+2495:            "current_worker_location": _compose_location_label(current_lat, current_lng),
+2496:        },
+2497:    )
+2498:
+2499:
+2500:@worker_required
+2501:def worker_alerts(request):
+2502:    return render(request, "worker_alerts.html", {"worker": _get_or_create_worker_profile(request.user)})
+2503:
+2504:@worker_required
+2505:def worker_profile(request):
+2506:    return render(request, "worker_profile.html", {"worker": _get_or_create_worker_profile(request.user)})
+2507:
+2508:# --- Worker API Endpoints ---
+2509:
+2510:@login_required
+2511:def api_worker_dashboard_data(request):
+2512:    guard_response = _worker_api_guard(request)
+2513:    if guard_response:
+2514:        return guard_response
+2515:
+2516:    lat, lng = _resolve_worker_coordinates(request, request.GET)
+2517:    if lat is None or lng is None:
+2518:        return JsonResponse({"status": "error", "message": "Live coordinates are required."}, status=400)
+2519:    return JsonResponse(_build_worker_dashboard_payload(request.user, lat, lng))
+2520:

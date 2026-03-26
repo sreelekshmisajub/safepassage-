@@ -1,0 +1,292 @@
+{% extends "dashboard_base.html" %}
+{% load static %}
+
+{% block title %}Tourist Safety Map - SafePassage India{% endblock %}
+
+{% block dashboard_css %}
+<style>
+    .main-content { padding: 0 !important; position: relative; background: #e2e8f0; }
+    #touristRiskMap { height: calc(100vh - 86px); width: 100%; }
+    .map-panel {
+        position: absolute;
+        top: 18px;
+        left: 18px;
+        width: min(360px, calc(100% - 36px));
+        z-index: 1000;
+        background: rgba(255, 255, 255, 0.9);
+        backdrop-filter: blur(14px);
+        border-radius: 24px;
+        box-shadow: 0 14px 38px rgba(15, 23, 42, 0.16);
+        padding: 20px;
+    }
+    .map-card {
+        border-radius: 18px;
+        background: rgba(248, 250, 252, 0.92);
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        padding: 14px 16px;
+        margin-top: 14px;
+    }
+    .risk-pill {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 7px 12px;
+        border-radius: 999px;
+        font-size: 0.72rem;
+        font-weight: 800;
+    }
+    .risk-low { background: rgba(16, 185, 129, 0.12); color: #047857; }
+    .risk-medium { background: rgba(245, 158, 11, 0.14); color: #b45309; }
+    .risk-high { background: rgba(239, 68, 68, 0.12); color: #b91c1c; }
+    .risk-unavailable { background: rgba(100, 116, 139, 0.14); color: #475569; }
+    .list-stack { display: flex; flex-direction: column; gap: 10px; }
+    .list-item {
+        border-radius: 16px;
+        padding: 12px 14px;
+        background: white;
+        border: 1px solid rgba(148, 163, 184, 0.16);
+    }
+    .legend-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        color: #475569;
+        font-size: 0.82rem;
+    }
+    .legend-dot { width: 12px; height: 12px; border-radius: 999px; }
+</style>
+{% endblock %}
+
+{% block dashboard_content %}
+<div id="touristRiskMap"></div>
+
+<div class="map-panel">
+    <h5 class="fw-bold mb-1">Safety Map</h5>
+    <p class="small text-muted mb-0">Live GPS tracking plus tap-anywhere risk prediction.</p>
+
+    <div class="map-card">
+        <div class="d-flex justify-content-between align-items-start gap-3">
+            <div>
+                <div class="small text-muted">Current zone</div>
+                <div class="fw-bold" id="currentZoneLabel">Waiting for GPS lock...</div>
+            </div>
+            <span class="risk-pill risk-unavailable" id="currentRiskBadge">LOCATING</span>
+        </div>
+        <p class="small text-muted mt-2 mb-1" id="currentRiskAdvice">Live route guidance will appear here.</p>
+        <div class="small text-muted" id="currentCoordinates">Coordinates pending</div>
+    </div>
+
+    <div class="map-card">
+        <div class="small text-muted mb-1">Clicked location analysis</div>
+        <div class="fw-bold" id="clickedZoneLabel">Tap on the map to analyze another place.</div>
+        <p class="small text-muted mt-2 mb-1" id="clickedRiskAdvice">We’ll predict live risk, label, and advice for the selected point.</p>
+        <div class="small text-muted" id="clickedCoordinates">No point selected yet</div>
+    </div>
+
+    <div class="map-card">
+        <div class="small text-muted mb-2">Legend</div>
+        <div class="legend-row mb-2"><span class="legend-dot" style="background:#10b981;"></span> Safer area</div>
+        <div class="legend-row mb-2"><span class="legend-dot" style="background:#f59e0b;"></span> Medium risk</div>
+        <div class="legend-row mb-2"><span class="legend-dot" style="background:#ef4444;"></span> High risk hotspot</div>
+        <div class="legend-row"><span class="legend-dot" style="background:#2563eb;"></span> Verified safe resource</div>
+    </div>
+
+    <div class="map-card">
+        <div class="small text-muted mb-2">Nearby hotspots</div>
+        <div class="list-stack" id="hotspotList">
+            <div class="list-item text-muted small">Hotspot intelligence will load from your live position.</div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const state = {
+        map: null,
+        userMarker: null,
+        clickMarker: null,
+        hotspotLayers: [],
+        resourceLayers: [],
+    };
+
+    function riskClass(label) {
+        if (label === 'HIGH') return 'risk-high';
+        if (label === 'MEDIUM') return 'risk-medium';
+        if (label === 'UNAVAILABLE' || label === 'LOCATING') return 'risk-unavailable';
+        return 'risk-low';
+    }
+
+    function setText(id, value) {
+        const node = document.getElementById(id);
+        if (node) node.textContent = value;
+    }
+
+    function setRiskBadge(id, label) {
+        const node = document.getElementById(id);
+        const value = label || 'UNAVAILABLE';
+        node.textContent = value;
+        node.className = `risk-pill ${riskClass(value)}`;
+    }
+
+    function formatCoordinateLabel(lat, lng) {
+        return `Lat ${lat.toFixed(5)}, Lng ${lng.toFixed(5)}`;
+    }
+
+    function formatLocationLabel(label, lat, lng, fallback) {
+        if (label) return label;
+        if (lat != null && lng != null) return formatCoordinateLabel(lat, lng);
+        return fallback || 'Live location unavailable';
+    }
+
+    function escapeHtml(value) {
+        const div = document.createElement('div');
+        div.textContent = value == null ? '' : String(value);
+        return div.innerHTML;
+    }
+
+    function fetchJson(url) {
+        return fetch(url).then((response) => {
+            if (!response.ok) throw new Error(`Request failed: ${response.status}`);
+            return response.json();
+        });
+    }
+
+    function clearMapLayers() {
+        state.hotspotLayers.forEach((layer) => state.map.removeLayer(layer));
+        state.resourceLayers.forEach((layer) => state.map.removeLayer(layer));
+        state.hotspotLayers = [];
+        state.resourceLayers = [];
+    }
+
+    function renderContext(payload, lat, lng, target) {
+        const locationLabel = formatLocationLabel(
+            payload.location,
+            lat,
+            lng,
+            target === 'current' ? 'Live location unavailable' : 'Selected coordinates'
+        );
+        const riskLabel = payload.risk_label || 'UNAVAILABLE';
+        if (target === 'current') {
+            setText('currentZoneLabel', locationLabel);
+            setRiskBadge('currentRiskBadge', riskLabel);
+            setText('currentRiskAdvice', payload.advice || 'No advice available.');
+            setText('currentCoordinates', formatCoordinateLabel(lat, lng));
+        } else {
+            setText('clickedZoneLabel', locationLabel);
+            setText('clickedRiskAdvice', `${riskLabel} | ${payload.advice || 'No advice available.'}`);
+            setText('clickedCoordinates', formatCoordinateLabel(lat, lng));
+        }
+    }
+
+    function renderHotspotList(hotspots) {
+        const container = document.getElementById('hotspotList');
+        if (!hotspots || !hotspots.length) {
+            container.innerHTML = '<div class="list-item text-muted small">No nearby hotspots are stored for this area right now.</div>';
+            return;
+        }
+        container.innerHTML = hotspots.map((hotspot) => `
+            <div class="list-item">
+                <div class="d-flex justify-content-between align-items-start gap-3">
+                    <div>
+                        <div class="fw-bold">${escapeHtml(hotspot.city || hotspot.risk_type)}</div>
+                        <div class="small text-muted">${escapeHtml(hotspot.description || '')}</div>
+                    </div>
+                    <span class="risk-pill ${riskClass(hotspot.risk_score >= 75 ? 'HIGH' : (hotspot.risk_score >= 45 ? 'MEDIUM' : 'LOW'))}">${hotspot.risk_score}%</span>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    function renderMapOverlays(payload) {
+        clearMapLayers();
+        (payload.nearby_hotspots || []).forEach((hotspot) => {
+            let color = '#10b981';
+            if (hotspot.risk_score >= 75) color = '#ef4444';
+            else if (hotspot.risk_score >= 45) color = '#f59e0b';
+
+            const layer = L.circle([hotspot.latitude, hotspot.longitude], {
+                color: color,
+                fillColor: color,
+                fillOpacity: 0.24,
+                radius: 420,
+                weight: 2,
+            }).addTo(state.map).bindPopup(`<strong>${escapeHtml(hotspot.city || hotspot.risk_type)}</strong><br>${escapeHtml(hotspot.description)}<br><small>Risk ${hotspot.risk_score}%</small>`);
+            state.hotspotLayers.push(layer);
+        });
+
+        (payload.nearby_resources || []).forEach((resource) => {
+            const layer = L.circleMarker([resource.latitude, resource.longitude], {
+                radius: 8,
+                color: '#2563eb',
+                fillColor: '#60a5fa',
+                fillOpacity: 0.95,
+                weight: 2,
+            }).addTo(state.map).bindPopup(`<strong>${escapeHtml(resource.name)}</strong><br>${escapeHtml(resource.type)}<br><small>${escapeHtml(resource.address || '')}</small>`);
+            state.resourceLayers.push(layer);
+        });
+    }
+
+    function analyzePoint(lat, lng, target) {
+        fetchJson(`/api/predict-risk/?lat=${lat.toFixed(6)}&lng=${lng.toFixed(6)}`)
+            .then((payload) => {
+                renderContext(payload, lat, lng, target);
+                if (target === 'current') {
+                    renderHotspotList(payload.nearby_hotspots || []);
+                    renderMapOverlays(payload);
+                }
+            })
+            .catch(() => {
+                if (target === 'current') {
+                    setText('currentRiskAdvice', 'Live risk analysis failed. Retrying on the next location update.');
+                } else {
+                    setText('clickedRiskAdvice', 'Risk analysis failed for the selected point.');
+                }
+            });
+    }
+
+    function initializeMap() {
+        state.map = L.map('touristRiskMap', { zoomControl: false, attributionControl: false }).setView([20.5937, 78.9629], 5);
+        L.control.zoom({ position: 'bottomright' }).addTo(state.map);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(state.map);
+
+        state.map.on('click', (event) => {
+            const { lat, lng } = event.latlng;
+            if (!state.clickMarker) {
+                state.clickMarker = L.marker([lat, lng]).addTo(state.map);
+            } else {
+                state.clickMarker.setLatLng([lat, lng]);
+            }
+            analyzePoint(lat, lng, 'clicked');
+        });
+    }
+
+    function startTracking() {
+        if (!navigator.geolocation) {
+            setText('currentZoneLabel', 'Browser geolocation is unavailable.');
+            return;
+        }
+
+        navigator.geolocation.watchPosition((position) => {
+            const lat = position.coords.latitude;
+            const lng = position.coords.longitude;
+
+            if (!state.userMarker) {
+                state.userMarker = L.marker([lat, lng]).addTo(state.map).bindPopup('You are here');
+            } else {
+                state.userMarker.setLatLng([lat, lng]);
+            }
+
+            state.map.setView([lat, lng], 14);
+            analyzePoint(lat, lng, 'current');
+        }, () => {
+            setText('currentZoneLabel', 'Location permission is required for live risk mapping.');
+        }, { enableHighAccuracy: true, maximumAge: 15000, timeout: 20000 });
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        initializeMap();
+        startTracking();
+    });
+</script>
+{% endblock %}

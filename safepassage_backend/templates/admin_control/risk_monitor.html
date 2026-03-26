@@ -1,0 +1,147 @@
+{% extends "admin_control/module_base.html" %}
+
+{% block admin_content %}
+<section class="summary-grid">
+    <article class="summary-card">
+        <div class="summary-label">Tracked Locations</div>
+        <div class="summary-value">{{ risk_monitor.summary.tracked_locations }}</div>
+        <div class="summary-subtext">Users currently contributing live location signals to risk monitoring.</div>
+    </article>
+    <article class="summary-card">
+        <div class="summary-label">High-Risk Zones</div>
+        <div class="summary-value">{{ risk_monitor.summary.high_risk_zones }}</div>
+        <div class="summary-subtext">Stored zones above the high-risk threshold.</div>
+    </article>
+    <article class="summary-card">
+        <div class="summary-label">Medium-Risk Zones</div>
+        <div class="summary-value">{{ risk_monitor.summary.medium_risk_zones }}</div>
+        <div class="summary-subtext">Areas that need monitoring but are not yet at the top threshold.</div>
+    </article>
+    <article class="summary-card">
+        <div class="summary-label">Recent Crime Records</div>
+        <div class="summary-value">{{ risk_monitor.summary.recent_crime_records }}</div>
+        <div class="summary-subtext">Most recent crime records sampled into this monitoring view.</div>
+    </article>
+</section>
+
+<section class="panel-grid two-col">
+    <article class="panel-card">
+        <div class="panel-header">
+            <div>
+                <h2 class="panel-title">Live User Risk Feed</h2>
+                <p class="panel-subtitle">Calculated from live locations against nearby zones, incidents, and crime history.</p>
+            </div>
+        </div>
+        {% if risk_monitor.live_monitors %}
+        <div class="table-responsive">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>User</th>
+                        <th>Risk</th>
+                        <th>Signals</th>
+                        <th>Updated</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in risk_monitor.live_monitors %}
+                    <tr>
+                        <td>
+                            <div class="metric-stack">
+                                <strong>{{ item.display_name }}</strong>
+                                <small>{{ item.role_display }} | {{ item.location_label }}</small>
+                            </div>
+                        </td>
+                        <td>
+                            {% if item.risk_score != None %}
+                            <span class="status-pill status-{{ item.risk_label_slug }}">{{ item.risk_score }} / {{ item.risk_label }}</span>
+                            {% else %}
+                            <span class="status-pill status-unknown">Unavailable</span>
+                            {% endif %}
+                        </td>
+                        <td class="muted-text">{{ item.zone_count }} zones, {{ item.incident_count }} incidents, {{ item.crime_count }} crimes</td>
+                        <td>{{ item.last_seen_relative }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">No recent tracked locations are available for live risk monitoring.</div>
+        {% endif %}
+    </article>
+
+    <article class="panel-card">
+        <div class="panel-header">
+            <div>
+                <h2 class="panel-title">Highest Risk Zones</h2>
+                <p class="panel-subtitle">Top stored risk-zone records ordered by severity.</p>
+            </div>
+        </div>
+        {% if risk_monitor.risk_zones %}
+        <div class="table-responsive">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Zone</th>
+                        <th>Risk</th>
+                        <th>Type</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for zone in risk_monitor.risk_zones %}
+                    <tr>
+                        <td>
+                            <div class="metric-stack">
+                                <strong>{{ zone.city }}</strong>
+                                <small>{{ zone.description }}</small>
+                            </div>
+                        </td>
+                        <td><span class="status-pill status-{{ zone.risk_label_slug }}">{{ zone.risk_score }} / {{ zone.risk_label }}</span></td>
+                        <td>{{ zone.risk_type }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">No risk zones have been loaded yet.</div>
+        {% endif %}
+    </article>
+</section>
+
+<section class="panel-card mt-4">
+    <div class="panel-header">
+        <div>
+            <h2 class="panel-title">Recent Crime Records</h2>
+            <p class="panel-subtitle">Latest crime entries available to the admin monitoring layer.</p>
+        </div>
+    </div>
+    {% if risk_monitor.recent_crimes %}
+    <div class="table-responsive">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Area</th>
+                    <th>Crime Type</th>
+                    <th>Coordinates</th>
+                    <th>Recorded</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for record in risk_monitor.recent_crimes %}
+                <tr>
+                    <td>{{ record.area_name }}</td>
+                    <td>{{ record.crime_type }}</td>
+                    <td>{{ record.coordinates }}</td>
+                    <td>{{ record.time }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">No crime records are available yet.</div>
+    {% endif %}
+</section>
+{% endblock %}

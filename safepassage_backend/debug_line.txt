@@ -1,0 +1,3 @@
+﻿2506:    return render(request, "worker_profile.html", {"worker": _get_or_create_worker_profile(request.user)})
+2507:
+2508:# --- Worker API Endpoints ---

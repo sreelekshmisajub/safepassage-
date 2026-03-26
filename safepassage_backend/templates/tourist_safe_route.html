@@ -1,0 +1,510 @@
+{% extends "dashboard_base.html" %}
+
+{% block title %}Tourist Safe Route - SafePassage India{% endblock %}
+
+{% block dashboard_css %}
+<style>
+    .route-card {
+        background: rgba(255, 255, 255, 0.82);
+        border: 1px solid rgba(255, 255, 255, 0.75);
+        border-radius: 24px;
+        box-shadow: 0 10px 34px rgba(15, 23, 42, 0.08);
+        padding: 22px;
+    }
+    .route-map { height: 560px; border-radius: 22px; overflow: hidden; }
+    #safeRouteMap { height: 100%; width: 100%; }
+    .metric-pill {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 8px 14px;
+        border-radius: 999px;
+        font-size: 0.76rem;
+        font-weight: 800;
+    }
+    .risk-low { background: rgba(16, 185, 129, 0.12); color: #047857; }
+    .risk-medium { background: rgba(245, 158, 11, 0.14); color: #b45309; }
+    .risk-high { background: rgba(239, 68, 68, 0.12); color: #b91c1c; }
+    .risk-unavailable { background: rgba(100, 116, 139, 0.14); color: #475569; }
+    .route-stack { display: flex; flex-direction: column; gap: 12px; }
+    .route-item {
+        background: rgba(248, 250, 252, 0.88);
+        border: 1px solid rgba(148, 163, 184, 0.18);
+        border-radius: 18px;
+        padding: 14px 16px;
+    }
+    .destination-search {
+        min-height: 54px;
+        border-radius: 16px;
+        border: 1px solid rgba(148, 163, 184, 0.24);
+        background: #fff;
+    }
+    .destination-meta {
+        border-radius: 18px;
+        background: rgba(37, 99, 235, 0.06);
+        border: 1px solid rgba(37, 99, 235, 0.12);
+        padding: 14px 16px;
+    }
+    .destination-results {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        margin-top: 12px;
+        max-height: 260px;
+        overflow-y: auto;
+    }
+    .destination-result {
+        width: 100%;
+        text-align: left;
+        border: 1px solid rgba(148, 163, 184, 0.18);
+        background: rgba(248, 250, 252, 0.94);
+        border-radius: 18px;
+        padding: 12px 14px;
+        transition: all 0.2s ease;
+    }
+    .destination-result:hover,
+    .destination-result.active {
+        border-color: rgba(37, 99, 235, 0.35);
+        background: rgba(219, 234, 254, 0.78);
+    }
+    .destination-empty {
+        border: 1px dashed rgba(148, 163, 184, 0.35);
+        border-radius: 18px;
+        padding: 14px;
+        color: #64748b;
+        background: rgba(248, 250, 252, 0.74);
+    }
+</style>
+{% endblock %}
+
+{% block dashboard_content %}
+<div class="container-fluid py-2">
+    <div class="row mb-4">
+        <div class="col-lg-8">
+            <h2 class="fw-bold mb-1">Safe Route Navigation</h2>
+            <p class="text-muted mb-0">Search any place in India by name or click anywhere on the map to pin a destination and generate the safest available route from your current location.</p>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-xl-8">
+            <div class="route-card route-map">
+                <div id="safeRouteMap"></div>
+            </div>
+        </div>
+
+        <div class="col-xl-4">
+            <div class="route-card mb-4">
+                <h5 class="fw-bold mb-3">Route Input</h5>
+                <p class="small text-muted mb-3" id="sourceStatus">Waiting for your live source location.</p>
+                <div class="mb-3">
+                    <label class="small text-muted mb-2 d-block" for="destinationSearchInput">Search place in India</label>
+                    <input
+                        type="text"
+                        class="form-control destination-search"
+                        id="destinationSearchInput"
+                        placeholder="Try Kochi, Manali, Jaipur, Varanasi..."
+                        autocomplete="off">
+                </div>
+                <div class="destination-meta mb-3">
+                    <div class="small text-muted mb-1">Selected destination</div>
+                    <div class="fw-bold mb-1" id="destinationNameLabel">Search a place name or click the map</div>
+                    <div class="small text-muted mb-1" id="destinationTypeLabel">Suggestions below search across India and local SafePassage places.</div>
+                    <div class="small text-muted" id="destinationCoordinatesLabel">Coordinates will appear after selection.</div>
+                </div>
+                <div class="destination-results" id="destinationResults">
+                    {% for place in destination_places %}
+                    <button
+                        type="button"
+                        class="destination-result"
+                        data-id="{{ place.id|default:'' }}"
+                        data-name="{{ place.name }}"
+                        data-kind="{{ place.kind }}"
+                        data-description="{{ place.description|default:'' }}"
+                        data-lat="{{ place.latitude }}"
+                        data-lng="{{ place.longitude }}"
+                        data-source="local-suggestions">
+                        <div class="fw-bold">{{ place.name }}</div>
+                        <div class="small text-muted">{{ place.kind }}{% if place.description %} | {{ place.description }}{% endif %}</div>
+                    </button>
+                    {% empty %}
+                    <div class="destination-empty">Type a place name to start searching across India.</div>
+                    {% endfor %}
+                </div>
+                <p class="small text-muted mt-3 mb-3">Tip: map click still works for any exact point in India.</p>
+                <div class="d-grid gap-2">
+                    <button class="btn btn-primary rounded-pill fw-bold" type="button" id="buildRouteButton">Build Safe Route</button>
+                    <button class="btn btn-outline-secondary rounded-pill fw-bold" type="button" id="centerRouteButton">Center on my location</button>
+                </div>
+            </div>
+
+            <div class="route-card mb-4">
+                <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+                    <div>
+                        <div class="small text-muted">Route status</div>
+                        <h5 class="fw-bold mb-0" id="routeStrategyLabel">Waiting for destination</h5>
+                    </div>
+                    <span class="metric-pill risk-unavailable" id="routeRiskBadge">WAITING</span>
+                </div>
+                <div class="small text-muted mb-2" id="routeSummaryDistance">Distance: --</div>
+                <p class="small text-muted mb-0" id="routeSummaryAdvice">The route summary will appear after live route generation.</p>
+            </div>
+
+            <div class="route-card">
+                <h5 class="fw-bold mb-3">Route checkpoints</h5>
+                <div class="route-stack" id="routeStepList">
+                    <div class="route-item text-muted small">No route computed yet.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="row g-4 mt-1">
+        <div class="col-xl-6">
+            <div class="route-card">
+                <h5 class="fw-bold mb-3">Nearby Safe Havens</h5>
+                <div class="route-stack" id="routeSafeHavens">
+                    <div class="route-item text-muted small">Nearby havens will appear with the route.</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-6">
+            <div class="route-card">
+                <h5 class="fw-bold mb-3">Risk Hotspots on Corridor</h5>
+                <div class="route-stack" id="routeHotspots">
+                    <div class="route-item text-muted small">Risk hotspots will appear with the route.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const routeState = {
+        map: null,
+        source: null,
+        destination: null,
+        sourceMarker: null,
+        destinationMarker: null,
+        routeLine: null,
+        extraLayers: [],
+        searchTimer: null,
+    };
+
+    function routeRiskClass(label) {
+        if (label === 'HIGH') return 'risk-high';
+        if (label === 'MEDIUM') return 'risk-medium';
+        if (label === 'UNAVAILABLE' || label === 'READY') return 'risk-unavailable';
+        return 'risk-low';
+    }
+
+    function setText(id, value) {
+        const node = document.getElementById(id);
+        if (node) node.textContent = value;
+    }
+
+    function escapeHtml(value) {
+        const div = document.createElement('div');
+        div.textContent = value == null ? '' : String(value);
+        return div.innerHTML;
+    }
+
+    function fetchJson(url) {
+        return fetch(url).then((response) => {
+            if (!response.ok) throw new Error(`Request failed: ${response.status}`);
+            return response.json();
+        });
+    }
+
+    function formatCoordinateLabel(lat, lng) {
+        return `Lat ${Number(lat).toFixed(5)}, Lng ${Number(lng).toFixed(5)}`;
+    }
+
+    function formatRiskScore(score) {
+        return score != null ? `${score}%` : '--';
+    }
+
+    function clearExtras() {
+        routeState.extraLayers.forEach((layer) => routeState.map.removeLayer(layer));
+        routeState.extraLayers = [];
+        if (routeState.routeLine) {
+            routeState.map.removeLayer(routeState.routeLine);
+            routeState.routeLine = null;
+        }
+    }
+
+    function setDestinationMarker(lat, lng, label) {
+        if (!routeState.destinationMarker) {
+            routeState.destinationMarker = L.marker([lat, lng]).addTo(routeState.map);
+        } else {
+            routeState.destinationMarker.setLatLng([lat, lng]);
+        }
+        routeState.destinationMarker.bindPopup(`<strong>${escapeHtml(label)}</strong>`);
+    }
+
+    function applyDestination(destination) {
+        routeState.destination = destination;
+        setDestinationMarker(destination.lat, destination.lng, destination.label);
+        setText('destinationNameLabel', destination.label);
+        setText('destinationTypeLabel', destination.description || destination.kind || 'Destination');
+        setText('destinationCoordinatesLabel', `Lat ${destination.lat.toFixed(5)}, Lng ${destination.lng.toFixed(5)}`);
+        document.getElementById('destinationSearchInput').value = destination.label;
+
+        document.querySelectorAll('.destination-result').forEach((button) => {
+            const isActive =
+                button.dataset.name === destination.label &&
+                Number(button.dataset.lat).toFixed(6) === destination.lat.toFixed(6) &&
+                Number(button.dataset.lng).toFixed(6) === destination.lng.toFixed(6);
+            button.classList.toggle('active', isActive);
+        });
+    }
+
+    function createDestinationFromDataset(item) {
+        return {
+            placeId: item.id || '',
+            lat: Number(item.latitude),
+            lng: Number(item.longitude),
+            label: item.name,
+            kind: item.kind || 'Destination',
+            description: item.description || item.kind || 'Destination',
+            source: item.source || 'search',
+        };
+    }
+
+    function renderDestinationResults(results, emptyMessage) {
+        const container = document.getElementById('destinationResults');
+        if (!results || !results.length) {
+            container.innerHTML = `<div class="destination-empty">${escapeHtml(emptyMessage || 'No matching destinations found.')}</div>`;
+            return;
+        }
+
+        container.innerHTML = results.map((item) => `
+            <button
+                type="button"
+                class="destination-result"
+                data-id="${escapeHtml(item.id || '')}"
+                data-name="${escapeHtml(item.name)}"
+                data-kind="${escapeHtml(item.kind || 'Destination')}"
+                data-description="${escapeHtml(item.description || '')}"
+                data-lat="${item.latitude}"
+                data-lng="${item.longitude}"
+                data-source="${escapeHtml(item.source || 'search')}">
+                <div class="fw-bold">${escapeHtml(item.name)}</div>
+                <div class="small text-muted">${escapeHtml(item.kind || 'Destination')}${item.description ? ` | ${escapeHtml(item.description)}` : ''}</div>
+            </button>
+        `).join('');
+
+        attachDestinationResultHandlers();
+    }
+
+    function attachDestinationResultHandlers() {
+        document.querySelectorAll('.destination-result').forEach((button) => {
+            button.addEventListener('click', () => {
+                const destination = {
+                    placeId: button.dataset.id || '',
+                    lat: Number(button.dataset.lat),
+                    lng: Number(button.dataset.lng),
+                    label: button.dataset.name,
+                    kind: button.dataset.kind || 'Destination',
+                    description: button.dataset.description || button.dataset.kind || 'Destination',
+                    source: button.dataset.source || 'search',
+                };
+                applyDestination(destination);
+            });
+        });
+    }
+
+    function searchDestinations(query) {
+        const trimmed = query.trim();
+        if (trimmed.length < 2) {
+            const initialSuggestions = Array.from(document.querySelectorAll('.destination-result')).length;
+            if (!initialSuggestions) {
+                renderDestinationResults([], 'Type at least 2 letters to search places in India.');
+            }
+            return;
+        }
+
+        fetchJson(`/api/place-search/?q=${encodeURIComponent(trimmed)}`)
+            .then((payload) => {
+                renderDestinationResults(payload.results || [], 'No matching destinations found in India for this search.');
+            })
+            .catch(() => {
+                renderDestinationResults([], 'Destination search is unavailable right now. You can still click the map to pin any location.');
+            });
+    }
+
+    function ensurePinnedDestination(lat, lng) {
+        applyDestination({
+            placeId: '',
+            lat: lat,
+            lng: lng,
+            label: `Pinned destination (${lat.toFixed(4)}, ${lng.toFixed(4)})`,
+            kind: 'Map selection',
+            description: 'Pinned directly from the live map.',
+            source: 'map',
+        });
+    }
+
+    function renderRoute(payload) {
+        const summary = payload.route_summary || {};
+        const badge = document.getElementById('routeRiskBadge');
+        const strategyLabel = (payload.strategy || 'route').replace(/-/g, ' ');
+        const destinationName = payload.destination && payload.destination.name
+            ? payload.destination.name
+            : formatCoordinateLabel(payload.destination.latitude, payload.destination.longitude);
+        const overallRiskLabel = summary.overall_risk_label || 'UNAVAILABLE';
+
+        badge.textContent = overallRiskLabel;
+        badge.className = `metric-pill ${routeRiskClass(overallRiskLabel)}`;
+        setText('routeStrategyLabel', destinationName);
+        setText(
+            'routeSummaryDistance',
+            `Distance: ${summary.distance_km != null ? `${summary.distance_km} km` : '--'} | Strategy: ${strategyLabel}`
+        );
+        setText(
+            'routeSummaryAdvice',
+            (summary.advisories || []).join(' ') || (summary.data_available ? 'No route guidance available.' : 'No live safety records are stored along this route yet.')
+        );
+
+        document.getElementById('routeStepList').innerHTML = (payload.route || []).map((step) => `
+            <div class="route-item">
+                <div class="d-flex justify-content-between align-items-start gap-3">
+                    <div>
+                        <div class="fw-bold">${escapeHtml(step.location || formatCoordinateLabel(step.latitude, step.longitude))}</div>
+                        <div class="small text-muted">${escapeHtml(step.advice || '')}</div>
+                    </div>
+                    <span class="metric-pill ${routeRiskClass(step.risk_label || 'UNAVAILABLE')}">${formatRiskScore(step.risk_score)}</span>
+                </div>
+            </div>
+        `).join('');
+
+        document.getElementById('routeSafeHavens').innerHTML = (payload.safe_havens || []).length
+            ? payload.safe_havens.map((haven) => `
+                <div class="route-item">
+                    <div class="fw-bold">${escapeHtml(haven.name)}</div>
+                    <div class="small text-muted">${escapeHtml(haven.type)} | ${escapeHtml(haven.address || '')}</div>
+                </div>
+            `).join('')
+            : '<div class="route-item text-muted small">No verified safe havens were found on this corridor.</div>';
+
+        document.getElementById('routeHotspots').innerHTML = (payload.risk_hotspots || []).length
+            ? payload.risk_hotspots.map((hotspot) => `
+                <div class="route-item">
+                    <div class="d-flex justify-content-between align-items-start gap-3">
+                        <div>
+                            <div class="fw-bold">${escapeHtml(hotspot.risk_type)}</div>
+                            <div class="small text-muted">${escapeHtml(hotspot.description || '')}</div>
+                        </div>
+                        <span class="metric-pill ${routeRiskClass(hotspot.risk_score >= 75 ? 'HIGH' : (hotspot.risk_score >= 45 ? 'MEDIUM' : 'LOW'))}">${hotspot.risk_score}%</span>
+                    </div>
+                </div>
+            `).join('')
+            : '<div class="route-item text-muted small">No high-risk hotspots are currently stored along this corridor.</div>';
+
+        clearExtras();
+        routeState.routeLine = L.polyline(payload.polyline, { color: '#2563eb', weight: 5, opacity: 0.9 }).addTo(routeState.map);
+
+        (payload.safe_havens || []).forEach((haven) => {
+            const marker = L.circleMarker([haven.latitude, haven.longitude], {
+                radius: 8, color: '#2563eb', fillColor: '#60a5fa', fillOpacity: 0.95, weight: 2,
+            }).addTo(routeState.map).bindPopup(`<strong>${escapeHtml(haven.name)}</strong><br>${escapeHtml(haven.type)}`);
+            routeState.extraLayers.push(marker);
+        });
+
+        (payload.risk_hotspots || []).forEach((hotspot) => {
+            const color = hotspot.risk_score >= 75 ? '#ef4444' : '#f59e0b';
+            const marker = L.circle([hotspot.latitude, hotspot.longitude], {
+                color: color, fillColor: color, fillOpacity: 0.22, radius: 350, weight: 2,
+            }).addTo(routeState.map).bindPopup(`<strong>${escapeHtml(hotspot.risk_type)}</strong><br>${escapeHtml(hotspot.description || '')}`);
+            routeState.extraLayers.push(marker);
+        });
+
+        routeState.map.fitBounds(routeState.routeLine.getBounds(), { padding: [35, 35] });
+    }
+
+    function buildRoute() {
+        if (!routeState.source) {
+            setText('routeSummaryAdvice', 'Your live source location is still loading.');
+            return;
+        }
+
+        if (!routeState.destination) {
+            setText('routeSummaryAdvice', 'Search a destination in India or click the map to pin one.');
+            return;
+        }
+
+        const params = new URLSearchParams({
+            source_lat: routeState.source.lat,
+            source_lng: routeState.source.lng,
+            destination_place: routeState.destination.placeId,
+            destination_label: routeState.destination.label,
+            dest_lat: routeState.destination.lat,
+            dest_lng: routeState.destination.lng,
+        });
+
+        fetchJson(`/api/safe-route/?${params.toString()}`)
+            .then(renderRoute)
+            .catch(() => {
+                setText('routeSummaryAdvice', 'Route generation failed. Please retry with a valid destination.');
+            });
+    }
+
+    function initializeMap() {
+        routeState.map = L.map('safeRouteMap', { zoomControl: false, attributionControl: false }).setView([20.5937, 78.9629], 5);
+        L.control.zoom({ position: 'bottomleft' }).addTo(routeState.map);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(routeState.map);
+
+        routeState.map.on('click', (event) => {
+            ensurePinnedDestination(event.latlng.lat, event.latlng.lng);
+            buildRoute();
+        });
+    }
+
+    function startSourceTracking() {
+        if (!navigator.geolocation) {
+            setText('sourceStatus', 'Browser geolocation is unavailable.');
+            return;
+        }
+
+        navigator.geolocation.watchPosition((position) => {
+            const lat = position.coords.latitude;
+            const lng = position.coords.longitude;
+            routeState.source = { lat: lat, lng: lng };
+
+            setText('sourceStatus', `Live source locked at ${lat.toFixed(5)}, ${lng.toFixed(5)}.`);
+
+            if (!routeState.sourceMarker) {
+                routeState.sourceMarker = L.marker([lat, lng]).addTo(routeState.map).bindPopup('Current location');
+            } else {
+                routeState.sourceMarker.setLatLng([lat, lng]);
+            }
+
+            if (!routeState.destination) {
+                routeState.map.setView([lat, lng], 14);
+            }
+        }, () => {
+            setText('sourceStatus', 'Location permission is required for safe route generation.');
+        }, { enableHighAccuracy: true, maximumAge: 15000, timeout: 20000 });
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        initializeMap();
+        startSourceTracking();
+        attachDestinationResultHandlers();
+
+        const searchInput = document.getElementById('destinationSearchInput');
+        searchInput.addEventListener('input', () => {
+            window.clearTimeout(routeState.searchTimer);
+            routeState.searchTimer = window.setTimeout(() => {
+                searchDestinations(searchInput.value);
+            }, 300);
+        });
+
+        document.getElementById('buildRouteButton').addEventListener('click', buildRoute);
+        document.getElementById('centerRouteButton').addEventListener('click', () => {
+            if (routeState.source) routeState.map.setView([routeState.source.lat, routeState.source.lng], 14);
+        });
+    });
+</script>
+{% endblock %}

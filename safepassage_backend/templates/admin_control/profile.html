@@ -1,0 +1,105 @@
+{% extends "admin_control/module_base.html" %}
+
+{% block admin_content %}
+<section class="summary-grid">
+    <article class="summary-card">
+        <div class="summary-label">Managed Users</div>
+        <div class="summary-value">{{ profile_payload.summary.managed_users }}</div>
+        <div class="summary-subtext">Non-admin users currently managed by this control center.</div>
+    </article>
+    <article class="summary-card">
+        <div class="summary-label">Open Incidents</div>
+        <div class="summary-value">{{ profile_payload.summary.open_incidents }}</div>
+        <div class="summary-subtext">Incident records still unresolved across the platform.</div>
+    </article>
+    <article class="summary-card">
+        <div class="summary-label">Open SOS Alerts</div>
+        <div class="summary-value">{{ profile_payload.summary.open_sos_alerts }}</div>
+        <div class="summary-subtext">SOS alerts not yet marked as resolved.</div>
+    </article>
+    <article class="summary-card">
+        <div class="summary-label">Safe Havens</div>
+        <div class="summary-value">{{ profile_payload.summary.safe_havens }}</div>
+        <div class="summary-subtext">Verified safe-zone records visible from your account.</div>
+    </article>
+</section>
+
+<section class="panel-grid two-col">
+    <article class="panel-card">
+        <div class="panel-header">
+            <div>
+                <h2 class="panel-title">Account Details</h2>
+                <p class="panel-subtitle">Current admin identity and account metadata.</p>
+            </div>
+        </div>
+        <div class="list-stack">
+            <div class="list-item">
+                <div class="list-item-title">{{ profile_payload.identity.display_name }}</div>
+                <div class="muted-text">{{ profile_payload.identity.username }}</div>
+            </div>
+            <div class="list-item">
+                <div class="list-item-title">Email</div>
+                <div class="muted-text">{{ profile_payload.identity.email }}</div>
+            </div>
+            <div class="list-item">
+                <div class="list-item-title">Phone</div>
+                <div class="muted-text">{{ profile_payload.identity.phone }}</div>
+            </div>
+            <div class="list-item">
+                <div class="list-item-title">Member Since</div>
+                <div class="muted-text">{{ profile_payload.identity.member_since }}</div>
+            </div>
+            <div class="list-item">
+                <div class="list-item-title">Last Login</div>
+                <div class="muted-text">{{ profile_payload.identity.last_login }}</div>
+            </div>
+        </div>
+    </article>
+
+    <article class="panel-card">
+        <div class="panel-header">
+            <div>
+                <h2 class="panel-title">Update Profile</h2>
+                <p class="panel-subtitle">Edit the visible admin contact details used by the control module.</p>
+            </div>
+        </div>
+        <form method="post" class="admin-form-grid two-col">
+            {% csrf_token %}
+            <div class="admin-field">
+                <label for="firstNameField">First Name</label>
+                <input id="firstNameField" type="text" name="first_name" value="{{ request.user.first_name }}">
+            </div>
+            <div class="admin-field">
+                <label for="lastNameField">Last Name</label>
+                <input id="lastNameField" type="text" name="last_name" value="{{ request.user.last_name }}">
+            </div>
+            <div class="admin-field wide">
+                <label for="phoneField">Phone</label>
+                <input id="phoneField" type="text" name="phone" value="{{ request.user.phone }}">
+            </div>
+            <div class="admin-field">
+                <label>&nbsp;</label>
+                <button class="btn btn-primary rounded-pill w-100" type="submit">Save Profile</button>
+            </div>
+            <div class="admin-field">
+                <label>&nbsp;</label>
+                <a class="btn btn-outline-secondary rounded-pill w-100" href="/admin/password_change/">Change Password</a>
+            </div>
+        </form>
+    </article>
+</section>
+
+<section class="panel-card mt-4">
+    <div class="panel-header">
+        <div>
+            <h2 class="panel-title">Admin Permissions</h2>
+            <p class="panel-subtitle">Operational capabilities currently associated with this admin account.</p>
+        </div>
+    </div>
+    <div class="permission-list">
+        {% for permission in profile_payload.permissions %}
+        <div class="permission-item">{{ permission }}</div>
+        {% endfor %}
+    </div>
+</section>
+{% endblock %}

@@ -1,0 +1,16 @@
+﻿2495:            "current_worker_location": _compose_location_label(current_lat, current_lng),
+2496:        },
+2497:    )
+2498:
+2499:
+2500:@worker_required
+2501:def worker_alerts(request):
+2502:    return render(request, "worker_alerts.html", {"worker": _get_or_create_worker_profile(request.user)})
+2503:
+2504:@worker_required
+2505:def worker_profile(request):
+2506:    return render(request, "worker_profile.html", {"worker": _get_or_create_worker_profile(request.user)})
+2507:
+2508:# --- Worker API Endpoints ---
+2509:
+2510:@login_required

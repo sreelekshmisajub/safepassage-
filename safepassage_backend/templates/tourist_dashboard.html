@@ -1,0 +1,705 @@
+{% extends "dashboard_base.html" %}
+{% load static %}
+
+{% block title %}Tourist Dashboard - SafePassage India{% endblock %}
+
+{% block dashboard_css %}
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap');
+
+    body { font-family: 'Outfit', sans-serif; }
+    .main-content { min-height: 100vh; background: linear-gradient(180deg, #eff6ff 0%, #f8fafc 100%); }
+    .card-risk {
+        background: rgba(255, 255, 255, 0.78);
+        border: 1px solid rgba(255, 255, 255, 0.7);
+        backdrop-filter: blur(12px);
+        border-radius: 28px;
+        box-shadow: 0 10px 35px rgba(15, 23, 42, 0.08);
+        padding: 26px;
+    }
+    .fw-800 { font-weight: 800; }
+    .x-small { font-size: 0.74rem; }
+    .summary-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 16px;
+        border-radius: 999px;
+        font-size: 0.85rem;
+        font-weight: 700;
+    }
+    .summary-pill.location { background: rgba(14, 165, 233, 0.12); color: #0369a1; }
+    .summary-pill.status { background: rgba(16, 185, 129, 0.12); color: #047857; }
+    .circular-progress {
+        position: relative;
+        width: 124px;
+        height: 124px;
+        border-radius: 50%;
+        background: conic-gradient(#10b981 0%, #dbeafe 0deg);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto;
+    }
+    .circular-progress::before {
+        content: "";
+        position: absolute;
+        width: 100px;
+        height: 100px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.95);
+    }
+    .circular-progress span { position: relative; font-size: 1.6rem; font-weight: 800; color: #0f172a; }
+    .risk-pill, .severity-pill {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 8px 14px;
+        border-radius: 999px;
+        font-size: 0.76rem;
+        font-weight: 800;
+    }
+    .risk-low { background: rgba(16, 185, 129, 0.12); color: #047857; }
+    .risk-medium { background: rgba(245, 158, 11, 0.14); color: #b45309; }
+    .risk-high { background: rgba(239, 68, 68, 0.12); color: #b91c1c; }
+    .risk-unavailable { background: rgba(100, 116, 139, 0.14); color: #475569; }
+    .list-stack { display: flex; flex-direction: column; gap: 14px; }
+    .list-card {
+        background: rgba(255, 255, 255, 0.82);
+        border: 1px solid rgba(148, 163, 184, 0.18);
+        border-radius: 20px;
+        padding: 16px;
+    }
+    .empty-state {
+        background: rgba(255, 255, 255, 0.72);
+        border: 1px dashed rgba(148, 163, 184, 0.45);
+        border-radius: 18px;
+        color: #64748b;
+        padding: 16px;
+    }
+    .signal-grid, .translate-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .signal-box {
+        padding: 12px 14px;
+        border-radius: 16px;
+        background: rgba(37, 99, 235, 0.08);
+        color: #1e3a8a;
+        font-size: 0.84rem;
+        font-weight: 700;
+    }
+    .map-card { height: 560px; padding: 0; overflow: hidden; position: relative; }
+    #touristLiveMap { width: 100%; height: 100%; }
+    .map-overlay {
+        position: absolute;
+        left: 20px;
+        bottom: 20px;
+        width: min(320px, calc(100% - 40px));
+        background: rgba(255, 255, 255, 0.84);
+        border-radius: 22px;
+        padding: 18px;
+        box-shadow: 0 8px 28px rgba(15, 23, 42, 0.12);
+        z-index: 1000;
+    }
+    .culture-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+    .culture-col {
+        background: rgba(255, 255, 255, 0.82);
+        border: 1px solid rgba(148, 163, 184, 0.18);
+        border-radius: 20px;
+        padding: 16px;
+    }
+    .culture-col ul { margin: 0; padding-left: 18px; color: #475569; }
+    .culture-col li + li { margin-top: 10px; }
+    .translator {
+        background: linear-gradient(160deg, #0f172a 0%, #1e293b 100%);
+        color: white;
+    }
+    .translator-field, .translator-select {
+        width: 100%;
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        border-radius: 14px;
+        padding: 12px 14px;
+        background: rgba(15, 23, 42, 0.35);
+        color: white;
+    }
+    .translator-output {
+        min-height: 120px;
+        border-radius: 18px;
+        padding: 16px;
+        background: rgba(15, 23, 42, 0.4);
+        border: 1px solid rgba(148, 163, 184, 0.16);
+    }
+    @media (max-width: 1199.98px) { .culture-grid { grid-template-columns: 1fr; } }
+    @media (max-width: 767.98px) {
+        .signal-grid, .translate-actions { grid-template-columns: 1fr; }
+        .map-card { height: 420px; }
+    }
+</style>
+{% endblock %}
+
+{% block dashboard_content %}
+<div class="container-fluid py-2" id="touristDashboardRoot" data-contact-count="{{ emergency_contacts_count|default:0 }}">
+    <div class="row align-items-center mb-5">
+        <div class="col-lg-7">
+            <h1 class="fw-800 text-dark mb-2">Explore <span class="text-primary">Safe</span></h1>
+            <div class="d-flex flex-wrap gap-2">
+                <span class="summary-pill location"><i class="bi bi-geo-alt-fill"></i><span id="liveLocationLabel">Detecting live location...</span></span>
+                <span class="summary-pill status"><i class="bi bi-shield-lock-fill"></i><span id="gpsLockBadge">GPS pending</span></span>
+            </div>
+            <p class="small text-muted mt-3 mb-0" id="coordinateLabel">Waiting for browser geolocation permission.</p>
+        </div>
+        <div class="col-lg-5 text-lg-end mt-4 mt-lg-0">
+            <a href="{% url 'tourist_profile_hub' %}" class="btn btn-white shadow-sm rounded-pill px-4 py-2 border-0 me-2">
+                <i class="bi bi-person me-2"></i>{{ user.first_name|default:"Traveler" }}
+            </a>
+            <a href="{% url 'logout' %}" class="btn btn-outline-danger rounded-pill px-4 py-2">Logout</a>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-md-4">
+            <a href="{% url 'tourist_safe_route' %}" class="btn btn-primary w-100 rounded-pill py-3 fw-bold">
+                <i class="bi bi-sign-turn-right-fill me-2"></i>Safe Route
+            </a>
+        </div>
+        <div class="col-md-4">
+            <a href="{% url 'tourist_sos' %}" class="btn btn-danger w-100 rounded-pill py-3 fw-bold">
+                <i class="bi bi-exclamation-octagon-fill me-2"></i>SOS
+            </a>
+        </div>
+        <div class="col-md-4">
+            <a href="{% url 'tourist_map_hub' %}" class="btn btn-outline-primary w-100 rounded-pill py-3 fw-bold">
+                <i class="bi bi-geo-alt-fill me-2"></i>View Map
+            </a>
+        </div>
+    </div>
+
+    <div class="row g-4 mb-5">
+        <div class="col-lg-3 col-md-6">
+            <div class="card-risk text-center h-100">
+                <p class="text-muted small fw-800 text-uppercase mb-4">Current Risk Score</p>
+                <div class="circular-progress mb-4" id="riskCircle"><span id="riskValue">--</span></div>
+                <div class="risk-pill risk-unavailable" id="riskBadge">LOCATING</div>
+                <p class="small text-muted mt-3 mb-2" id="riskAdvice">Risk analysis will start after live location sync.</p>
+                <p class="small text-muted mb-0" id="syncTime">Sync not started</p>
+            </div>
+        </div>
+
+        <div class="col-lg-3 col-md-6">
+            <div class="card-risk h-100">
+                <p class="text-muted small fw-800 text-uppercase mb-4 d-flex justify-content-between">
+                    <span>Primary Alert</span><i class="bi bi-radar text-warning"></i>
+                </p>
+                <div class="list-card mb-3">
+                    <div class="d-flex justify-content-between align-items-start gap-3">
+                        <span class="severity-pill risk-unavailable" id="primaryAlertType">WAITING</span>
+                        <span class="small text-muted" id="primaryAlertMeta">Pending</span>
+                    </div>
+                    <h5 class="fw-800 mt-3 mb-1" id="primaryAlertTitle">Waiting for nearby alerts</h5>
+                    <p class="small text-muted mb-0" id="primaryAlertDescription">Real incident and hotspot data will appear here.</p>
+                </div>
+                <div class="signal-grid">
+                    <div class="signal-box" id="zoneSignalChip">Zone signal: --</div>
+                    <div class="signal-box" id="weatherSignalChip">Weather signal: --</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-3 col-md-6">
+            <div class="card-risk h-100 border-start border-4 border-primary">
+                <p class="text-muted small fw-800 text-uppercase mb-4">Safety Infrastructure</p>
+                <div class="list-stack" id="resourceList">
+                    <div class="empty-state">Verified safe havens near your current location will appear here.</div>
+                </div>
+                <a href="{% url 'tourist_map_hub' %}" class="btn btn-outline-primary w-100 rounded-pill mt-4 fw-bold">Open Live Risk Map</a>
+            </div>
+        </div>
+
+        <div class="col-lg-3 col-md-6">
+            <div class="card-risk h-100 border-start border-4 border-danger">
+                <p class="text-muted small fw-800 text-uppercase mb-4">Diplomatic Support</p>
+                <div class="list-card mb-3">
+                    <h6 class="fw-800 text-danger mb-1" id="embassyName">Embassy details pending</h6>
+                    <p class="small text-muted mb-0" id="embassyAddress">Grant live location to load embassy support details.</p>
+                </div>
+                <div class="d-grid gap-2">
+                    <a href="#" class="btn btn-danger rounded-pill py-3 fw-bold disabled" id="embassyCallLink">
+                        <i class="bi bi-telephone-outbound-fill me-2"></i><span id="embassyPhoneText">NO DIRECT LINE</span>
+                    </a>
+                    <div class="small text-muted" id="embassyAlert">Embassy alert guidance will update after sync.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4 mb-5">
+        <div class="col-xxl-9 col-xl-8">
+            <div class="card-risk map-card mb-4">
+                <div id="touristLiveMap"></div>
+                <div class="map-overlay">
+                    <h6 class="fw-800 mb-1">Live Position Intelligence</h6>
+                    <p class="small text-muted mb-3" id="mapLocationStatus">Waiting for current coordinates.</p>
+                    <div class="small text-muted">Green = safer corridor, Yellow = caution, Red = high risk, Blue = safe resource</div>
+                    <div class="small text-muted mt-2" id="mapResourceCount">Resources: 0 nearby</div>
+                </div>
+            </div>
+
+            <div class="row g-4">
+                <div class="col-lg-7">
+                    <div class="card-risk h-100">
+                        <div class="d-flex justify-content-between align-items-center mb-4">
+                            <h4 class="fw-800 mb-0"><i class="bi bi-stars text-info me-2"></i>Cultural Intelligence</h4>
+                            <span class="small text-muted" id="cultureLocationLabel">Live zone pending</span>
+                        </div>
+                        <div class="culture-grid">
+                            <div class="culture-col">
+                                <h6 class="fw-800 text-success">Do</h6>
+                                <ul id="cultureDoList"><li>Location-based guidance will appear here.</li></ul>
+                            </div>
+                            <div class="culture-col">
+                                <h6 class="fw-800 text-danger">Avoid</h6>
+                                <ul id="cultureDontList"><li>Safety cautions will appear here.</li></ul>
+                            </div>
+                            <div class="culture-col">
+                                <h6 class="fw-800 text-warning">Watch for</h6>
+                                <ul id="cultureRiskList"><li>Scam and risk behavior alerts will appear here.</li></ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-lg-5">
+                    <div class="card-risk h-100">
+                        <h4 class="fw-800 mb-4"><i class="bi bi-cloud-sun-fill text-warning me-2"></i>Weather and Route Conditions</h4>
+                        <div class="d-flex justify-content-between align-items-center mb-4">
+                            <div>
+                                <h2 class="fw-800 mb-0" id="weatherTemp">--</h2>
+                                <p class="text-muted mb-0">
+                                    <span id="weatherCondition">Waiting for local condition</span>
+                                    <span class="ms-2" id="weatherRiskBadge"></span>
+                                </p>
+                            </div>
+                            <i class="bi bi-brightness-high-fill display-4 text-warning"></i>
+                        </div>
+                        <div class="p-4 bg-primary bg-opacity-5 rounded-4 border border-primary border-opacity-10">
+                            <p class="small mb-0 text-dark" id="weatherAdvice">Weather-aware movement guidance will load from your current coordinates.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xxl-3 col-xl-4">
+            <div class="card-risk mb-4">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h5 class="fw-800 mb-0">Live Situation</h5>
+                    <span class="badge bg-danger rounded-pill">LIVE</span>
+                </div>
+                <div class="list-stack" id="liveAlertsList">
+                    <div class="empty-state">Live alerts will populate after location sync.</div>
+                </div>
+            </div>
+
+            <div class="card-risk translator mb-4">
+                <h5 class="fw-800 mb-1">Language Assistant</h5>
+                <p class="x-small opacity-75 mb-4">Translate emergency phrases instantly.</p>
+                <div class="mb-3">
+                    <label for="translateInput" class="x-small text-uppercase opacity-75 mb-2 d-block">Phrase</label>
+                    <textarea id="translateInput" class="translator-field" rows="3" placeholder="Type the phrase you want translated"></textarea>
+                </div>
+                <div class="mb-3">
+                    <label for="translateLanguage" class="x-small text-uppercase opacity-75 mb-2 d-block">Target language</label>
+                    <select id="translateLanguage" class="translator-select">
+                        <option value="hi">Hindi</option>
+                        <option value="ml">Malayalam</option>
+                        <option value="ta">Tamil</option>
+                        <option value="te">Telugu</option>
+                        <option value="kn">Kannada</option>
+                    </select>
+                </div>
+                <div class="translate-actions mb-3">
+                    <button class="btn btn-primary rounded-pill fw-800" type="button" id="translateButton"><i class="bi bi-stars me-2"></i>Translate</button>
+                    <button class="btn btn-outline-light rounded-pill fw-800" type="button" id="speakButton"><i class="bi bi-volume-up me-2"></i>Speak</button>
+                </div>
+                <div class="translator-output">
+                    <p class="x-small text-uppercase opacity-75 mb-2">Output</p>
+                    <p class="fw-800 mb-2 text-info" id="translationOutput">Translator is waiting for your phrase.</p>
+                    <p class="x-small opacity-75 mb-0" id="translationNote">Type a phrase, then choose Translate.</p>
+                </div>
+            </div>
+
+            <div class="card-risk">
+                <div class="d-flex align-items-center">
+                    <div class="display-6 me-3 text-info"><i class="bi bi-shield-check"></i></div>
+                    <div>
+                        <h6 class="fw-800 text-info mb-1">Emergency Readiness</h6>
+                        <p class="x-small text-muted mb-1" id="readinessStatus">Waiting for live GPS lock.</p>
+                        <p class="x-small text-muted mb-0">Emergency contacts on file: <span class="fw-800">{{ emergency_contacts_count|default:0 }}</span></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const state = {
+        map: null,
+        userMarker: null,
+        hotspotLayers: [],
+        resourceLayers: [],
+        lastRefreshAt: 0,
+        lastCoords: null,
+        translatedText: '',
+        contactCount: Number(document.getElementById('touristDashboardRoot').dataset.contactCount || 0),
+    };
+
+    function setText(id, value) {
+        const node = document.getElementById(id);
+        if (node) node.textContent = value;
+    }
+
+    function setHtml(id, value) {
+        const node = document.getElementById(id);
+        if (node) node.innerHTML = value;
+    }
+
+    function escapeHtml(value) {
+        const div = document.createElement('div');
+        div.textContent = value == null ? '' : String(value);
+        return div.innerHTML;
+    }
+
+    function riskClass(level) {
+        if (level === 'HIGH') return 'risk-high';
+        if (level === 'MEDIUM') return 'risk-medium';
+        if (level === 'UNAVAILABLE' || level === 'LOCATING' || level === 'NO ALERTS') return 'risk-unavailable';
+        return 'risk-low';
+    }
+
+    function distanceText(distanceKm) {
+        if (distanceKm == null) return 'Distance unavailable';
+        return distanceKm < 1 ? `${Math.round(distanceKm * 1000)} m away` : `${distanceKm.toFixed(1)} km away`;
+    }
+
+    function formatCoordinateLabel(lat, lng) {
+        return `Lat ${lat.toFixed(5)}, Lng ${lng.toFixed(5)}`;
+    }
+
+    function formatLocationLabel(label, lat, lng, fallback) {
+        if (label) return label;
+        if (lat != null && lng != null) return formatCoordinateLabel(lat, lng);
+        return fallback || 'Live location unavailable';
+    }
+
+    function formatRiskLabel(label) {
+        return label || 'UNAVAILABLE';
+    }
+
+    function formatSignalValue(value) {
+        return value == null ? 'Unavailable' : value;
+    }
+
+    function setRiskVisual(score, label) {
+        const circle = document.getElementById('riskCircle');
+        const value = document.getElementById('riskValue');
+        const badge = document.getElementById('riskBadge');
+        let color = '#94a3b8';
+        let progress = 0;
+        if (score != null) {
+            progress = score;
+            color = '#10b981';
+            if (score >= 75) color = '#ef4444';
+            else if (score >= 45) color = '#f59e0b';
+        }
+        circle.style.background = `conic-gradient(${color} ${progress}%, #dbeafe 0deg)`;
+        value.textContent = score != null ? score : '--';
+        badge.textContent = formatRiskLabel(label);
+        badge.className = `risk-pill ${riskClass(label)}`;
+    }
+
+    function fetchJson(url, options) {
+        return fetch(url, options).then((response) => {
+            if (!response.ok) throw new Error(`Request failed: ${response.status}`);
+            return response.json();
+        });
+    }
+
+    function haversineKm(lat1, lng1, lat2, lng2) {
+        const earthRadiusKm = 6371;
+        const dLat = (lat2 - lat1) * Math.PI / 180;
+        const dLng = (lng2 - lng1) * Math.PI / 180;
+        const a = Math.sin(dLat / 2) ** 2 +
+            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+            Math.sin(dLng / 2) ** 2;
+        return earthRadiusKm * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
+    function shouldRefresh(lat, lng) {
+        if (!state.lastCoords) return true;
+        const elapsedMs = Date.now() - state.lastRefreshAt;
+        const movedKm = haversineKm(state.lastCoords.lat, state.lastCoords.lng, lat, lng);
+        return elapsedMs > 45000 || movedKm > 0.15;
+    }
+
+    function updateLocation(lat, lng, accuracy, label) {
+        const locationLabel = formatLocationLabel(label, lat, lng, 'Live location detected');
+        setText('liveLocationLabel', locationLabel);
+        setText('gpsLockBadge', accuracy ? `GPS locked (${Math.round(accuracy)} m)` : 'GPS locked');
+        setText('coordinateLabel', `Lat ${lat.toFixed(5)}, Lng ${lng.toFixed(5)}${accuracy ? `, accuracy ${Math.round(accuracy)} m` : ''}`);
+        setText('mapLocationStatus', `${locationLabel} | ${lat.toFixed(4)}, ${lng.toFixed(4)}`);
+        setText('readinessStatus', `Protection active for ${locationLabel}. Emergency contacts on file: ${state.contactCount}.`);
+    }
+
+    function renderResources(resources) {
+        if (!resources || !resources.length) {
+            setHtml('resourceList', '<div class="empty-state">No verified safe havens are stored near your location yet.</div>');
+            setText('mapResourceCount', 'Resources: 0 nearby');
+            return;
+        }
+        setHtml('resourceList', resources.map((resource) => `
+            <div class="list-card">
+                <h6 class="fw-800 mb-1">${escapeHtml(resource.name)}</h6>
+                <p class="small text-muted mb-1">${escapeHtml(resource.type)} | ${escapeHtml(distanceText(resource.distance_km))}</p>
+                <p class="x-small text-muted mb-0">${escapeHtml(resource.address || 'Address unavailable')}</p>
+            </div>
+        `).join(''));
+        setText('mapResourceCount', `Resources: ${resources.length} nearby`);
+    }
+
+    function renderAlerts(alerts, fallbackRisk) {
+        const primary = alerts && alerts.length ? alerts[0] : null;
+        if (primary) {
+            const typeNode = document.getElementById('primaryAlertType');
+            const severity = formatRiskLabel(primary.severity);
+            typeNode.textContent = severity;
+            typeNode.className = `severity-pill ${riskClass(severity)}`;
+            setText('primaryAlertMeta', distanceText(primary.distance_km));
+            setText('primaryAlertTitle', primary.title || 'Nearby alert');
+            setText('primaryAlertDescription', primary.description || 'No description available.');
+            setHtml('liveAlertsList', alerts.map((alert) => `
+                <div class="list-card">
+                    <div class="d-flex justify-content-between gap-3 mb-2">
+                        <span class="severity-pill ${riskClass(formatRiskLabel(alert.severity))}">${escapeHtml(formatRiskLabel(alert.severity))}</span>
+                        <span class="small text-muted">${escapeHtml(distanceText(alert.distance_km))}</span>
+                    </div>
+                    <h6 class="fw-800 mb-1">${escapeHtml(alert.title || 'Nearby alert')}</h6>
+                    <p class="x-small text-muted mb-0">${escapeHtml(alert.description || 'No details available')}</p>
+                </div>
+            `).join(''));
+            return;
+        }
+
+        const fallbackNode = document.getElementById('primaryAlertType');
+        fallbackNode.textContent = 'NO ALERTS';
+        fallbackNode.className = `severity-pill ${riskClass('NO ALERTS')}`;
+        setText('primaryAlertMeta', '0 nearby incidents');
+        setText(
+            'primaryAlertTitle',
+            formatLocationLabel(
+                fallbackRisk.location,
+                fallbackRisk.coordinates && fallbackRisk.coordinates.latitude,
+                fallbackRisk.coordinates && fallbackRisk.coordinates.longitude,
+                'No live alerts'
+            )
+        );
+        setText('primaryAlertDescription', 'No active incidents or stored hotspot alerts are currently linked to this position.');
+        setHtml('liveAlertsList', '<div class="empty-state">No active incidents or hotspot alerts are stored near your position.</div>');
+    }
+
+    function renderCulture(data, lat, lng) {
+        setText('cultureLocationLabel', formatLocationLabel(data.location, lat, lng, 'Live zone unavailable'));
+        setHtml('cultureDoList', (data.dos || []).map((item) => `<li>${escapeHtml(item)}</li>`).join('') || '<li>No local guidance available.</li>');
+        setHtml('cultureDontList', (data.donts || []).map((item) => `<li>${escapeHtml(item)}</li>`).join('') || '<li>No local cautions available.</li>');
+        setHtml('cultureRiskList', (data.risk_behaviors || []).map((item) => `<li>${escapeHtml(item)}</li>`).join('') || '<li>No scam watch items available.</li>');
+    }
+
+    function renderWeather(data) {
+        const hasWeather = data && data.available;
+        setText('weatherTemp', hasWeather && data.temperature_c != null ? `${data.temperature_c} C` : '--');
+        setText('weatherCondition', hasWeather ? (data.condition || 'Condition unavailable') : 'Live weather unavailable');
+        setText('weatherAdvice', data.advice || 'Weather-aware movement advice unavailable.');
+        const badge = document.getElementById('weatherRiskBadge');
+        const label = hasWeather ? formatRiskLabel(data.risk_label) : 'UNAVAILABLE';
+        badge.textContent = label;
+        badge.className = `severity-pill ${riskClass(label)}`;
+    }
+
+    function renderEmbassy(data) {
+        setText('embassyName', data.embassy_name || 'Embassy unavailable');
+        setText('embassyAddress', data.address || 'Address unavailable');
+        setText('embassyAlert', data.zone_alert || 'Keep embassy contacts saved offline.');
+        const phone = data.phone || data.emergency_number || '';
+        setText('embassyPhoneText', phone || 'NO DIRECT LINE');
+        const link = document.getElementById('embassyCallLink');
+        if (phone) {
+            link.href = `tel:${phone.replace(/[^+\d]/g, '')}`;
+            link.classList.remove('disabled');
+        } else {
+            link.href = '#';
+            link.classList.add('disabled');
+        }
+    }
+
+    function clearMapLayers() {
+        state.hotspotLayers.forEach((layer) => state.map.removeLayer(layer));
+        state.resourceLayers.forEach((layer) => state.map.removeLayer(layer));
+        state.hotspotLayers = [];
+        state.resourceLayers = [];
+    }
+
+    function renderMap(riskData, lat, lng) {
+        clearMapLayers();
+        if (!state.userMarker) state.userMarker = L.marker([lat, lng]).addTo(state.map);
+        state.userMarker.setLatLng([lat, lng]).bindPopup(`<strong>You are here</strong><br>${escapeHtml(formatLocationLabel(riskData.location, lat, lng, 'Current coordinates'))}`);
+
+        (riskData.nearby_hotspots || []).forEach((hotspot) => {
+            let color = '#10b981';
+            if (hotspot.risk_score >= 75) color = '#ef4444';
+            else if (hotspot.risk_score >= 45) color = '#f59e0b';
+            const layer = L.circle([hotspot.latitude, hotspot.longitude], {
+                color: color, fillColor: color, fillOpacity: 0.28, radius: 420, weight: 2,
+            }).addTo(state.map).bindPopup(`<strong>${escapeHtml(hotspot.city || hotspot.risk_type)}</strong><br>${escapeHtml(hotspot.description)}<br><small>Risk ${hotspot.risk_score}%</small>`);
+            state.hotspotLayers.push(layer);
+        });
+
+        (riskData.nearby_resources || []).forEach((resource) => {
+            const layer = L.circleMarker([resource.latitude, resource.longitude], {
+                radius: 8, color: '#2563eb', fillColor: '#60a5fa', fillOpacity: 0.95, weight: 2,
+            }).addTo(state.map).bindPopup(`<strong>${escapeHtml(resource.name)}</strong><br>${escapeHtml(resource.type)}<br><small>${escapeHtml(distanceText(resource.distance_km))}</small>`);
+            state.resourceLayers.push(layer);
+        });
+
+        state.map.setView([lat, lng], 14);
+    }
+
+    function syncLocation(lat, lng) {
+        return fetch('/update-location/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
+            body: JSON.stringify({ latitude: lat, longitude: lng }),
+        });
+    }
+
+    function refreshTranslation() {
+        const text = document.getElementById('translateInput').value.trim();
+        const language = document.getElementById('translateLanguage').value;
+        if (!text) {
+            state.translatedText = '';
+            setText('translationOutput', 'Translator is waiting for your phrase.');
+            setText('translationNote', 'Translation requires text input.');
+            return;
+        }
+        setText('translationOutput', 'Translating...');
+        setText('translationNote', 'Contacting the emergency phrase service.');
+        fetchJson('/api/translate/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
+            body: JSON.stringify({ text: text, target_language: language }),
+        }).then((data) => {
+            const translated = data.translated_text || (data.translations ? data.translations[language] : '');
+            if (!translated || data.translation_mode === 'unavailable') {
+                state.translatedText = '';
+                setText('translationOutput', 'No translation is available for this phrase right now.');
+                setText('translationNote', data.note || 'Try a supported emergency phrase such as help, police, or ambulance.');
+                return;
+            }
+            state.translatedText = translated;
+            setText('translationOutput', translated);
+            setText(
+                'translationNote',
+                data.translation_mode === 'phrasebook'
+                    ? 'Exact emergency phrase matched from the local phrasebook.'
+                    : data.translation_mode === 'intent-match'
+                    ? (data.note || 'Matched your request to the nearest supported emergency phrase.')
+                    : (data.note || 'Offline translation completed.')
+            );
+        }).catch(() => {
+            state.translatedText = '';
+            setText('translationOutput', 'Translation unavailable.');
+            setText('translationNote', 'Translation service is unavailable right now.');
+        });
+    }
+
+    function speakTranslation() {
+        const phrase = state.translatedText || document.getElementById('translateInput').value.trim();
+        if (!phrase) return;
+        if (!window.speechSynthesis) {
+            alert('Speech playback is not supported in this browser.');
+            return;
+        }
+        window.speechSynthesis.cancel();
+        window.speechSynthesis.speak(new SpeechSynthesisUtterance(phrase));
+    }
+
+    function refreshDashboard(lat, lng, accuracy) {
+        const params = new URLSearchParams({ lat: lat.toFixed(6), lng: lng.toFixed(6) });
+        Promise.all([
+            fetchJson(`/api/predict-risk/?${params.toString()}`),
+            fetchJson(`/api/incidents/?${params.toString()}`),
+            fetchJson(`/api/weather-risk/?${params.toString()}`),
+            fetchJson(`/api/cultural-advice/?${params.toString()}`),
+            fetchJson(`/api/embassy-info/?${params.toString()}`),
+        ]).then(([risk, incidents, weather, culture, embassy]) => {
+            updateLocation(lat, lng, accuracy, risk.location);
+            setRiskVisual(risk.risk_score, formatRiskLabel(risk.risk_label));
+            setText('riskAdvice', risk.advice || 'No risk advice available.');
+            setText('syncTime', `Last synced ${new Date().toLocaleTimeString()}`);
+            setText('zoneSignalChip', `Zone signal: ${formatSignalValue(risk.breakdown.zone_signal)}`);
+            setText('weatherSignalChip', `Weather signal: ${formatSignalValue(risk.breakdown.weather_signal)}`);
+            renderResources(risk.nearby_resources || []);
+            renderAlerts(incidents.alerts || [], risk);
+            renderCulture(culture, lat, lng);
+            renderWeather(weather);
+            renderEmbassy(embassy);
+            renderMap(risk, lat, lng);
+            syncLocation(lat, lng);
+            state.lastRefreshAt = Date.now();
+            state.lastCoords = { lat, lng };
+        }).catch(() => {
+            setText('riskAdvice', 'Live dashboard refresh failed. We will retry automatically.');
+        });
+    }
+
+    function onLocationError(error) {
+        setText('liveLocationLabel', 'Location permission required');
+        setText('gpsLockBadge', 'GPS unavailable');
+        setText('coordinateLabel', error && error.message ? error.message : 'Unable to access live location from this browser.');
+        setRiskVisual(null, 'UNAVAILABLE');
+        setText('readinessStatus', `Enable location to load live risk details. Emergency contacts on file: ${state.contactCount}.`);
+        setHtml('liveAlertsList', '<div class="empty-state">Location access is required to load live incidents, risk zones, and route details.</div>');
+    }
+
+    function initMap() {
+        state.map = L.map('touristLiveMap', { zoomControl: false, attributionControl: false }).setView([20.5937, 78.9629], 5);
+        L.control.zoom({ position: 'bottomleft' }).addTo(state.map);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(state.map);
+    }
+
+    function startTracking() {
+        if (!navigator.geolocation) {
+            onLocationError({ message: 'Geolocation is not supported in this browser.' });
+            return;
+        }
+
+        navigator.geolocation.watchPosition((position) => {
+            const lat = position.coords.latitude;
+            const lng = position.coords.longitude;
+            const accuracy = position.coords.accuracy;
+            if (!shouldRefresh(lat, lng)) {
+                updateLocation(lat, lng, accuracy, document.getElementById('liveLocationLabel').textContent);
+                if (state.userMarker) state.userMarker.setLatLng([lat, lng]);
+                return;
+            }
+            refreshDashboard(lat, lng, accuracy);
+        }, onLocationError, { enableHighAccuracy: true, maximumAge: 15000, timeout: 20000 });
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        initMap();
+        document.getElementById('translateButton').addEventListener('click', refreshTranslation);
+        document.getElementById('speakButton').addEventListener('click', speakTranslation);
+        startTracking();
+    });
+</script>
+{% endblock %}

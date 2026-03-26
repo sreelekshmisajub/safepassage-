@@ -1,0 +1,182 @@
+{% extends "admin_control/module_base.html" %}
+
+{% block admin_content %}
+<section class="summary-grid">
+    <article class="summary-card">
+        <div class="summary-label">Guides</div>
+        <div class="summary-value">{{ cultural_payload.summary.guides }}</div>
+        <div class="summary-subtext">Cultural guidance records currently available to tourist pages.</div>
+    </article>
+    <article class="summary-card">
+        <div class="summary-label">Languages</div>
+        <div class="summary-value">{{ cultural_payload.summary.languages }}</div>
+        <div class="summary-subtext">Distinct languages represented in cultural guidance content.</div>
+    </article>
+    <article class="summary-card">
+        <div class="summary-label">Scam Reports</div>
+        <div class="summary-value">{{ cultural_payload.summary.scam_reports }}</div>
+        <div class="summary-subtext">Recent scam-focused incident reports available for review.</div>
+    </article>
+    <article class="summary-card">
+        <div class="summary-label">Dataset Cities</div>
+        <div class="summary-value">{{ cultural_payload.summary.dataset_cities }}</div>
+        <div class="summary-subtext">Cities represented in the loaded crime-context dataset.</div>
+    </article>
+</section>
+
+<section class="panel-grid two-col">
+    <article class="panel-card">
+        <div class="panel-header">
+            <div>
+                <h2 class="panel-title">Language Breakdown</h2>
+                <p class="panel-subtitle">Coverage of cultural data by language.</p>
+            </div>
+        </div>
+        {% if cultural_payload.language_breakdown %}
+        <div class="table-responsive">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Language</th>
+                        <th>Count</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in cultural_payload.language_breakdown %}
+                    <tr>
+                        <td>{{ row.language }}</td>
+                        <td>{{ row.count }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">No language data is available yet.</div>
+        {% endif %}
+    </article>
+
+    <article class="panel-card">
+        <div class="panel-header">
+            <div>
+                <h2 class="panel-title">Category Breakdown</h2>
+                <p class="panel-subtitle">Distribution of do, do-not, scam, and quick-help content.</p>
+            </div>
+        </div>
+        {% if cultural_payload.category_breakdown %}
+        <div class="table-responsive">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Category</th>
+                        <th>Count</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in cultural_payload.category_breakdown %}
+                    <tr>
+                        <td>{{ row.category }}</td>
+                        <td>{{ row.count }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">No category data is available yet.</div>
+        {% endif %}
+    </article>
+</section>
+
+<section class="panel-card mt-4">
+    <div class="panel-header">
+        <div>
+            <h2 class="panel-title">Cultural Guidance Records</h2>
+            <p class="panel-subtitle">Live guidance content currently feeding tourist cultural safety pages.</p>
+        </div>
+    </div>
+    {% if cultural_payload.guides %}
+    <div class="table-responsive">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Title</th>
+                    <th>Category</th>
+                    <th>Language</th>
+                    <th>Content</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for guide in cultural_payload.guides %}
+                <tr>
+                    <td>{{ guide.title }}</td>
+                    <td>{{ guide.category }}</td>
+                    <td>{{ guide.language }}</td>
+                    <td>{{ guide.content }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">No cultural guidance records are stored yet.</div>
+    {% endif %}
+</section>
+
+<section class="panel-grid two-col mt-4">
+    <article class="panel-card">
+        <div class="panel-header">
+            <div>
+                <h2 class="panel-title">Scam Reports</h2>
+                <p class="panel-subtitle">Recent scam incidents that need cultural validation and review.</p>
+            </div>
+        </div>
+        {% if cultural_payload.scam_reports %}
+        <div class="list-stack">
+            {% for report in cultural_payload.scam_reports %}
+            <div class="list-item">
+                <div class="list-item-title">{{ report.reporter }} - {{ report.location_label }}</div>
+                <div class="muted-text mb-2">{{ report.description }}</div>
+                <small class="muted-text">{{ report.created_at }}</small>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state">No scam reports are available yet.</div>
+        {% endif %}
+    </article>
+
+    <article class="panel-card">
+        <div class="panel-header">
+            <div>
+                <h2 class="panel-title">Dataset City Coverage</h2>
+                <p class="panel-subtitle">Top cities represented in the crime-context dataset backing cultural intelligence.</p>
+            </div>
+        </div>
+        {% if cultural_payload.dataset_cities %}
+        <div class="table-responsive">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>City</th>
+                        <th>Reports</th>
+                        <th>Top Crimes</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for city in cultural_payload.dataset_cities %}
+                    <tr>
+                        <td>{{ city.city }}</td>
+                        <td>{{ city.report_count }}</td>
+                        <td>{{ city.top_crimes|join:", " }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">Dataset city coverage is not available.</div>
+        {% endif %}
+    </article>
+</section>
+{% endblock %}

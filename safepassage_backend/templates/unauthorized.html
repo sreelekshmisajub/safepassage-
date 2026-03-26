@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block title %}Unauthorized Access - SafePassage{% endblock %}
+
+{% block content %}
+<section class="py-5 d-flex align-items-center" style="min-height: 80vh; background: #f8fafc;">
+    <div class="container py-5 text-center">
+        <div class="mx-auto mb-4 d-flex align-items-center justify-content-center bg-danger text-white rounded-circle shadow"
+            style="width: 120px; height: 120px;">
+            <i class="bi bi-shield-slash-fill display-2"></i>
+        </div>
+        <h1 class="display-4 fw-bold mb-3 text-dark">Unauthorized Access</h1>
+        <p class="lead text-muted mx-auto mb-5" style="max-width: 600px;">It seems you are attempting to access a
+            dashboard that does not match your assigned role. Please ensure you are logged in with the correct
+            credentials.</p>
+
+        <div class="d-flex justify-content-center gap-3">
+            <a href="{% if user.role == 'tourist' %}/tourist/dashboard/{% elif user.role == 'worker' %}/worker/dashboard/{% elif user.role == 'employer' %}/employer/dashboard/{% else %}/admin/dashboard/{% endif %}"
+                class="btn btn-lg btn-primary px-5 py-3 rounded-pill fw-bold">Return to My Dashboard</a>
+            <a href="/logout/" class="btn btn-lg btn-outline-danger px-5 py-3 rounded-pill fw-bold">Logout & Switch
+                Account</a>
+        </div>
+    </div>
+</section>
+{% endblock %}

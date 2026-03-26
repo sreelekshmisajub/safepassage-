@@ -1,0 +1,11 @@
+﻿2480:@worker_required
+2481:def worker_risk_map(request):
+2482:    return render(request, "worker_risk_map.html", {"worker": _get_or_create_worker_profile(request.user)})
+2483:
+2484:@worker_required
+2485:def worker_emergency(request):
+2486:    latest_alert = EmergencyAlert.objects.filter(user=request.user).order_by("-timestamp").first()
+2487:    current_lat, current_lng = _resolve_user_coordinates(request.user)
+2488:    return render(
+2489:        request,
+2490:        "worker_emergency.html",

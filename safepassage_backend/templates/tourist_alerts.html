@@ -1,0 +1,173 @@
+{% extends "dashboard_base.html" %}
+
+{% block title %}Tourist Alerts - SafePassage India{% endblock %}
+
+{% block dashboard_css %}
+<style>
+    .alert-shell {
+        background: rgba(255, 255, 255, 0.84);
+        border: 1px solid rgba(255, 255, 255, 0.78);
+        border-radius: 24px;
+        box-shadow: 0 10px 34px rgba(15, 23, 42, 0.08);
+        padding: 24px;
+    }
+    .alert-stack { display: flex; flex-direction: column; gap: 14px; }
+    .alert-card {
+        background: rgba(248, 250, 252, 0.94);
+        border: 1px solid rgba(148, 163, 184, 0.18);
+        border-radius: 18px;
+        padding: 16px;
+    }
+    .severity-pill {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 7px 12px;
+        border-radius: 999px;
+        font-size: 0.72rem;
+        font-weight: 800;
+    }
+    .risk-low { background: rgba(16, 185, 129, 0.12); color: #047857; }
+    .risk-medium { background: rgba(245, 158, 11, 0.14); color: #b45309; }
+    .risk-high { background: rgba(239, 68, 68, 0.12); color: #b91c1c; }
+    .risk-unavailable { background: rgba(100, 116, 139, 0.14); color: #475569; }
+</style>
+{% endblock %}
+
+{% block dashboard_content %}
+<div class="container-fluid py-2">
+    <div class="row mb-4">
+        <div class="col-lg-8">
+            <h2 class="fw-bold mb-1">Notifications and Alerts</h2>
+            <p class="text-muted mb-0">Live safety warnings based on your current position, nearby incidents, and active risk zones.</p>
+        </div>
+    </div>
+    <div class="row g-4">
+        <div class="col-xl-4">
+            <div class="alert-shell">
+                <div class="small text-muted">Current live zone</div>
+                <h4 class="fw-bold mb-2" id="alertZoneLabel">Waiting for GPS lock...</h4>
+                <div class="severity-pill risk-unavailable mb-3" id="alertRiskBadge">LOCATING</div>
+                <p class="small text-muted mb-2" id="alertRiskAdvice">Alerts will populate after your current location is synced.</p>
+                <div class="small text-muted" id="alertCoordinates">Coordinates pending</div>
+            </div>
+        </div>
+        <div class="col-xl-8">
+            <div class="alert-shell">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="fw-bold mb-0">Live alert feed</h5>
+                    <button class="btn btn-outline-primary rounded-pill px-4" type="button" id="alertRefreshButton">Refresh</button>
+                </div>
+                <div class="alert-stack" id="alertFeed">
+                    <div class="alert-card text-muted small">No live alerts yet. GPS sync will start this feed automatically.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const alertsState = { lat: null, lng: null };
+
+    function alertsRiskClass(label) {
+        if (label === 'HIGH') return 'risk-high';
+        if (label === 'MEDIUM') return 'risk-medium';
+        if (label === 'UNAVAILABLE' || label === 'LIVE') return 'risk-unavailable';
+        return 'risk-low';
+    }
+
+    function setText(id, value) {
+        const node = document.getElementById(id);
+        if (node) node.textContent = value;
+    }
+
+    function escapeHtml(value) {
+        const div = document.createElement('div');
+        div.textContent = value == null ? '' : String(value);
+        return div.innerHTML;
+    }
+
+    function fetchJson(url) {
+        return fetch(url).then((response) => {
+            if (!response.ok) throw new Error(`Request failed: ${response.status}`);
+            return response.json();
+        });
+    }
+
+    function formatCoordinateLabel(lat, lng) {
+        return `Lat ${lat.toFixed(5)}, Lng ${lng.toFixed(5)}`;
+    }
+
+    function formatLocationLabel(label, lat, lng, fallback) {
+        if (label) return label;
+        if (lat != null && lng != null) return formatCoordinateLabel(lat, lng);
+        return fallback || 'Live location unavailable';
+    }
+
+    function formatRiskLabel(label) {
+        return label || 'UNAVAILABLE';
+    }
+
+    function refreshAlerts() {
+        if (alertsState.lat == null || alertsState.lng == null) {
+            setText('alertRiskAdvice', 'Location is still loading, so live alert refresh is paused.');
+            return;
+        }
+
+        const params = new URLSearchParams({
+            lat: alertsState.lat.toFixed(6),
+            lng: alertsState.lng.toFixed(6),
+        });
+
+        Promise.all([
+            fetchJson(`/api/alerts/?${params.toString()}`),
+            fetchJson(`/api/predict-risk/?${params.toString()}`),
+        ]).then(([alerts, risk]) => {
+            setText('alertZoneLabel', formatLocationLabel(risk.location, alertsState.lat, alertsState.lng, 'Live location unavailable'));
+            const badge = document.getElementById('alertRiskBadge');
+            const riskLabel = formatRiskLabel(risk.risk_label);
+            badge.textContent = riskLabel;
+            badge.className = `severity-pill ${alertsRiskClass(riskLabel)} mb-3`;
+            setText('alertRiskAdvice', risk.advice || 'No risk advice available.');
+            setText('alertCoordinates', formatCoordinateLabel(alertsState.lat, alertsState.lng));
+
+            const container = document.getElementById('alertFeed');
+            if (!alerts.alerts || !alerts.alerts.length) {
+                container.innerHTML = '<div class="alert-card text-muted small">No live incidents or warning zones are currently stored near your position.</div>';
+                return;
+            }
+
+            container.innerHTML = alerts.alerts.map((alert) => `
+                <div class="alert-card">
+                    <div class="d-flex justify-content-between align-items-start gap-3 mb-2">
+                        <div class="fw-bold">${escapeHtml(alert.title || 'Nearby alert')}</div>
+                        <span class="severity-pill ${alertsRiskClass(formatRiskLabel(alert.severity))}">${escapeHtml(formatRiskLabel(alert.severity))}</span>
+                    </div>
+                    <div class="small text-muted mb-1">${escapeHtml(alert.description || '')}</div>
+                    <div class="small text-muted">${alert.distance_km != null ? `${alert.distance_km} km away` : 'Distance unavailable'}</div>
+                </div>
+            `).join('');
+        }).catch(() => {
+            setText('alertRiskAdvice', 'Live alerts failed to refresh. We’ll retry on the next GPS update.');
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        document.getElementById('alertRefreshButton').addEventListener('click', refreshAlerts);
+        if (!navigator.geolocation) {
+            setText('alertZoneLabel', 'Browser geolocation is unavailable.');
+            return;
+        }
+
+        navigator.geolocation.watchPosition((position) => {
+            alertsState.lat = position.coords.latitude;
+            alertsState.lng = position.coords.longitude;
+            refreshAlerts();
+        }, () => {
+            setText('alertZoneLabel', 'Location permission required for live alerts.');
+        }, { enableHighAccuracy: true, maximumAge: 15000, timeout: 20000 });
+    });
+</script>
+{% endblock %}

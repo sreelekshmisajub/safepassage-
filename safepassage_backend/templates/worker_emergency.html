@@ -1,0 +1,279 @@
+{% extends "dashboard_base.html" %}
+
+{% block title %}Rescue Alarm SOS | SafePassage India{% endblock %}
+
+{% block dashboard_css %}
+<style>
+    .worker-sos-shell {
+        background: linear-gradient(135deg, #ffffff 0%, #fff1f2 100%);
+        border: 1px solid rgba(248, 113, 113, 0.18);
+        border-radius: 32px;
+        box-shadow: 0 16px 40px rgba(15, 23, 42, 0.08);
+        padding: 32px;
+        text-align: center;
+    }
+    .worker-sos-button {
+        align-items: center;
+        background: #ef4444;
+        border: 12px solid rgba(254, 202, 202, 0.75);
+        border-radius: 50%;
+        color: #ffffff;
+        display: inline-flex;
+        flex-direction: column;
+        font-size: 1.2rem;
+        font-weight: 800;
+        height: 240px;
+        justify-content: center;
+        margin: 24px 0;
+        text-transform: uppercase;
+        width: 240px;
+    }
+    .worker-sos-grid {
+        display: grid;
+        gap: 24px;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        margin-top: 24px;
+    }
+    .info-card {
+        background: #ffffff;
+        border: 1px solid rgba(148, 163, 184, 0.18);
+        border-radius: 24px;
+        padding: 22px;
+        text-align: left;
+    }
+    @media (max-width: 991.98px) {
+        .worker-sos-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block dashboard_content %}
+<div class="container-fluid py-2">
+    <section class="worker-sos-shell">
+        <div class="small text-uppercase text-danger fw-bold">Night Worker Emergency Center</div>
+        <h1 class="fw-bold mt-2">Sound to Call for Rescue | Emergency alarm SOS</h1>
+        <button class="worker-sos-button" type="button" id="workerSosButton">
+            <i class="bi bi-shield-fill-exclamation fs-1 mb-2"></i>
+            Send SOS
+        </button>
+        <div class="d-flex flex-wrap justify-content-center gap-3">
+            <button class="btn btn-outline-danger rounded-pill px-4 py-2 fw-bold" type="button" id="workerVoiceToggle">Voice SOS: Off</button>
+            <span class="text-muted" id="workerSosStatus">No worker emergency alert has been sent in this session.</span>
+        </div>
+        <div class="worker-sos-grid">
+            <div class="info-card">
+                <h5 class="fw-bold mb-3">Dispatch Status</h5>
+                <div class="text-muted" id="workerDispatchMeta">{% if current_worker_location %}Current live area: {{ current_worker_location }}. The system will send the alert through the real emergency endpoint.{% else %}Live location is required before dispatch. The system will send the alert through the real emergency endpoint.{% endif %}</div>
+            </div>
+            <div class="info-card">
+                <h5 class="fw-bold mb-3">Last Alert</h5>
+                <div class="text-muted">{% if latest_alert %}{{ latest_alert.timestamp }} | {{ latest_alert.mode|upper }}{% if latest_alert_location %} | {{ latest_alert_location }}{% endif %}{% else %}No worker SOS recorded yet.{% endif %}</div>
+            </div>
+        </div>
+    </section>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let workerVoiceActive = false;
+    let workerAlarmState = null;
+    let workerAlarmTimer = null;
+
+    function stopWorkerAlarm() {
+        if (workerAlarmTimer) {
+            clearTimeout(workerAlarmTimer);
+            workerAlarmTimer = null;
+        }
+        if (workerAlarmState) {
+            if (workerAlarmState.intervalId) {
+                clearInterval(workerAlarmState.intervalId);
+            }
+            try {
+                workerAlarmState.oscillators.forEach((oscillator) => oscillator.stop());
+            } catch (error) {}
+            try {
+                workerAlarmState.audioContext.close();
+            } catch (error) {}
+            workerAlarmState = null;
+        }
+    }
+
+    function scheduleWorkerIntensePattern(audioContext, oscillators, startTime) {
+        const pattern = [
+            { start: 880, end: 1240, duration: 0.6 },
+            { start: 1240, end: 960, duration: 0.6 },
+            { start: 1040, end: 1480, duration: 0.25 },
+            { start: 1480, end: 1040, duration: 0.25 },
+            { start: 1600, end: 1900, duration: 0.15 },
+        ];
+
+        oscillators.forEach((oscillator) => oscillator.frequency.cancelScheduledValues(startTime));
+
+        let cursor = startTime;
+        pattern.forEach((segment) => {
+            oscillators[0].frequency.setValueAtTime(segment.start, cursor);
+            oscillators[0].frequency.exponentialRampToValueAtTime(segment.end, cursor + segment.duration);
+
+            oscillators[1].frequency.setValueAtTime(segment.start / 2, cursor);
+            oscillators[1].frequency.exponentialRampToValueAtTime(segment.end / 2, cursor + segment.duration);
+
+            oscillators[2].frequency.setValueAtTime((segment.start * 3) / 2, cursor);
+            oscillators[2].frequency.exponentialRampToValueAtTime((segment.end * 3) / 2, cursor + segment.duration);
+
+            oscillators[3].frequency.setValueAtTime(segment.start * 2.2, cursor);
+            oscillators[3].frequency.exponentialRampToValueAtTime(segment.end * 2.2, cursor + segment.duration);
+            
+            cursor += segment.duration;
+        });
+
+        return cursor - startTime;
+    }
+
+    async function startWorkerAlarm() {
+        if (workerAlarmState) {
+            if (workerAlarmState.audioContext.state === 'suspended') {
+                try {
+                    await workerAlarmState.audioContext.resume();
+                } catch (error) {}
+            }
+            return workerAlarmState.audioContext.state === 'running';
+        }
+
+        stopWorkerAlarm();
+        const AudioContextRef = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContextRef) {
+            return false;
+        }
+
+        try {
+            const audioContext = new AudioContextRef();
+            const filter = audioContext.createBiquadFilter();
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(1800, audioContext.currentTime);
+            filter.Q.value = 1.2;
+
+            const masterGain = audioContext.createGain();
+            masterGain.gain.setValueAtTime(0.0001, audioContext.currentTime);
+            masterGain.gain.exponentialRampToValueAtTime(0.45, audioContext.currentTime + 0.06);
+
+            filter.connect(masterGain);
+            masterGain.connect(audioContext.destination);
+
+            const primary = audioContext.createOscillator();
+            primary.type = 'sawtooth';
+            const body = audioContext.createOscillator();
+            body.type = 'triangle';
+            const edge = audioContext.createOscillator();
+            edge.type = 'square';
+            const piercing = audioContext.createOscillator();
+            piercing.type = 'square';
+            
+            const primaryGain = audioContext.createGain();
+            primaryGain.gain.value = 0.12;
+            const bodyGain = audioContext.createGain();
+            bodyGain.gain.value = 0.08;
+            const edgeGain = audioContext.createGain();
+            edgeGain.gain.value = 0.025;
+            const piercingGain = audioContext.createGain();
+            piercingGain.gain.value = 0.015;
+            
+            primary.connect(primaryGain);
+            body.connect(bodyGain);
+            edge.connect(edgeGain);
+            piercing.connect(piercingGain);
+            primaryGain.connect(filter);
+            bodyGain.connect(filter);
+            edgeGain.connect(filter);
+            piercingGain.connect(filter);
+            
+            const tremolo = audioContext.createOscillator();
+            tremolo.type = 'sine';
+            tremolo.frequency.setValueAtTime(12.5, audioContext.currentTime);
+            const tremoloDepth = audioContext.createGain();
+            tremoloDepth.gain.setValueAtTime(0.08, audioContext.currentTime);
+            tremolo.connect(tremoloDepth);
+            tremoloDepth.connect(masterGain.gain);
+
+            primary.start();
+            body.start();
+            edge.start();
+            piercing.start();
+            tremolo.start();
+
+            const oscillators = [primary, body, edge, piercing];
+            const cycleDuration = scheduleWorkerIntensePattern(audioContext, oscillators, audioContext.currentTime + 0.02);
+            const intervalId = setInterval(() => {
+                scheduleWorkerIntensePattern(audioContext, oscillators, audioContext.currentTime + 0.04);
+            }, Math.max(400, Math.round((cycleDuration - 0.04) * 1000)));
+
+            if (audioContext.state === 'suspended') {
+                await audioContext.resume();
+            }
+
+            workerAlarmState = {
+                audioContext,
+                oscillators: [primary, body, edge, piercing, tremolo],
+                intervalId,
+            };
+            workerAlarmTimer = setTimeout(stopWorkerAlarm, 12000);
+            return audioContext.state === 'running';
+        } catch (error) {
+            stopWorkerAlarm();
+            return false;
+        }
+    }
+
+    async function workerSendSos() {
+        const soundStarted = await startWorkerAlarm();
+        resolveCurrentLocation().then((coords) => {
+            const requestBody = { mode: 'loud' };
+            if (coords) {
+                requestBody.latitude = coords.lat;
+                requestBody.longitude = coords.lng;
+            }
+            fetch('/api/emergency/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify(requestBody)
+            }).then((response) => response.json()).then((payload) => {
+                document.getElementById('workerSosStatus').textContent = payload.status === 'success'
+                    ? `Worker SOS sent for ${payload.location || 'your tracked location'}.`
+                    : (payload.message || 'Worker SOS dispatch failed.');
+                document.getElementById('workerDispatchMeta').textContent = payload.status === 'success'
+                    ? `Admin and emergency monitoring have been notified for ${payload.location || 'your tracked worker location'} using ${payload.location_source === 'saved' ? 'the last stored coordinates' : 'live GPS'}.${soundStarted ? ' Ambulance siren started locally.' : ' Alarm audio was not available in this browser.'}`
+                    : 'The live emergency endpoint did not confirm dispatch.';
+            }).catch(() => {
+                document.getElementById('workerSosStatus').textContent = 'Worker SOS dispatch failed.';
+                document.getElementById('workerDispatchMeta').textContent = soundStarted
+                    ? 'The local ambulance siren started, but the emergency request could not be confirmed.'
+                    : 'The alarm audio and emergency request could not be confirmed.';
+            });
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        document.getElementById('workerSosButton').addEventListener('click', workerSendSos);
+        document.getElementById('workerVoiceToggle').addEventListener('click', () => {
+            workerVoiceActive = !workerVoiceActive;
+            document.getElementById('workerVoiceToggle').textContent = workerVoiceActive ? 'Voice SOS: On' : 'Voice SOS: Off';
+        });
+        resolveCurrentLocation().then((coords) => {
+            if (!coords) return;
+            fetch(`/api/worker/risk/?lat=${coords.lat}&lng=${coords.lng}`)
+                .then((response) => response.json())
+                .then((payload) => {
+                    if (payload.location) {
+                        document.getElementById('workerDispatchMeta').textContent = `Current live area: ${payload.location}. The system will send the alert through the real emergency endpoint.`;
+                    }
+                })
+                .catch(() => {});
+        });
+    });
+</script>
+{% endblock %}

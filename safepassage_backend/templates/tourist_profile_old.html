@@ -1,0 +1,168 @@
+{% extends "dashboard_base.html" %}
+{% load static %}
+
+{% block title %}Traveler Profile - SafePassage India{% endblock %}
+
+{% block dashboard_css %}
+<style>
+    .profile-card {
+        background: white;
+        border-radius: 24px;
+        padding: 40px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+        border: 1px solid rgba(0, 0, 0, 0.05);
+        margin-bottom: 30px;
+    }
+
+    .profile-avatar-large {
+        width: 120px;
+        height: 120px;
+        border-radius: 50%;
+        border: 4px solid var(--primary);
+        padding: 5px;
+        background: white;
+        margin-bottom: 20px;
+        background-color: #f1f5f9;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 3rem;
+        color: var(--primary);
+    }
+
+    .form-label-small {
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: #64748b;
+        margin-bottom: 8px;
+    }
+
+    .form-control-custom {
+        border: 2px solid #f1f5f9;
+        border-radius: 12px;
+        padding: 12px 18px;
+        transition: all 0.2s;
+        background: #f8fafc;
+    }
+
+    .form-control-custom:focus {
+        border-color: var(--primary);
+        background: white;
+        box-shadow: none;
+    }
+</style>
+{% endblock %}
+
+{% block dashboard_content %}
+<div class="container-fluid">
+    <div class="row mb-5">
+        <div class="col-12">
+            <h2 class="fw-bold mb-1 text-secondary">Traveler Profile</h2>
+            <p class="text-muted">Manage your travel details and emergency encryption.</p>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- Sidebar Summary -->
+        <div class="col-lg-4">
+            <div class="profile-card text-center">
+                <div class="profile-avatar-large mx-auto">
+                    <i class="bi bi-person-bounding-box"></i>
+                </div>
+                <h4 class="fw-bold mb-1">{{ user.first_name }} {{ user.last_name }}</h4>
+                <p class="text-muted small mb-4">Nationality: American (Verified)</p>
+                <div class="d-grid gap-2">
+                    <button class="btn btn-primary rounded-pill py-2">Edit Details</button>
+                    <button class="btn btn-outline-danger rounded-pill py-2">Delete Account</button>
+                </div>
+                <hr class="my-4 opacity-10">
+                <div class="text-start">
+                    <p class="small fw-bold mb-2">Security Checklist</p>
+                    <div class="d-flex align-items-center mb-2">
+                        <i class="bi bi-check-circle-fill text-success me-2"></i>
+                        <span class="small">Contact Encryption: ON</span>
+                    </div>
+                    <div class="d-flex align-items-center">
+                        <i class="bi bi-check-circle-fill text-success me-2"></i>
+                        <span class="small">Emergency SMS: ACTIVE</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Forms Column -->
+        <div class="col-lg-8">
+            <!-- Personal Info -->
+            <div class="profile-card">
+                <h5 class="fw-bold mb-4"><i class="bi bi-person-badge-fill me-2 text-primary"></i> Personal Details</h5>
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label-small">Full Name</label>
+                        <input type="text" class="form-control form-control-custom" value="{{ user.get_full_name }}"
+                            readonly>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label-small">Email Address</label>
+                        <input type="email" class="form-control form-control-custom" value="{{ user.email }}" readonly>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label-small">Phone Number</label>
+                        <input type="tel" class="form-control form-control-custom" value="{{ user.phone }}" readonly>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label-small">Passport Number (Encrypted)</label>
+                        <input type="password" class="form-control form-control-custom" value="•••••••••••••••">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Travel Details -->
+            <div class="profile-card">
+                <h5 class="fw-bold mb-4"><i class="bi bi-airplane-engines-fill me-2 text-info"></i> Current Journey</h5>
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label-small">Arrival Date (India)</label>
+                        <input type="date" class="form-control form-control-custom" value="2026-03-01">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label-small">Departure Date</label>
+                        <input type="date" class="form-control form-control-custom" value="2026-03-15">
+                    </div>
+                    <div class="col-md-12">
+                        <label class="form-label-small">Current Hotel/Stay Address</label>
+                        <textarea class="form-control form-control-custom"
+                            rows="3">The Imperial New Delhi, Janpath, New Delhi, Delhi 110001</textarea>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Emergency Contacts -->
+            <div class="profile-card">
+                <h5 class="fw-bold mb-4"><i class="bi bi-people-fill me-2 text-danger"></i> Emergency Contacts</h5>
+                <div class="mb-4">
+                    <div class="p-4 bg-light rounded-4 d-flex justify-content-between align-items-center mb-3">
+                        <div>
+                            <p class="fw-bold mb-1">Mary Jane (Mother)</p>
+                            <p class="small text-muted mb-0">+1 (555) 123-4567 • <span class="badge bg-success">WhatsApp
+                                    Active</span></p>
+                        </div>
+                        <button class="btn btn-outline-secondary btn-sm rounded-pill px-3">Edit</button>
+                    </div>
+                    <div class="p-4 bg-light rounded-4 d-flex justify-content-between align-items-center mb-3">
+                        <div>
+                            <p class="fw-bold mb-1">Paul Smith (Friend)</p>
+                            <p class="small text-muted mb-0">+1 (555) 765-4321 • <span class="badge bg-primary">SMS
+                                    Toggle: ON</span></p>
+                        </div>
+                        <button class="btn btn-outline-secondary btn-sm rounded-pill px-3">Edit</button>
+                    </div>
+                </div>
+                <button class="btn btn-outline-danger w-100 py-3 rounded-pill fw-bold border-2"><i
+                        class="bi bi-plus-circle-fill me-2"></i> ADD NEW CONTACT</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

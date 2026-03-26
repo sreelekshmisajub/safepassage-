@@ -1,0 +1,159 @@
+{% extends "admin_control/module_base.html" %}
+
+{% block admin_content %}
+<section class="summary-grid">
+    <article class="summary-card">
+        <div class="summary-label">Risk Predictions</div>
+        <div class="summary-value">{{ analytics_payload.summary.risk_predictions }}</div>
+        <div class="summary-subtext">Stored model-facing risk prediction records.</div>
+    </article>
+    <article class="summary-card">
+        <div class="summary-label">Crime Records</div>
+        <div class="summary-value">{{ analytics_payload.summary.crime_records }}</div>
+        <div class="summary-subtext">Historical crime entries available to analytics and routing.</div>
+    </article>
+    <article class="summary-card">
+        <div class="summary-label">Incidents</div>
+        <div class="summary-value">{{ analytics_payload.summary.incidents }}</div>
+        <div class="summary-subtext">User-reported incidents contributing to the risk timeline.</div>
+    </article>
+    <article class="summary-card">
+        <div class="summary-label">SOS + Check-ins</div>
+        <div class="summary-value">{{ analytics_payload.summary.sos_alerts }} / {{ analytics_payload.summary.checkins }}</div>
+        <div class="summary-subtext">Emergency alerts versus routine worker check-ins.</div>
+    </article>
+</section>
+
+<section class="panel-grid two-col">
+    <article class="panel-card">
+        <div class="panel-header">
+            <div>
+                <h2 class="panel-title">7-Day Activity</h2>
+                <p class="panel-subtitle">Daily operational volume across incidents, SOS alerts, and worker check-ins.</p>
+            </div>
+        </div>
+        <div class="table-responsive">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Day</th>
+                        <th>Incidents</th>
+                        <th>SOS Alerts</th>
+                        <th>Check-ins</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for day in analytics_payload.daily_activity %}
+                    <tr>
+                        <td>{{ day.label }}</td>
+                        <td>{{ day.incidents }}</td>
+                        <td>{{ day.sos_alerts }}</td>
+                        <td>{{ day.checkins }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </article>
+
+    <article class="panel-card">
+        <div class="panel-header">
+            <div>
+                <h2 class="panel-title">Risk Distribution</h2>
+                <p class="panel-subtitle">Current zone count across the low, medium, and high risk bands.</p>
+            </div>
+        </div>
+        <div class="list-stack">
+            <div class="list-item">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div class="list-item-title">Low Risk</div>
+                    <span class="status-pill status-low">{{ analytics_payload.risk_distribution.LOW }}</span>
+                </div>
+            </div>
+            <div class="list-item">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div class="list-item-title">Medium Risk</div>
+                    <span class="status-pill status-medium">{{ analytics_payload.risk_distribution.MEDIUM }}</span>
+                </div>
+            </div>
+            <div class="list-item">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div class="list-item-title">High Risk</div>
+                    <span class="status-pill status-high">{{ analytics_payload.risk_distribution.HIGH }}</span>
+                </div>
+            </div>
+        </div>
+    </article>
+</section>
+
+<section class="panel-grid two-col mt-4">
+    <article class="panel-card">
+        <div class="panel-header">
+            <div>
+                <h2 class="panel-title">Peak Risk Hours</h2>
+                <p class="panel-subtitle">Top hours where crime and SOS activity are concentrated in stored data.</p>
+            </div>
+        </div>
+        {% if analytics_payload.hourly_patterns %}
+        <div class="table-responsive">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Hour</th>
+                        <th>Signal Count</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in analytics_payload.hourly_patterns %}
+                    <tr>
+                        <td>{{ row.hour }}</td>
+                        <td>{{ row.count }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">No hourly analytics are available yet.</div>
+        {% endif %}
+    </article>
+
+    <article class="panel-card">
+        <div class="panel-header">
+            <div>
+                <h2 class="panel-title">Hotspots</h2>
+                <p class="panel-subtitle">Highest scoring risk zones with nearby incident pressure.</p>
+            </div>
+        </div>
+        {% if analytics_payload.hotspots %}
+        <div class="table-responsive">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Zone</th>
+                        <th>Risk</th>
+                        <th>Nearby Incidents</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for hotspot in analytics_payload.hotspots %}
+                    <tr>
+                        <td>
+                            <div class="metric-stack">
+                                <strong>{{ hotspot.city }}</strong>
+                                <small>{{ hotspot.risk_type }}</small>
+                            </div>
+                        </td>
+                        <td><span class="status-pill status-{{ hotspot.risk_label_slug }}">{{ hotspot.risk_score }} / {{ hotspot.risk_label }}</span></td>
+                        <td>{{ hotspot.nearby_incidents }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">No hotspot analytics are available yet.</div>
+        {% endif %}
+    </article>
+</section>
+{% endblock %}

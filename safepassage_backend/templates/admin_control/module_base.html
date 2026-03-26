@@ -1,0 +1,357 @@
+{% extends "dashboard_base.html" %}
+
+{% block title %}{{ admin_page_title }} - SafePassage India{% endblock %}
+
+{% block dashboard_css %}
+<style>
+    .admin-module-shell {
+        color: #0f172a;
+    }
+    .admin-hero {
+        align-items: start;
+        background: linear-gradient(135deg, #ffffff 0%, #eef4ff 55%, #fff5f5 100%);
+        border: 1px solid rgba(148, 163, 184, 0.22);
+        border-radius: 30px;
+        box-shadow: 0 18px 44px rgba(15, 23, 42, 0.08);
+        display: grid;
+        gap: 20px;
+        grid-template-columns: minmax(0, 1.5fr) minmax(280px, 0.7fr);
+        margin-bottom: 24px;
+        padding: 28px;
+    }
+    .admin-tag {
+        color: #dc2626;
+        font-size: 0.78rem;
+        font-weight: 800;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+    }
+    .admin-hero h1 {
+        font-size: clamp(2rem, 3vw, 2.8rem);
+        font-weight: 800;
+        margin: 10px 0 12px;
+    }
+    .admin-hero p {
+        color: #475569;
+        margin: 0;
+        max-width: 720px;
+    }
+    .admin-hero-meta {
+        background: rgba(255, 255, 255, 0.9);
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        border-radius: 24px;
+        display: grid;
+        gap: 14px;
+        padding: 20px;
+    }
+    .meta-label {
+        color: #64748b;
+        font-size: 0.75rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+    }
+    .meta-value {
+        font-weight: 700;
+    }
+    .summary-grid,
+    .panel-grid {
+        display: grid;
+        gap: 18px;
+    }
+    .summary-grid {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        margin-bottom: 24px;
+    }
+    .panel-grid.two-col {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .summary-card,
+    .panel-card {
+        background: #ffffff;
+        border: 1px solid rgba(148, 163, 184, 0.18);
+        border-radius: 26px;
+        box-shadow: 0 14px 32px rgba(15, 23, 42, 0.05);
+        padding: 22px;
+    }
+    .summary-card {
+        min-height: 150px;
+        overflow: hidden;
+        position: relative;
+    }
+    .summary-card::after {
+        background: linear-gradient(135deg, rgba(37, 99, 235, 0.14), rgba(239, 68, 68, 0.08));
+        border-radius: 999px;
+        content: "";
+        height: 160px;
+        position: absolute;
+        right: -60px;
+        top: -60px;
+        width: 160px;
+    }
+    .summary-label {
+        color: #64748b;
+        font-size: 0.8rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        margin-bottom: 12px;
+        text-transform: uppercase;
+    }
+    .summary-value {
+        font-size: 2rem;
+        font-weight: 800;
+        line-height: 1;
+        margin-bottom: 8px;
+        position: relative;
+        z-index: 1;
+    }
+    .summary-subtext {
+        color: #475569;
+        font-size: 0.92rem;
+        max-width: 220px;
+        position: relative;
+        z-index: 1;
+    }
+    .panel-header {
+        align-items: start;
+        display: flex;
+        gap: 12px;
+        justify-content: space-between;
+        margin-bottom: 18px;
+    }
+    .panel-title {
+        font-size: 1.15rem;
+        font-weight: 800;
+        margin: 0;
+    }
+    .panel-subtitle {
+        color: #64748b;
+        font-size: 0.9rem;
+        margin: 4px 0 0;
+    }
+    .status-pill {
+        border-radius: 999px;
+        display: inline-flex;
+        font-size: 0.76rem;
+        font-weight: 800;
+        padding: 7px 12px;
+        text-transform: uppercase;
+    }
+    .status-high,
+    .status-active,
+    .status-sos,
+    .status-reported,
+    .status-suspended,
+    .status-error,
+    .status-danger {
+        background: rgba(239, 68, 68, 0.12);
+        color: #b91c1c;
+    }
+    .status-medium,
+    .status-reviewing,
+    .status-in-progress,
+    .status-on-shift,
+    .status-warning {
+        background: rgba(245, 158, 11, 0.15);
+        color: #b45309;
+    }
+    .status-low,
+    .status-resolved,
+    .status-success,
+    .status-tracked {
+        background: rgba(16, 185, 129, 0.12);
+        color: #047857;
+    }
+    .status-user,
+    .status-idle,
+    .status-incident,
+    .status-info,
+    .status-unknown {
+        background: rgba(59, 130, 246, 0.12);
+        color: #1d4ed8;
+    }
+    .data-table {
+        margin: 0;
+        width: 100%;
+    }
+    .data-table th {
+        border-bottom: 1px solid rgba(226, 232, 240, 0.9);
+        color: #64748b;
+        font-size: 0.78rem;
+        font-weight: 800;
+        letter-spacing: 0.06em;
+        padding: 0 0 12px;
+        text-transform: uppercase;
+    }
+    .data-table td {
+        border-bottom: 1px solid rgba(241, 245, 249, 1);
+        padding: 14px 10px 14px 0;
+        vertical-align: top;
+    }
+    .data-table tr:last-child td {
+        border-bottom: none;
+        padding-bottom: 0;
+    }
+    .metric-stack strong {
+        display: block;
+        font-size: 1rem;
+    }
+    .metric-stack small,
+    .muted-text {
+        color: #64748b;
+    }
+    .list-stack {
+        display: grid;
+        gap: 12px;
+    }
+    .list-item {
+        background: #f8fafc;
+        border: 1px solid rgba(226, 232, 240, 0.95);
+        border-radius: 20px;
+        padding: 16px;
+    }
+    .list-item-title {
+        font-weight: 800;
+        margin-bottom: 6px;
+    }
+    .filter-form,
+    .admin-form-grid {
+        display: grid;
+        gap: 14px;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+    .admin-form-grid.two-col {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .filter-form .wide,
+    .admin-form-grid .wide {
+        grid-column: 1 / -1;
+    }
+    .admin-field label {
+        color: #475569;
+        display: block;
+        font-size: 0.88rem;
+        font-weight: 700;
+        margin-bottom: 6px;
+    }
+    .admin-field input,
+    .admin-field select,
+    .admin-field textarea {
+        background: #ffffff;
+        border: 1px solid rgba(148, 163, 184, 0.32);
+        border-radius: 16px;
+        padding: 12px 14px;
+        width: 100%;
+    }
+    .admin-field textarea {
+        min-height: 140px;
+        resize: vertical;
+    }
+    .empty-state {
+        background: #f8fafc;
+        border: 1px dashed rgba(148, 163, 184, 0.6);
+        border-radius: 20px;
+        color: #64748b;
+        padding: 26px;
+        text-align: center;
+    }
+    .action-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+    .permission-list {
+        display: grid;
+        gap: 10px;
+    }
+    .permission-item {
+        background: #f8fafc;
+        border: 1px solid rgba(226, 232, 240, 0.9);
+        border-radius: 18px;
+        padding: 14px 16px;
+    }
+    @media (max-width: 1199.98px) {
+        .summary-grid,
+        .filter-form,
+        .admin-form-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+        .admin-hero,
+        .panel-grid.two-col {
+            grid-template-columns: 1fr;
+        }
+    }
+    @media (max-width: 767.98px) {
+        .summary-grid,
+        .filter-form,
+        .admin-form-grid {
+            grid-template-columns: 1fr;
+        }
+        .admin-hero {
+            padding: 22px;
+        }
+        .summary-card,
+        .panel-card {
+            padding: 18px;
+        }
+        .data-table {
+            min-width: 700px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block dashboard_content %}
+<div class="container-fluid py-2 admin-module-shell" data-auto-refresh="{{ admin_auto_refresh|default:0 }}">
+    <section class="admin-hero">
+        <div>
+            <div class="admin-tag">System Control Module</div>
+            <h1>{{ admin_page_title }}</h1>
+            <p>{{ admin_page_description }}</p>
+        </div>
+        <div class="admin-hero-meta">
+            <div>
+                <div class="meta-label">Signed In</div>
+                <div class="meta-value">{{ request.user.get_full_name|default:request.user.username }}</div>
+            </div>
+            <div>
+                <div class="meta-label">Refresh Cycle</div>
+                <div class="meta-value">{% if admin_auto_refresh %}{{ admin_auto_refresh }} seconds{% else %}Manual{% endif %}</div>
+            </div>
+            <div>
+                <div class="meta-label">Last Snapshot</div>
+                <div class="meta-value">{{ generated_at|date:"M d, Y g:i A" }}</div>
+            </div>
+        </div>
+    </section>
+
+    {% if messages %}
+    <div class="panel-card mb-4">
+        {% for message in messages %}
+        <div class="mb-2 {% if not forloop.last %}pb-2 border-bottom{% endif %}">
+            <span class="status-pill status-{{ message.tags|default:'success' }}">{{ message.tags|default:"Info" }}</span>
+            <span class="ms-2">{{ message }}</span>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% block admin_content %}{% endblock %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const shell = document.querySelector('.admin-module-shell');
+        const refreshSeconds = Number(shell?.dataset.autoRefresh || 0);
+        if (refreshSeconds > 0) {
+            window.setInterval(() => {
+                if (!document.hidden) {
+                    window.location.reload();
+                }
+            }, refreshSeconds * 1000);
+        }
+    });
+</script>
+{% endblock %}

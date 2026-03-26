@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SafePassage - Risk Prediction</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-blue: #1e3a8a;
+            --accent-blue: #3b82f6;
+            --bg-glass: rgba(255, 255, 255, 0.9);
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: linear-gradient(135deg, #1e3a8a 0%, #1e1b4b 100%);
+            min-height: 100vh;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .container {
+            max-width: 500px;
+        }
+
+        .card {
+            background: var(--bg-glass);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            color: #333;
+        }
+
+        .form-control {
+            border-radius: 10px;
+            padding: 12px;
+            background: rgba(243, 244, 246, 0.8);
+            border: 1px solid #e5e7eb;
+        }
+
+        .btn-primary {
+            background: var(--primary-blue);
+            border: none;
+            border-radius: 10px;
+            padding: 12px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary:hover {
+            background: var(--accent-blue);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(59, 130, 246, 0.4);
+        }
+
+        .logo {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 30px;
+            text-align: center;
+            background: linear-gradient(to right, #60a5fa, #ffffff);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1 class="logo">SafePassage AI</h1>
+        <div class="card p-4">
+            <h4 class="mb-4 text-center fw-bold">Predict Urban Risk</h4>
+            <form method="POST">
+                {% csrf_token %}
+                <div class="mb-3">
+                    <label class="form-label">City/Location</label>
+                    <input type="text" name="location" class="form-control" placeholder="Enter City Name" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Year of Analysis</label>
+                    <input type="number" name="year" class="form-control" value="2024" required>
+                </div>
+                <div class="mb-4">
+                    <label class="form-label">Crime Index Value</label>
+                    <input type="number" step="0.01" name="crime_value" class="form-control"
+                        placeholder="Enter Crime Value" required>
+                </div>
+                <button type="submit" class="btn btn-primary w-100">Analyze Risk Level</button>
+            </form>
+        </div>
+    </div>
+</body>
+
+</html>

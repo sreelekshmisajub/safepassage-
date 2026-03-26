@@ -1,0 +1,84 @@
+{% extends "admin_control/module_base.html" %}
+
+{% block admin_content %}
+<section class="summary-grid">
+    <article class="summary-card">
+        <div class="summary-label">Total Incidents</div>
+        <div class="summary-value">{{ incidents_payload.summary.total }}</div>
+        <div class="summary-subtext">All crowd-sourced or user-submitted incident records in the system.</div>
+    </article>
+    <article class="summary-card">
+        <div class="summary-label">Reported</div>
+        <div class="summary-value">{{ incidents_payload.summary.reported }}</div>
+        <div class="summary-subtext">Reports still awaiting active review.</div>
+    </article>
+    <article class="summary-card">
+        <div class="summary-label">Reviewing</div>
+        <div class="summary-value">{{ incidents_payload.summary.reviewing }}</div>
+        <div class="summary-subtext">Cases currently being validated by the admin team.</div>
+    </article>
+    <article class="summary-card">
+        <div class="summary-label">Resolved</div>
+        <div class="summary-value">{{ incidents_payload.summary.resolved }}</div>
+        <div class="summary-subtext">Reports already reviewed and closed.</div>
+    </article>
+</section>
+
+<section class="panel-card">
+    <div class="panel-header">
+        <div>
+            <h2 class="panel-title">Incident Review Queue</h2>
+            <p class="panel-subtitle">Validate descriptions, monitor severity snapshots, and update incident status.</p>
+        </div>
+    </div>
+    {% if incidents_payload.incidents %}
+    <div class="table-responsive">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Report</th>
+                    <th>Severity</th>
+                    <th>Location</th>
+                    <th>Time</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for incident in incidents_payload.incidents %}
+                <tr>
+                    <td>
+                        <div class="metric-stack">
+                            <strong>{{ incident.incident_type }} by {{ incident.reporter }}</strong>
+                            <small>{{ incident.description }}</small>
+                        </div>
+                    </td>
+                    <td><span class="status-pill status-{{ incident.severity_slug }}">{{ incident.risk_snapshot }} / {{ incident.severity }}</span></td>
+                    <td>{{ incident.location_label }}</td>
+                    <td>
+                        <div class="metric-stack">
+                            <strong>{{ incident.timestamp_relative }}</strong>
+                            <small>{{ incident.timestamp }}</small>
+                        </div>
+                    </td>
+                    <td>
+                        <form method="post" class="action-row">
+                            {% csrf_token %}
+                            <input type="hidden" name="incident_id" value="{{ incident.id }}">
+                            <select name="status" class="form-select form-select-sm">
+                                <option value="reported" {% if incident.status == "Reported" %}selected{% endif %}>Reported</option>
+                                <option value="reviewing" {% if incident.status == "Reviewing" %}selected{% endif %}>Reviewing</option>
+                                <option value="resolved" {% if incident.status == "Resolved" %}selected{% endif %}>Resolved</option>
+                            </select>
+                            <button class="btn btn-outline-primary btn-sm rounded-pill" type="submit">Update</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">No incidents have been reported yet.</div>
+    {% endif %}
+</section>
+{% endblock %}

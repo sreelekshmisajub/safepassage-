@@ -1,0 +1,129 @@
+{% extends "admin_control/module_base.html" %}
+
+{% block admin_content %}
+<section class="panel-card mb-4">
+    <div class="panel-header">
+        <div>
+            <h2 class="panel-title">Filter Users</h2>
+            <p class="panel-subtitle">Focus on a role or operational state without leaving the control center.</p>
+        </div>
+    </div>
+    <form method="get" class="filter-form">
+        <div class="admin-field">
+            <label for="roleFilter">Role</label>
+            <select id="roleFilter" name="role">
+                <option value="">All roles</option>
+                <option value="tourist" {% if users_payload.filters.role == "tourist" %}selected{% endif %}>Tourist</option>
+                <option value="worker" {% if users_payload.filters.role == "worker" %}selected{% endif %}>Night Worker</option>
+                <option value="employer" {% if users_payload.filters.role == "employer" %}selected{% endif %}>Employer</option>
+                <option value="admin" {% if users_payload.filters.role == "admin" %}selected{% endif %}>Admin</option>
+            </select>
+        </div>
+        <div class="admin-field">
+            <label for="stateFilter">State</label>
+            <select id="stateFilter" name="state">
+                <option value="">All states</option>
+                <option value="tracked" {% if users_payload.filters.state == "tracked" %}selected{% endif %}>Tracked</option>
+                <option value="on-shift" {% if users_payload.filters.state == "on-shift" %}selected{% endif %}>On Shift</option>
+                <option value="suspended" {% if users_payload.filters.state == "suspended" %}selected{% endif %}>Suspended</option>
+            </select>
+        </div>
+        <div class="admin-field">
+            <label>&nbsp;</label>
+            <button class="btn btn-primary rounded-pill w-100" type="submit">Apply Filters</button>
+        </div>
+        <div class="admin-field">
+            <label>&nbsp;</label>
+            <a class="btn btn-outline-secondary rounded-pill w-100" href="{% url 'admin_users' %}">Clear</a>
+        </div>
+    </form>
+</section>
+
+<section class="summary-grid">
+    <article class="summary-card">
+        <div class="summary-label">Visible Users</div>
+        <div class="summary-value">{{ users_payload.summary.filtered_count }}</div>
+        <div class="summary-subtext">Rows matching the current role and state filters.</div>
+    </article>
+    <article class="summary-card">
+        <div class="summary-label">Tracked Users</div>
+        <div class="summary-value">{{ users_payload.summary.tracked_users }}</div>
+        <div class="summary-subtext">Accounts with recent live location updates.</div>
+    </article>
+    <article class="summary-card">
+        <div class="summary-label">Suspended</div>
+        <div class="summary-value">{{ users_payload.summary.suspended_users }}</div>
+        <div class="summary-subtext">Users currently blocked from active access.</div>
+    </article>
+    <article class="summary-card">
+        <div class="summary-label">Users On Shift</div>
+        <div class="summary-value">{{ users_payload.summary.users_on_shift }}</div>
+        <div class="summary-subtext">Night worker accounts with an active shift session.</div>
+    </article>
+</section>
+
+<section class="panel-card">
+    <div class="panel-header">
+        <div>
+            <h2 class="panel-title">User Directory</h2>
+            <p class="panel-subtitle">Live account state, role, last location update, and moderation actions.</p>
+        </div>
+    </div>
+    {% if users_payload.users %}
+    <div class="table-responsive">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>User</th>
+                    <th>Role</th>
+                    <th>Activity</th>
+                    <th>Last Seen</th>
+                    <th>Shift</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for user in users_payload.users %}
+                <tr>
+                    <td>
+                        <div class="metric-stack">
+                            <strong>{{ user.display_name }}</strong>
+                            <small>{{ user.email }} | {{ user.location_label }}</small>
+                        </div>
+                    </td>
+                    <td>{{ user.role_display }}</td>
+                    <td><span class="status-pill status-{{ user.activity_state_slug }}">{{ user.activity_state }}</span></td>
+                    <td>
+                        <div class="metric-stack">
+                            <strong>{{ user.last_seen_relative }}</strong>
+                            <small>{{ user.last_seen }}</small>
+                        </div>
+                    </td>
+                    <td class="muted-text">{{ user.shift_window }}</td>
+                    <td>
+                        {% if user.is_active %}
+                        <form method="post">
+                            {% csrf_token %}
+                            <input type="hidden" name="user_id" value="{{ user.id }}">
+                            <input type="hidden" name="action" value="suspend">
+                            <button class="btn btn-outline-danger rounded-pill btn-sm" type="submit">Suspend</button>
+                        </form>
+                        {% else %}
+                        <form method="post">
+                            {% csrf_token %}
+                            <input type="hidden" name="user_id" value="{{ user.id }}">
+                            <input type="hidden" name="action" value="activate">
+                            <button class="btn btn-outline-success rounded-pill btn-sm" type="submit">Reactivate</button>
+                        </form>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">No users matched the selected filters.</div>
+    {% endif %}
+</section>
+{% endblock %}

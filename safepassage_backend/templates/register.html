@@ -1,0 +1,392 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Join SafePassage - Create Account{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --auth-bg: #f8fafc;
+        --card-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    }
+
+    body {
+        background-color: var(--auth-bg);
+    }
+
+    .auth-card {
+        border: none;
+        border-radius: 24px;
+        box-shadow: var(--card-shadow);
+        background: white;
+        overflow: hidden;
+    }
+
+    .auth-illustration-side {
+        background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+        color: white;
+        padding: 3rem;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        position: relative;
+    }
+
+    .auth-illustration-side::before {
+        content: '';
+        position: absolute;
+        top: 0; left: 0; width: 100%; height: 100%;
+        background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+    }
+
+    .form-control {
+        border-radius: 12px;
+        padding: 0.75rem 1rem;
+        border: 1px solid #e2e8f0;
+        transition: all 0.2s ease;
+    }
+
+    .form-control:focus {
+        border-color: #2563eb;
+        box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1);
+    }
+
+    .input-group-text {
+        background: transparent;
+        border-right: none;
+        color: #64748b;
+        border-radius: 12px 0 0 12px;
+    }
+
+    .input-group .form-control {
+        border-left: none;
+        border-radius: 0 12px 12px 0;
+    }
+
+    .btn-create {
+        background: #2563eb;
+        color: white;
+        border-radius: 12px;
+        padding: 0.8rem;
+        font-weight: 600;
+        transition: all 0.2s ease;
+        border: none;
+        width: 100%;
+    }
+
+    .btn-create:hover {
+        background: #1d4ed8;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
+    }
+
+    .mode-select-card {
+        border: 2px solid #f1f5f9;
+        border-radius: 16px;
+        padding: 1rem;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        text-align: center;
+        height: 100%;
+    }
+
+    .mode-radio:checked + .mode-select-card {
+        border-color: #2563eb;
+        background: rgba(37, 99, 235, 0.02);
+    }
+
+    .password-eye {
+        cursor: pointer;
+        color: #94a3b8;
+    }
+
+    .invalid-feedback-custom {
+        font-size: 0.75rem;
+        color: #ef4444;
+        margin-top: 0.25rem;
+        display: none;
+    }
+
+    .strength-meter {
+        height: 4px;
+        border-radius: 2px;
+        margin-top: 8px;
+        background: #e2e8f0;
+        overflow: hidden;
+    }
+
+    .strength-meter-fill {
+        height: 100%;
+        width: 0%;
+        transition: all 0.3s ease;
+    }
+
+    .strength-weak { width: 33%; background: #ef4444; }
+    .strength-medium { width: 66%; background: #f59e0b; }
+    .strength-strong { width: 100%; background: #10b981; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-11 col-xl-10">
+            <div class="auth-card row g-0">
+                <!-- Left: Illustration & Info -->
+                <div class="col-lg-5 auth-illustration-side d-none d-lg-flex">
+                    <div class="mb-5">
+                        <h1 class="fw-bold mb-3 h2">SafePassage</h1>
+                        <p class="text-blue-100 fs-5">Building the world's most intelligent safety network for urban environments.</p>
+                    </div>
+                    
+                    <div class="space-y-4">
+                        <div class="d-flex align-items-start gap-3 mb-4">
+                            <div class="bg-white bg-opacity-10 p-2 rounded-lg">
+                                <i class="bi bi-shield-check fs-4 text-white"></i>
+                            </div>
+                            <div>
+                                <h6 class="fw-bold mb-1">AI Risk Prediction</h6>
+                                <p class="small text-blue-100 mb-0">Identify high-risk zones before you reach them.</p>
+                            </div>
+                        </div>
+                        <div class="d-flex align-items-start gap-3 mb-4">
+                            <div class="bg-white bg-opacity-10 p-2 rounded-lg">
+                                <i class="bi bi-geo-alt fs-4 text-white"></i>
+                            </div>
+                            <div>
+                                <h6 class="fw-bold mb-1">Secure Routing</h6>
+                                <p class="small text-blue-100 mb-0">Dynamic paths optimized for maximum safety.</p>
+                            </div>
+                        </div>
+                        <div class="d-flex align-items-start gap-3">
+                            <div class="bg-white bg-opacity-10 p-2 rounded-lg">
+                                <i class="bi bi-broadcast fs-4 text-white"></i>
+                            </div>
+                            <div>
+                                <h6 class="fw-bold mb-1">Rapid SOS</h6>
+                                <p class="small text-blue-100 mb-0">Instant dispatch to responders and contacts.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-auto">
+                        <p class="small opacity-75">Trusted by thousands of late-night commuters and explorers.</p>
+                    </div>
+                </div>
+
+                <!-- Right: Form -->
+                <div class="col-lg-7 p-4 p-md-5">
+                    <div class="mb-4">
+                        <h2 class="fw-bold h3 mb-2">Create Account</h2>
+                        <p class="text-muted small">Join SafePassage and stay protected everywhere.</p>
+                    </div>
+
+                    {% if messages %}
+                    <div class="mb-4">
+                        {% for message in messages %}
+                        <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show border-0 rounded-4" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+
+                    <form action="/register/" method="POST" id="registerForm" novalidate>
+                        {% csrf_token %}
+                        
+                        <!-- Role Selection -->
+                        <div class="mb-4">
+                            <label class="form-label small fw-bold text-uppercase tracking-wider text-muted">Select Your Primary Mode</label>
+                            <div class="row g-3">
+                                <div class="col-6">
+                                    <input type="radio" class="btn-check mode-radio" name="role" id="modeTourist" value="tourist" checked>
+                                    <label class="mode-select-card d-block" for="modeTourist">
+                                        <i class="bi bi-airplane-fill fs-3 text-primary d-block mb-2"></i>
+                                        <div class="fw-bold small">Tourist</div>
+                                    </label>
+                                </div>
+                                <div class="col-6">
+                                    <input type="radio" class="btn-check mode-radio" name="role" id="modeWorker" value="worker">
+                                    <label class="mode-select-card d-block" for="modeWorker">
+                                        <i class="bi bi-moon-stars-fill fs-3 text-primary d-block mb-2"></i>
+                                        <div class="fw-bold small">Night Worker</div>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row g-3 mb-3">
+                            <div class="col-12">
+                                <label class="form-label small fw-bold">Full Name</label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="bi bi-person"></i></span>
+                                    <input type="text" name="full_name" class="form-control" placeholder="John Doe" id="fullName" required>
+                                </div>
+                                <div class="invalid-feedback-custom" id="fullNameError">Only alphabets allowed, min 3 characters.</div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold">Email Address</label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="bi bi-envelope"></i></span>
+                                    <input type="email" name="email" class="form-control" placeholder="john@example.com" id="email" required>
+                                </div>
+                                <div class="invalid-feedback-custom" id="emailError">Enter a valid email address.</div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold">Phone Number</label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="bi bi-phone"></i></span>
+                                    <input type="tel" name="phone" class="form-control" placeholder="9876543210" id="phone" required>
+                                </div>
+                                <div class="invalid-feedback-custom" id="phoneError">Enter a valid 10-digit number.</div>
+                            </div>
+                        </div>
+
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold">Password</label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="bi bi-lock"></i></span>
+                                    <input type="password" name="password" class="form-control" placeholder="••••••••" id="password" required>
+                                    <span class="input-group-text password-eye" onclick="togglePassword('password', this)">
+                                        <i class="bi bi-eye"></i>
+                                    </span>
+                                </div>
+                                <div class="strength-meter">
+                                    <div class="strength-meter-fill" id="strengthFill"></div>
+                                </div>
+                                <div class="invalid-feedback-custom" id="passwordError">Min 8 chars, must include Upper, Lower, Number & Symbol.</div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold">Confirm Password</label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="bi bi-shield-check"></i></span>
+                                    <input type="password" name="confirm_password" class="form-control" placeholder="••••••••" id="confirmPassword" required>
+                                    <span class="input-group-text password-eye" onclick="togglePassword('confirmPassword', this)">
+                                        <i class="bi bi-eye"></i>
+                                    </span>
+                                </div>
+                                <div class="invalid-feedback-custom" id="confirmPasswordError">Passwords do not match.</div>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn-create shadow-sm">
+                            Create Account
+                        </button>
+
+                        <p class="text-center mt-4 small text-muted">
+                            Already have an account? <a href="/login/" class="text-primary fw-bold text-decoration-none">Sign In</a>
+                        </p>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const form = document.getElementById('registerForm');
+    const fields = {
+        fullName: {
+            el: document.getElementById('fullName'),
+            error: document.getElementById('fullNameError'),
+            validate: (val) => /^[a-zA-Z\s]{3,}$/.test(val)
+        },
+        email: {
+            el: document.getElementById('email'),
+            error: document.getElementById('emailError'),
+            validate: (val) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)
+        },
+        phone: {
+            el: document.getElementById('phone'),
+            error: document.getElementById('phoneError'),
+            validate: (val) => /^\d{10}$/.test(val)
+        },
+        password: {
+            el: document.getElementById('password'),
+            error: document.getElementById('passwordError'),
+            validate: (val) => /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/.test(val)
+        },
+        confirmPassword: {
+            el: document.getElementById('confirmPassword'),
+            error: document.getElementById('confirmPasswordError'),
+            validate: (val) => val === fields.password.el.value && val !== ''
+        }
+    };
+
+    function togglePassword(id, iconEl) {
+        const input = document.getElementById(id);
+        const icon = iconEl.querySelector('i');
+        if (input.type === 'password') {
+            input.type = 'text';
+            icon.classList.replace('bi-eye', 'bi-eye-slash');
+        } else {
+            input.type = 'password';
+            icon.classList.replace('bi-eye-slash', 'bi-eye');
+        }
+    }
+
+    // Real-time validation
+    Object.keys(fields).forEach(key => {
+        fields[key].el.addEventListener('input', () => {
+            const isValid = fields[key].validate(fields[key].el.value);
+            fields[key].error.style.display = isValid ? 'none' : 'block';
+            fields[key].el.classList.toggle('is-invalid', !isValid);
+            
+            if (key === 'password') {
+                updateStrengthMeter(fields[key].el.value);
+                // Also trigger confirm password check
+                const isMatch = fields.confirmPassword.el.value === fields.password.el.value;
+                fields.confirmPassword.error.style.display = isMatch ? 'none' : 'block';
+            }
+        });
+    });
+
+    function updateStrengthMeter(val) {
+        const fill = document.getElementById('strengthFill');
+        fill.className = 'strength-meter-fill';
+        
+        let strength = 0;
+        if (val.length >= 8) strength++;
+        if (/[A-Z]/.test(val)) strength++;
+        if (/[a-z]/.test(val)) strength++;
+        if (/[0-9]/.test(val)) strength++;
+        if (/[@$!%*?&]/.test(val)) strength++;
+
+        if (val === '') {
+            fill.style.width = '0%';
+        } else if (strength <= 2) {
+            fill.classList.add('strength-weak');
+            fill.style.width = '33%';
+        } else if (strength <= 4) {
+            fill.classList.add('strength-medium');
+            fill.style.width = '66%';
+        } else {
+            fill.classList.add('strength-strong');
+            fill.style.width = '100%';
+        }
+    }
+
+    form.addEventListener('submit', (e) => {
+        let isFormValid = true;
+        Object.keys(fields).forEach(key => {
+            const isValid = fields[key].validate(fields[key].el.value);
+            if (!isValid) {
+                fields[key].error.style.display = 'block';
+                fields[key].el.classList.add('is-invalid');
+                isFormValid = false;
+            }
+        });
+
+        if (!isFormValid) {
+            e.preventDefault();
+        }
+    });
+</script>
+{% endblock %}

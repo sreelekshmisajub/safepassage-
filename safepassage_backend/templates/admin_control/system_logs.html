@@ -1,0 +1,68 @@
+{% extends "admin_control/module_base.html" %}
+
+{% block admin_content %}
+<section class="summary-grid">
+    <article class="summary-card">
+        <div class="summary-label">Log Entries</div>
+        <div class="summary-value">{{ logs_payload.summary.entries }}</div>
+        <div class="summary-subtext">Combined recent system events visible in this admin timeline.</div>
+    </article>
+    <article class="summary-card">
+        <div class="summary-label">Last 24 Hours</div>
+        <div class="summary-value">{{ logs_payload.summary.last_24_hours }}</div>
+        <div class="summary-subtext">Entries generated inside the most recent 24-hour window.</div>
+    </article>
+    <article class="summary-card">
+        <div class="summary-label">SOS Entries</div>
+        <div class="summary-value">{{ logs_payload.summary.sos_entries }}</div>
+        <div class="summary-subtext">Emergency log events currently visible in the timeline.</div>
+    </article>
+    <article class="summary-card">
+        <div class="summary-label">Incident Entries</div>
+        <div class="summary-value">{{ logs_payload.summary.incident_entries }}</div>
+        <div class="summary-subtext">Incident log events currently visible in the timeline.</div>
+    </article>
+</section>
+
+<section class="panel-card">
+    <div class="panel-header">
+        <div>
+            <h2 class="panel-title">System Activity Timeline</h2>
+            <p class="panel-subtitle">Unified log of registrations, SOS activity, incidents, and worker check-ins.</p>
+        </div>
+    </div>
+    {% if logs_payload.logs %}
+    <div class="table-responsive">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Category</th>
+                    <th>Actor</th>
+                    <th>Action</th>
+                    <th>Detail</th>
+                    <th>Time</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for entry in logs_payload.logs %}
+                <tr>
+                    <td><span class="status-pill status-{{ entry.category_slug }}">{{ entry.category }}</span></td>
+                    <td>{{ entry.actor }}</td>
+                    <td>{{ entry.action }}</td>
+                    <td>{{ entry.detail }}</td>
+                    <td>
+                        <div class="metric-stack">
+                            <strong>{{ entry.timestamp_relative }}</strong>
+                            <small>{{ entry.timestamp }}</small>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">No system log entries are available yet.</div>
+    {% endif %}
+</section>
+{% endblock %}

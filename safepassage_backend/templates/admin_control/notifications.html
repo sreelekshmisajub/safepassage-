@@ -1,0 +1,117 @@
+{% extends "admin_control/module_base.html" %}
+
+{% block admin_content %}
+<section class="summary-grid">
+    <article class="summary-card">
+        <div class="summary-label">Reachable Users</div>
+        <div class="summary-value">{{ notifications_payload.summary.reachable_users }}</div>
+        <div class="summary-subtext">Active accounts with email addresses available for broadcast.</div>
+    </article>
+    <article class="summary-card">
+        <div class="summary-label">Tourists</div>
+        <div class="summary-value">{{ notifications_payload.summary.tourists }}</div>
+        <div class="summary-subtext">Tourist recipients who can receive targeted warnings.</div>
+    </article>
+    <article class="summary-card">
+        <div class="summary-label">Workers</div>
+        <div class="summary-value">{{ notifications_payload.summary.workers }}</div>
+        <div class="summary-subtext">Night workers available for targeted operational alerts.</div>
+    </article>
+    <article class="summary-card">
+        <div class="summary-label">Recent Alert Feed</div>
+        <div class="summary-value">{{ notifications_payload.summary.recent_alerts }}</div>
+        <div class="summary-subtext">Current alert items available before broadcasting a warning.</div>
+    </article>
+</section>
+
+<section class="panel-grid two-col">
+    <article class="panel-card">
+        <div class="panel-header">
+            <div>
+                <h2 class="panel-title">Broadcast Warning</h2>
+                <p class="panel-subtitle">Send a real email-based warning to active users by audience segment.</p>
+            </div>
+        </div>
+        <form method="post" class="admin-form-grid">
+            {% csrf_token %}
+            <div class="admin-field">
+                <label for="audienceField">Audience</label>
+                <select id="audienceField" name="audience">
+                    <option value="all">All active users</option>
+                    <option value="tourist">Tourists only</option>
+                    <option value="worker">Night workers only</option>
+                    <option value="employer">Employers only</option>
+                    <option value="admin">Admins only</option>
+                </select>
+            </div>
+            <div class="admin-field wide">
+                <label for="subjectField">Subject</label>
+                <input id="subjectField" name="subject" type="text" placeholder="Safety notice: elevated risk in monitored area">
+            </div>
+            <div class="admin-field wide">
+                <label for="messageField">Message</label>
+                <textarea id="messageField" name="message" placeholder="Explain the warning, affected area, and immediate guidance for users."></textarea>
+            </div>
+            <div class="admin-field">
+                <label>&nbsp;</label>
+                <button class="btn btn-danger rounded-pill w-100" type="submit">Send Broadcast</button>
+            </div>
+        </form>
+    </article>
+
+    <article class="panel-card">
+        <div class="panel-header">
+            <div>
+                <h2 class="panel-title">Audience Counts</h2>
+                <p class="panel-subtitle">Current reachable audience by role.</p>
+            </div>
+        </div>
+        <div class="table-responsive">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Audience</th>
+                        <th>Reachable Users</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td>All</td><td>{{ notifications_payload.role_counts.all }}</td></tr>
+                    <tr><td>Tourist</td><td>{{ notifications_payload.role_counts.tourist }}</td></tr>
+                    <tr><td>Night Worker</td><td>{{ notifications_payload.role_counts.worker }}</td></tr>
+                    <tr><td>Employer</td><td>{{ notifications_payload.role_counts.employer }}</td></tr>
+                    <tr><td>Admin</td><td>{{ notifications_payload.role_counts.admin }}</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </article>
+</section>
+
+<section class="panel-card mt-4">
+    <div class="panel-header">
+        <div>
+            <h2 class="panel-title">Recent Alert Feed</h2>
+            <p class="panel-subtitle">The latest system alerts available to inform outgoing notifications.</p>
+        </div>
+    </div>
+    {% if notifications_payload.feed %}
+    <div class="list-stack">
+        {% for alert in notifications_payload.feed %}
+        <div class="list-item">
+            <div class="d-flex flex-wrap gap-2 justify-content-between">
+                <div class="list-item-title">{{ alert.headline }}</div>
+                <span class="status-pill status-{{ alert.severity_slug }}">{{ alert.severity }}</span>
+            </div>
+            <div class="muted-text mb-2">{{ alert.detail }}</div>
+            <div class="d-flex flex-wrap gap-2 align-items-center">
+                <span class="status-pill status-{{ alert.kind_slug }}">{{ alert.kind }}</span>
+                <span class="status-pill status-{{ alert.status_slug }}">{{ alert.status }}</span>
+                <small class="muted-text">{{ alert.timestamp_relative }}</small>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">No alert feed items are available for notifications right now.</div>
+    {% endif %}
+</section>
+{% endblock %}

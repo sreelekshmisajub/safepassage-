@@ -1,0 +1,23 @@
+{
+    "model_type": "Risk Classification",
+    "risk_categories": [
+        "High",
+        "Low",
+        "Medium"
+    ],
+    "feature_columns": [
+        "Total_Crimes",
+        "Avg_Severity",
+        "Night_Crime_Ratio",
+        "Weekend_Crime_Ratio",
+        "Police_Deployment",
+        "Case_Closure_Rate",
+        "State_Crime_Rate",
+        "Population_Density",
+        "Tourist_Risk_Factor",
+        "Night_Worker_Risk"
+    ],
+    "model_accuracy": 1.0,
+    "created_date": "2026-02-28T21:58:00.682588",
+    "version": "1.0"
+}

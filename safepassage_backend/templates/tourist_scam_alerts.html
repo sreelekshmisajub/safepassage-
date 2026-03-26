@@ -1,0 +1,156 @@
+{% extends "dashboard_base.html" %}
+
+{% block title %}Tourist Scam Alerts - SafePassage India{% endblock %}
+
+{% block dashboard_css %}
+<style>
+    .scam-shell {
+        background: rgba(255, 255, 255, 0.84);
+        border: 1px solid rgba(255, 255, 255, 0.78);
+        border-radius: 24px;
+        box-shadow: 0 10px 34px rgba(15, 23, 42, 0.08);
+        padding: 24px;
+    }
+    .scam-stack { display: flex; flex-direction: column; gap: 14px; }
+    .scam-card {
+        background: rgba(255, 250, 235, 0.82);
+        border: 1px solid rgba(245, 158, 11, 0.2);
+        border-radius: 18px;
+        padding: 16px;
+    }
+    .severity-pill {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 7px 12px;
+        border-radius: 999px;
+        font-size: 0.72rem;
+        font-weight: 800;
+        background: rgba(245, 158, 11, 0.16);
+        color: #b45309;
+    }
+</style>
+{% endblock %}
+
+{% block dashboard_content %}
+<div class="container-fluid py-2">
+    <div class="row mb-4">
+        <div class="col-lg-8">
+            <h2 class="fw-bold mb-1">Scam Alerts</h2>
+            <p class="text-muted mb-0">Location-specific scam hotspots and suspicious behavior patterns detected near your current position.</p>
+        </div>
+    </div>
+    <div class="row g-4">
+        <div class="col-xl-4">
+            <div class="scam-shell">
+                <div class="small text-muted">Current live zone</div>
+                <h4 class="fw-bold mb-2" id="scamZoneLabel">Waiting for GPS lock...</h4>
+                <p class="small text-muted mb-0" id="scamZoneAdvice">Scam intelligence will load after live location sync.</p>
+            </div>
+        </div>
+        <div class="col-xl-8">
+            <div class="scam-shell">
+                <h5 class="fw-bold mb-3">Scam watch feed</h5>
+                <div class="scam-stack" id="scamFeed">
+                    <div class="scam-card text-muted small">No scam data yet. GPS sync will populate nearby hotspot intelligence.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function escapeHtml(value) {
+        const div = document.createElement('div');
+        div.textContent = value == null ? '' : String(value);
+        return div.innerHTML;
+    }
+
+    function setText(id, value) {
+        const node = document.getElementById(id);
+        if (node) node.textContent = value;
+    }
+
+    function fetchJson(url) {
+        return fetch(url).then((response) => {
+            if (!response.ok) throw new Error(`Request failed: ${response.status}`);
+            return response.json();
+        });
+    }
+
+    function formatCoordinateLabel(lat, lng) {
+        return `Lat ${lat.toFixed(5)}, Lng ${lng.toFixed(5)}`;
+    }
+
+    function formatLocationLabel(label, lat, lng, fallback) {
+        if (label) return label;
+        if (lat != null && lng != null) return formatCoordinateLabel(lat, lng);
+        return fallback || 'Live location unavailable';
+    }
+
+    function refreshScams(lat, lng) {
+        const params = new URLSearchParams({ lat: lat.toFixed(6), lng: lng.toFixed(6) });
+        Promise.all([
+            fetchJson(`/api/incidents/?${params.toString()}`),
+            fetchJson(`/api/predict-risk/?${params.toString()}`),
+        ]).then(([incidents, risk]) => {
+            setText('scamZoneLabel', formatLocationLabel(risk.location, lat, lng, 'Live location unavailable'));
+            setText('scamZoneAdvice', risk.advice || 'No scam guidance available.');
+
+            const scamAlerts = [];
+            (risk.nearby_hotspots || []).forEach((hotspot) => {
+                if ((hotspot.risk_type || '').toLowerCase().includes('scam')) {
+                    scamAlerts.push({
+                        title: hotspot.city || hotspot.risk_type,
+                        description: hotspot.description,
+                        score: hotspot.risk_score,
+                    });
+                }
+            });
+            (incidents.alerts || []).forEach((alert) => {
+                const indicator = `${alert.incident_type || ''} ${alert.title || ''} ${alert.description || ''}`.toLowerCase();
+                if (indicator.includes('scam')) {
+                    scamAlerts.push({
+                        title: alert.title || 'Scam alert',
+                        description: alert.description || '',
+                        score: alert.severity || 'UNAVAILABLE',
+                    });
+                }
+            });
+
+            const container = document.getElementById('scamFeed');
+            if (!scamAlerts.length) {
+                container.innerHTML = '<div class="scam-card text-muted small">No scam-specific hotspots are stored near your current position right now.</div>';
+                return;
+            }
+
+            container.innerHTML = scamAlerts.map((item) => `
+                <div class="scam-card">
+                    <div class="d-flex justify-content-between align-items-start gap-3 mb-2">
+                        <div class="fw-bold">${escapeHtml(item.title || 'Scam hotspot')}</div>
+                        <span class="severity-pill">${escapeHtml(item.score)}</span>
+                    </div>
+                    <div class="small text-muted">${escapeHtml(item.description || '')}</div>
+                </div>
+            `).join('');
+        }).catch(() => {
+            setText('scamZoneAdvice', 'Scam feed refresh failed. We’ll retry on the next location update.');
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        if (!navigator.geolocation) {
+            setText('scamZoneLabel', 'Browser geolocation is unavailable.');
+            return;
+        }
+
+        navigator.geolocation.watchPosition((position) => {
+            refreshScams(position.coords.latitude, position.coords.longitude);
+        }, () => {
+            setText('scamZoneLabel', 'Location permission required for scam alerts.');
+        }, { enableHighAccuracy: true, maximumAge: 15000, timeout: 20000 });
+    });
+</script>
+{% endblock %}

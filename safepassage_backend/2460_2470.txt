@@ -1,0 +1,11 @@
+﻿2460:def worker_checkins(request):
+2461:    active_shift = Shift.objects.filter(user=request.user, status="active").order_by("-actual_start", "-start_time").first()
+2462:    history = Shift.objects.filter(user=request.user).order_by("-start_time")[:10]
+2463:    recent_checkins = CheckIn.objects.filter(user=request.user).order_by("-timestamp")[:10]
+2464:    current_lat, current_lng = _resolve_user_coordinates(request.user)
+2465:    return render(
+2466:        request,
+2467:        "worker_checkins.html",
+2468:        {
+2469:            "worker": _get_or_create_worker_profile(request.user),
+2470:            "active_shift": active_shift,
