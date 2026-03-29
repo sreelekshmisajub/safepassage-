@@ -1,302 +1,581 @@
 {% extends "dashboard_base.html" %}
 
-{% block title %}Worker Risk Map - SafePassage India{% endblock %}
+{% block title %}Worker Safety Map & Routes - SafePassage India{% endblock %}
 
 {% block dashboard_css %}
 <style>
-    .map-layout {
-        display: grid;
-        gap: 24px;
-        grid-template-columns: minmax(320px, 0.95fr) minmax(0, 1.4fr);
+    .main-content { padding: 0 !important; position: relative; background: #e2e8f0; }
+    #workerRiskMap { height: calc(100vh - 86px); width: 100%; }
+
+    .map-panel {
+        position: absolute;
+        top: 18px;
+        left: 18px;
+        width: min(390px, calc(100% - 36px));
+        z-index: 1000;
+        background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(14px);
+        border-radius: 24px;
+        box-shadow: 0 14px 38px rgba(15, 23, 42, 0.16);
+        padding: 18px;
+        max-height: calc(100vh - 120px);
+        overflow-y: auto;
     }
-    .search-panel {
-        background: #ffffff;
-        border: 1px solid rgba(148, 163, 184, 0.18);
-        border-radius: 26px;
-        box-shadow: 0 12px 32px rgba(15, 23, 42, 0.06);
-        padding: 24px;
-    }
-    .map-shell {
-        background: #ffffff;
-        border: 1px solid rgba(148, 163, 184, 0.18);
-        border-radius: 26px;
-        box-shadow: 0 12px 32px rgba(15, 23, 42, 0.06);
-        overflow: hidden;
-    }
-    .search-field {
-        border: 1px solid rgba(148, 163, 184, 0.24);
+    .map-card {
         border-radius: 16px;
-        padding: 12px 14px;
-        width: 100%;
+        background: rgba(248, 250, 252, 0.92);
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        padding: 13px 15px;
+        margin-top: 12px;
     }
-    .suggestion-list {
+    .map-tabs {
+        display: flex;
+        gap: 6px;
+        margin-bottom: 4px;
+    }
+    .map-tab {
+        flex: 1;
+        padding: 8px 10px;
+        border-radius: 12px;
+        border: 1px solid rgba(148,163,184,0.3);
+        background: rgba(248,250,252,0.9);
+        font-size: 0.78rem;
+        font-weight: 700;
+        color: #475569;
+        cursor: pointer;
+        text-align: center;
+        transition: all 0.18s;
+    }
+    .map-tab.active { background: #1e3a8a; color: white; border-color: #1e3a8a; }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* risk pills */
+    .risk-pill {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 5px 11px;
+        border-radius: 999px;
+        font-size: 0.71rem;
+        font-weight: 800;
+    }
+    .risk-low    { background: rgba(34,197,94,0.14); color: #166534; }
+    .risk-medium { background: rgba(245,158,11,0.16); color: #b45309; }
+    .risk-high   { background: rgba(239,68,68,0.14); color: #b91c1c; }
+    .risk-unavailable { background: rgba(100,116,139,0.14); color: #475569; }
+
+    /* legend */
+    .legend-row {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        font-size: 0.8rem;
+        color: #334155;
+        margin-bottom: 7px;
+    }
+    .legend-dot  { width: 12px; height: 12px; border-radius: 999px; flex-shrink: 0; }
+    .legend-line { width: 26px; height: 4px; border-radius: 2px; flex-shrink: 0; }
+
+    /* list items */
+    .list-stack { display: flex; flex-direction: column; gap: 8px; }
+    .list-item {
+        border-radius: 13px;
+        padding: 10px 12px;
+        background: white;
+        border: 1px solid rgba(148,163,184,0.16);
+    }
+
+    /* route search */
+    .route-input {
+        width: 100%;
+        border: 1px solid rgba(148,163,184,0.28);
+        border-radius: 12px;
+        padding: 9px 12px;
+        font-size: 0.83rem;
+        background: white;
+        margin-bottom: 8px;
+    }
+    .dest-results {
+        max-height: 170px;
+        overflow-y: auto;
         display: flex;
         flex-direction: column;
-        gap: 10px;
-        margin-top: 14px;
+        gap: 5px;
     }
-    .suggestion-item,
-    .search-empty {
-        background: rgba(248, 250, 252, 0.96);
-        border: 1px solid rgba(148, 163, 184, 0.14);
-        border-radius: 16px;
-        padding: 12px 14px;
-    }
-    .suggestion-item {
-        cursor: pointer;
-        text-align: left;
-    }
-    .search-empty {
-        color: #64748b;
-    }
-    #workerRiskMap {
-        height: 720px;
+    .dest-result {
         width: 100%;
+        text-align: left;
+        border: 1px solid rgba(148,163,184,0.18);
+        background: rgba(248,250,252,0.94);
+        border-radius: 11px;
+        padding: 8px 12px;
+        font-size: 0.81rem;
+        cursor: pointer;
+        transition: all 0.15s;
     }
-    .map-meta {
-        padding: 16px 20px;
-        color: #475569;
+    .dest-result:hover, .dest-result.active {
+        border-color: rgba(30,58,138,0.4);
+        background: rgba(219,234,254,0.8);
     }
-    @media (max-width: 1199.98px) {
-        .map-layout {
-            grid-template-columns: 1fr;
-        }
-        #workerRiskMap {
-            height: 460px;
-        }
+
+    /* route tier cards */
+    .tier-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+        margin-top: 10px;
     }
+    .tier-card {
+        border-radius: 14px;
+        border: 2px solid transparent;
+        padding: 10px 8px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.18s;
+        font-size: 0.75rem;
+    }
+    .tier-card.active { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(15,23,42,0.1); }
+    .tier-card.tier-low    { border-color: rgba(34,197,94,0.3);  background: rgba(34,197,94,0.06); }
+    .tier-card.tier-medium { border-color: rgba(245,158,11,0.3); background: rgba(245,158,11,0.06); }
+    .tier-card.tier-high   { border-color: rgba(239,68,68,0.28); background: rgba(239,68,68,0.06); }
+    .tier-card.active.tier-low    { border-color: #16a34a; background: rgba(34,197,94,0.12); }
+    .tier-card.active.tier-medium { border-color: #d97706; background: rgba(245,158,11,0.12); }
+    .tier-card.active.tier-high   { border-color: #dc2626; background: rgba(239,68,68,0.1);  }
 </style>
 {% endblock %}
 
 {% block dashboard_content %}
-<div class="container-fluid py-2">
-    <div class="map-layout">
-        <section class="search-panel">
-            <h2 class="fw-bold mb-1">Worker Risk Search</h2>
-            <p class="text-muted mb-4">Use your tracked location or search a place manually to inspect the live worker-risk view for that area.</p>
-            <div class="mb-3">
-                <label class="small text-uppercase text-muted fw-bold mb-2 d-block" for="workerMapSearchInput">Search place</label>
-                <input class="search-field" id="workerMapSearchInput" type="text" placeholder="Search a place in India">
-            </div>
-            <div class="d-grid gap-3">
-                <button class="btn btn-primary rounded-pill py-3 fw-bold" type="button" id="workerMapSearchButton">Search Location</button>
-                <button class="btn btn-outline-primary rounded-pill py-3 fw-bold" type="button" id="workerMapTrackedButton">Use My Tracked Location</button>
-            </div>
-            <div class="small text-muted mt-3" id="workerMapSearchMeta">Search suggestions will appear here while you type.</div>
-            <div class="suggestion-list" id="workerMapSuggestions">
-                <div class="search-empty">Type at least 2 characters to search a location manually.</div>
-            </div>
-        </section>
+<div id="workerRiskMap"></div>
 
-        <section class="map-shell">
-            <div id="workerRiskMap"></div>
-            <div class="map-meta" id="workerRiskMapMeta">Waiting for live worker location and risk data.</div>
-        </section>
+<div class="map-panel">
+    <h6 class="fw-bold mb-1">Safety Map &amp; Routes</h6>
+    <p class="small text-muted mb-2" style="font-size:0.74rem;">Live risk overlay · tap to analyse · route planner</p>
+
+    <div class="map-tabs">
+        <div class="map-tab active" id="tabRisk"   onclick="switchTab('risk')">
+            <i class="bi bi-broadcast me-1"></i>Risk Map
+        </div>
+        <div class="map-tab" id="tabRoute" onclick="switchTab('route')">
+            <i class="bi bi-sign-turn-right-fill me-1"></i>Route Planner
+        </div>
+    </div>
+
+    <!-- ── RISK MAP TAB ── -->
+    <div class="tab-panel active" id="panelRisk">
+
+        <div class="map-card">
+            <div class="d-flex justify-content-between align-items-start gap-2">
+                <div>
+                    <div class="small text-muted" style="font-size:0.72rem;">Live zone</div>
+                    <div class="fw-bold small" id="riskZoneLabel">Waiting for GPS…</div>
+                </div>
+                <span class="risk-pill risk-unavailable" id="riskBadge">LOCATING</span>
+            </div>
+            <p class="small text-muted mt-1 mb-1" id="riskAdvice" style="font-size:0.74rem;">Risk advice will appear once GPS is locked.</p>
+            <div class="small text-muted" style="font-size:0.72rem;" id="riskCoords">Coordinates pending</div>
+        </div>
+
+        <div class="map-card">
+            <div class="small text-muted mb-1" style="font-size:0.72rem;">Tap anywhere on the map to analyse</div>
+            <div class="fw-bold small" id="clickedZoneLabel">Tap the map to predict risk at any point.</div>
+            <p class="small text-muted mt-1 mb-0" id="clickedRiskAdvice" style="font-size:0.74rem;">Risk label and advice for the tapped point.</p>
+            <div class="small text-muted mt-1" style="font-size:0.72rem;" id="clickedCoords">No point selected yet</div>
+        </div>
+
+        <!-- LEGEND -->
+        <div class="map-card">
+            <div class="small fw-bold text-muted mb-2" style="font-size:0.72rem; text-transform:uppercase; letter-spacing:0.04em;">Map Legend</div>
+            <div class="legend-row"><span class="legend-dot" style="background:#10b981;"></span><span><strong>Green</strong> – Low-risk, safer area</span></div>
+            <div class="legend-row"><span class="legend-dot" style="background:#f59e0b;"></span><span><strong>Yellow</strong> – Medium-risk, stay alert</span></div>
+            <div class="legend-row"><span class="legend-dot" style="background:#ef4444;"></span><span><strong>Red</strong> – High-risk hotspot (crime / poorly-lit / accident-prone)</span></div>
+            <div class="legend-row"><span class="legend-dot" style="background:#2563eb;"></span><span><strong>Blue pin</strong> – Verified safe haven (police, hospital)</span></div>
+            <div class="legend-row" style="margin-bottom:0;"><span class="legend-dot" style="background:#8b5cf6;"></span><span><strong>Purple</strong> – Your live position</span></div>
+        </div>
+
+        <!-- NEARBY HOTSPOTS -->
+        <div class="map-card">
+            <div class="small text-muted mb-2" style="font-size:0.72rem;">Nearby risk hotspots</div>
+            <div class="list-stack" id="hotspotList">
+                <div class="list-item text-muted small">Hotspot data loads from your live position.</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── ROUTE PLANNER TAB ── -->
+    <div class="tab-panel" id="panelRoute">
+
+        <!-- Route color legend -->
+        <div class="map-card">
+            <div class="small fw-bold text-muted mb-2" style="font-size:0.72rem; text-transform:uppercase; letter-spacing:0.04em;">Route Color Guide</div>
+            <div class="legend-row"><span class="legend-line" style="background:#16a34a;"></span><span><strong>Green</strong> – Low risk (Safest path)</span></div>
+            <div class="legend-row"><span class="legend-line" style="background:#f59e0b;"></span><span><strong>Yellow</strong> – Medium risk (Balanced)</span></div>
+            <div class="legend-row" style="margin-bottom:0;"><span class="legend-line" style="background:#ef4444;"></span><span><strong>Red</strong> – High risk (Fastest)</span></div>
+        </div>
+
+        <div class="map-card">
+            <div class="small text-muted mb-1" style="font-size:0.72rem;" id="routeSourceStatus">Waiting for live GPS source…</div>
+            <label class="small text-muted mb-1 d-block" style="font-size:0.72rem;">Search a place in India</label>
+            <input type="text" class="route-input" id="routeDestInput" placeholder="Type city, landmark or area…" autocomplete="off">
+            <div class="dest-results" id="routeDestResults">
+                <div class="dest-result text-muted">Type a place to search.</div>
+            </div>
+            <div class="d-grid gap-1 mt-2">
+                <button class="btn btn-primary rounded-pill fw-bold btn-sm" type="button" id="buildRouteBtn">
+                    <i class="bi bi-arrow-right-circle-fill me-1"></i>Build Safe Route
+                </button>
+                <button class="btn btn-outline-secondary rounded-pill btn-sm" type="button" id="centerMapBtn">
+                    <i class="bi bi-crosshair me-1"></i>Use My Tracked Location
+                </button>
+            </div>
+        </div>
+
+        <!-- Route tier cards -->
+        <div class="map-card" id="routeTierCard" style="display:none;">
+            <div class="small fw-bold text-muted mb-1" style="font-size:0.72rem; text-transform:uppercase;">Select Route</div>
+            <div class="tier-grid" id="routeTierGrid"></div>
+        </div>
+
+        <!-- Route summary -->
+        <div class="map-card" id="routeSummaryCard" style="display:none;">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+                <div class="small fw-bold" id="routeDestLabel">Destination</div>
+                <span class="risk-pill risk-unavailable" id="routeOverallBadge">--</span>
+            </div>
+            <div class="small text-muted mb-1" id="routeDistLabel">Distance: --</div>
+            <p class="small text-muted mb-0" id="routeAdviceLabel" style="font-size:0.74rem;">Route advice will appear here.</p>
+        </div>
+
+        <!-- Hotspots on corridor -->
+        <div class="map-card" id="routeHotspotCard" style="display:none;">
+            <div class="small fw-bold text-muted mb-1" style="font-size:0.72rem; text-transform:uppercase;">Risk Hotspots on Corridor</div>
+            <div class="small text-muted mb-2" style="font-size:0.71rem;">High-crime zones, poorly-lit stretches, and accident-prone areas along your route.</div>
+            <div class="list-stack" id="routeHotspotList"></div>
+        </div>
     </div>
 </div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
-    let workerRiskMap;
-    let workerRiskLayers = [];
-    let workerMapSearchResults = [];
-    let workerMapSelectedPlace = null;
+    const ws = {
+        map: null,
+        activeTab: 'risk',
+        // risk map state
+        userMarker: null,
+        clickMarker: null,
+        riskLayers: [],
+        // route state
+        routeSource: null,
+        destMarker: null,
+        routePolylines: {},
+        routeOptions: [],
+        activeRouteId: null,
+        searchTimer: null,
+    };
 
-    function workerRiskMapInit() {
-        if (workerRiskMap) return;
-        workerRiskMap = L.map('workerRiskMap').setView([9.9674, 76.2454], 13);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; OpenStreetMap contributors'
-        }).addTo(workerRiskMap);
+    /* ── utilities ── */
+    function riskClass(label) {
+        const v = String(label || '').toUpperCase();
+        if (v === 'HIGH') return 'risk-high';
+        if (v === 'MEDIUM') return 'risk-medium';
+        if (v === 'LOW') return 'risk-low';
+        return 'risk-unavailable';
+    }
+    function setText(id, val) { const n = document.getElementById(id); if (n) n.textContent = val; }
+    function setRiskBadge(id, label) {
+        const n = document.getElementById(id);
+        const v = label || 'UNAVAILABLE';
+        n.textContent = v; n.className = `risk-pill ${riskClass(v)}`;
+    }
+    function escapeHtml(v) { const d = document.createElement('div'); d.textContent = v==null?'':String(v); return d.innerHTML; }
+    function fetchJson(url, opts) {
+        return fetch(url, opts).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); });
+    }
+    function fmtCoord(lat, lng) { return `Lat ${Number(lat).toFixed(5)}, Lng ${Number(lng).toFixed(5)}`; }
+    function hotspotLevel(score) { return score >= 75 ? 'HIGH' : score >= 45 ? 'MEDIUM' : 'LOW'; }
+
+    /* ── tab switching ── */
+    function switchTab(tab) {
+        ws.activeTab = tab;
+        document.getElementById('tabRisk').classList.toggle('active', tab === 'risk');
+        document.getElementById('tabRoute').classList.toggle('active', tab === 'route');
+        document.getElementById('panelRisk').classList.toggle('active', tab === 'risk');
+        document.getElementById('panelRoute').classList.toggle('active', tab === 'route');
     }
 
-    function workerRiskMapReset() {
-        workerRiskLayers.forEach((layer) => workerRiskMap.removeLayer(layer));
-        workerRiskLayers = [];
-    }
+    /* ── map init ── */
+    function initMap() {
+        ws.map = L.map('workerRiskMap', { zoomControl: false, attributionControl: false }).setView([20.5937, 78.9629], 5);
+        L.control.zoom({ position: 'bottomright' }).addTo(ws.map);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(ws.map);
 
-    function workerMapRenderSuggestions(results) {
-        const container = document.getElementById('workerMapSuggestions');
-        if (!container) return;
-        if (!results.length) {
-            container.innerHTML = '<div class="search-empty">No manual location matches found.</div>';
-            return;
-        }
-        container.innerHTML = '';
-        results.forEach((item) => {
-            const button = document.createElement('button');
-            button.type = 'button';
-            button.className = 'suggestion-item';
-            button.innerHTML = `<strong></strong><br><span class="text-muted small"></span>`;
-            button.querySelector('strong').textContent = item.name || 'Location';
-            button.querySelector('span').textContent = `${item.kind || ''} ${item.description || ''}`.trim();
-            button.addEventListener('click', () => workerMapChoosePlace(item));
-            container.appendChild(button);
+        ws.map.on('click', e => {
+            const { lat, lng } = e.latlng;
+            if (ws.activeTab === 'risk') {
+                if (!ws.clickMarker) ws.clickMarker = L.marker([lat, lng]).addTo(ws.map);
+                else ws.clickMarker.setLatLng([lat, lng]);
+                analyzePoint(lat, lng, 'clicked');
+            } else {
+                pinDestination(lat, lng);
+                buildRoute();
+            }
         });
     }
 
-    function workerMapChoosePlace(place) {
-        workerMapSelectedPlace = place;
-        document.getElementById('workerMapSearchInput').value = place.name || '';
-        document.getElementById('workerMapSearchMeta').textContent = `Selected manual location: ${place.name || 'Location'}`;
-        workerMapLoadRisk(place.latitude, place.longitude, place.name || 'Selected location');
+    /* ── risk map ── */
+    function clearRiskLayers() {
+        ws.riskLayers.forEach(l => ws.map.removeLayer(l));
+        ws.riskLayers = [];
     }
 
-    function workerMapSearchPlaces(query) {
-        if (query.length < 2) {
-            workerMapSearchResults = [];
-            workerMapRenderSuggestions([]);
+    function renderHotspotList(hotspots) {
+        const c = document.getElementById('hotspotList');
+        if (!hotspots || !hotspots.length) {
+            c.innerHTML = '<div class="list-item text-muted small">No nearby hotspots for this area.</div>';
             return;
         }
-        fetch(`/api/worker/place-search/?q=${encodeURIComponent(query)}`)
-            .then((response) => {
-                if (!response.ok) {
-                    throw new Error(`Worker place search failed: ${response.status}`);
-                }
-                return response.json();
-            })
-            .then((payload) => {
-                workerMapSearchResults = payload.results || [];
-                workerMapRenderSuggestions(workerMapSearchResults);
-            })
-            .catch(() => {
-                workerMapSearchResults = [];
-                workerMapRenderSuggestions([]);
-            });
+        c.innerHTML = hotspots.map(h => {
+            const rl = hotspotLevel(h.risk_score);
+            return `<div class="list-item">
+                <div class="d-flex justify-content-between align-items-start gap-2">
+                    <div>
+                        <div class="fw-bold small">${escapeHtml(h.city || h.risk_type)}</div>
+                        <div class="small text-muted">${escapeHtml(h.description || h.risk_type || '')}</div>
+                    </div>
+                    <span class="risk-pill ${riskClass(rl)}">${h.risk_score}%</span>
+                </div>
+            </div>`;
+        }).join('');
     }
 
-    function workerMapResolvePlaceFromInput() {
-        if (workerMapSelectedPlace) {
-            return Promise.resolve(workerMapSelectedPlace);
-        }
-        const rawInput = document.getElementById('workerMapSearchInput').value.trim();
-        if (!rawInput) {
-            return Promise.resolve(null);
-        }
-        if (workerMapSearchResults.length) {
-            const exact = workerMapSearchResults.find((item) => (item.name || '').toLowerCase() === rawInput.toLowerCase());
-            const chosen = exact || workerMapSearchResults[0];
-            workerMapChoosePlace(chosen);
-            return Promise.resolve(chosen);
-        }
-        return fetch(`/api/worker/place-search/?q=${encodeURIComponent(rawInput)}`)
-            .then((response) => {
-                if (!response.ok) {
-                    throw new Error(`Worker place search failed: ${response.status}`);
+    function renderRiskOverlays(payload) {
+        clearRiskLayers();
+        (payload.nearby_hotspots || []).forEach(h => {
+            const color = h.risk_score >= 75 ? '#ef4444' : h.risk_score >= 45 ? '#f59e0b' : '#10b981';
+            const l = L.circle([h.latitude, h.longitude], { color, fillColor: color, fillOpacity: 0.2, radius: 400, weight: 2 })
+                .addTo(ws.map)
+                .bindPopup(`<strong>${escapeHtml(h.city||h.risk_type)}</strong><br>${escapeHtml(h.description||'')}<br><small>Risk ${h.risk_score}%</small>`);
+            ws.riskLayers.push(l);
+        });
+        (payload.nearby_safe_havens || payload.nearby_resources || []).forEach(r => {
+            const l = L.circleMarker([r.latitude, r.longitude], { radius: 8, color: '#2563eb', fillColor: '#60a5fa', fillOpacity: 0.95, weight: 2 })
+                .addTo(ws.map)
+                .bindPopup(`<strong>${escapeHtml(r.name)}</strong><br>${escapeHtml(r.type||'')}`);
+            ws.riskLayers.push(l);
+        });
+    }
+
+    function analyzePoint(lat, lng, target) {
+        fetchJson(`/api/worker/risk/?lat=${lat.toFixed(6)}&lng=${lng.toFixed(6)}`)
+            .then(payload => {
+                const loc = payload.location || fmtCoord(lat, lng);
+                const rl  = payload.risk_label || 'UNAVAILABLE';
+                if (target === 'current') {
+                    setText('riskZoneLabel', loc);
+                    setRiskBadge('riskBadge', rl);
+                    setText('riskAdvice', payload.risk_advice || payload.advice || 'No advice available.');
+                    setText('riskCoords', fmtCoord(lat, lng));
+                    renderHotspotList(payload.nearby_hotspots || []);
+                    renderRiskOverlays(payload);
+                } else {
+                    setText('clickedZoneLabel', loc);
+                    setText('clickedRiskAdvice', `${rl} – ${payload.risk_advice || payload.advice || 'No advice.'}`);
+                    setText('clickedCoords', fmtCoord(lat, lng));
                 }
-                return response.json();
             })
-            .then((payload) => {
+            .catch(() => setText(target === 'current' ? 'riskAdvice' : 'clickedRiskAdvice', 'Risk analysis failed. Will retry on next GPS update.'));
+    }
+
+    /* ── route planner ── */
+    function clearRoutePolylines() {
+        Object.values(ws.routePolylines).forEach(p => ws.map.removeLayer(p));
+        ws.routePolylines = {};
+    }
+
+    function pinDestination(lat, lng, label) {
+        const lbl = label || `Pinned (${lat.toFixed(4)}, ${lng.toFixed(4)})`;
+        ws._dest = { placeId: '', lat, lng, label: lbl };
+        document.getElementById('routeDestInput').value = lbl;
+        if (!ws.destMarker) ws.destMarker = L.marker([lat, lng]).addTo(ws.map);
+        else ws.destMarker.setLatLng([lat, lng]);
+        ws.destMarker.bindPopup(`<strong>${escapeHtml(lbl)}</strong>`);
+    }
+
+    function drawAllRoutes() {
+        ws.routeOptions.forEach(opt => {
+            if (!opt.polyline || !opt.polyline.length) return;
+            const isActive = opt.id === ws.activeRouteId;
+            const poly = L.polyline(opt.polyline, {
+                color: opt.color || '#2563eb',
+                weight: isActive ? 6 : 4,
+                opacity: isActive ? 0.92 : 0.3,
+                dashArray: isActive ? null : '8, 6',
+            }).addTo(ws.map);
+            poly.bindTooltip(
+                `<strong>${opt.title}</strong><br>` +
+                `${(opt.route_summary||{}).overall_risk_label||'--'} · ` +
+                `${(opt.route_summary||{}).distance_km != null ? (opt.route_summary.distance_km+' km') : '--'}`,
+                { sticky: true }
+            );
+            poly.on('click', () => selectRoute(opt.id));
+            ws.routePolylines[opt.id] = poly;
+        });
+        const activePoly = ws.routePolylines[ws.activeRouteId];
+        if (activePoly) ws.map.fitBounds(activePoly.getBounds(), { padding: [40, 40] });
+    }
+
+    function updateRouteStyles() {
+        ws.routeOptions.forEach(opt => {
+            const poly = ws.routePolylines[opt.id];
+            if (!poly) return;
+            const isActive = opt.id === ws.activeRouteId;
+            poly.setStyle({ weight: isActive ? 6 : 4, opacity: isActive ? 0.92 : 0.3, dashArray: isActive ? null : '8, 6' });
+        });
+        const activePoly = ws.routePolylines[ws.activeRouteId];
+        if (activePoly) ws.map.fitBounds(activePoly.getBounds(), { padding: [40, 40] });
+    }
+
+    function renderTierGrid() {
+        const grid = document.getElementById('routeTierGrid');
+        grid.innerHTML = ws.routeOptions.map(opt => {
+            const tier = opt.tier || 'medium';
+            const summary = opt.route_summary || {};
+            const riskLabel = summary.overall_risk_label || opt.tier_label || '--';
+            const dist = summary.distance_km != null ? `${summary.distance_km} km` : '--';
+            const isActive = opt.id === ws.activeRouteId;
+            return `<button type="button" class="tier-card tier-${tier} ${isActive ? 'active' : ''}" onclick="selectRoute('${opt.id}')">
+                <div class="fw-bold" style="font-size:0.75rem;">${escapeHtml(opt.title||opt.id)}</div>
+                <div class="small text-muted">${escapeHtml(riskLabel)}</div>
+                <div class="small text-muted">${escapeHtml(dist)}</div>
+            </button>`;
+        }).join('');
+        document.getElementById('routeTierCard').style.display = '';
+    }
+
+    function updateRouteDetails(opt) {
+        const summary = opt.route_summary || {};
+        setText('routeDestLabel', ws._dest ? ws._dest.label : 'Destination');
+        setRiskBadge('routeOverallBadge', summary.overall_risk_label || 'UNAVAILABLE');
+        setText('routeDistLabel', `Distance: ${summary.distance_km != null ? summary.distance_km + ' km' : '--'} · ${opt.strategy_label || opt.strategy || '--'}`);
+        const advisories = summary.advisories || [];
+        setText('routeAdviceLabel', advisories.join(' ') || 'Route computed.');
+        document.getElementById('routeSummaryCard').style.display = '';
+
+        // Hotspots on corridor
+        const hotspots = opt.risk_hotspots || [];
+        if (hotspots.length) {
+            document.getElementById('routeHotspotCard').style.display = '';
+            document.getElementById('routeHotspotList').innerHTML = hotspots.map(h => {
+                const rl = hotspotLevel(h.risk_score);
+                return `<div class="list-item">
+                    <div class="d-flex justify-content-between gap-2">
+                        <div>
+                            <div class="fw-bold small">${escapeHtml(h.risk_type)}</div>
+                            <div class="small text-muted">${escapeHtml(h.description||'')}</div>
+                        </div>
+                        <span class="risk-pill ${riskClass(rl)}">${h.risk_score}%</span>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+    }
+
+    function selectRoute(routeId) {
+        const opt = ws.routeOptions.find(o => o.id === routeId);
+        if (!opt) return;
+        ws.activeRouteId = routeId;
+        renderTierGrid();
+        updateRouteDetails(opt);
+        if (Object.keys(ws.routePolylines).length) {
+            updateRouteStyles();
+        }
+    }
+
+    function buildRoute() {
+        if (!ws.routeSource) { setText('routeAdviceLabel', 'Live GPS source still loading.'); return; }
+        if (!ws._dest) { setText('routeAdviceLabel', 'Search or tap the map to set a destination.'); return; }
+        clearRoutePolylines();
+        const params = new URLSearchParams({
+            source_lat: ws.routeSource.lat, source_lng: ws.routeSource.lng,
+            destination_place: ws._dest.placeId || '',
+            destination_label: ws._dest.label,
+            dest_lat: ws._dest.lat, dest_lng: ws._dest.lng,
+        });
+        fetchJson(`/api/worker/safe-route/?${params.toString()}`)
+            .then(payload => {
+                ws.routeOptions = payload.route_options || [];
+                if (!ws.routeOptions.length) {
+                    setText('routeAdviceLabel', 'No route options returned for this destination.');
+                    return;
+                }
+                ws.activeRouteId = payload.default_route_tier || ws.routeOptions[0].id;
+                renderTierGrid();
+                drawAllRoutes();
+                const active = ws.routeOptions.find(o => o.id === ws.activeRouteId) || ws.routeOptions[0];
+                updateRouteDetails(active);
+            })
+            .catch(() => setText('routeAdviceLabel', 'Route generation failed. Check destination and retry.'));
+    }
+
+    function searchDestinations(q) {
+        if (q.trim().length < 2) return;
+        fetchJson(`/api/worker/place-search/?q=${encodeURIComponent(q.trim())}`)
+            .then(payload => {
                 const results = payload.results || [];
-                workerMapSearchResults = results;
-                workerMapRenderSuggestions(results);
-                if (!results.length) {
-                    return null;
-                }
-                const exact = results.find((item) => (item.name || '').toLowerCase() === rawInput.toLowerCase());
-                const chosen = exact || results[0];
-                workerMapChoosePlace(chosen);
-                return chosen;
-            })
-            .catch(() => null);
+                const c = document.getElementById('routeDestResults');
+                if (!results.length) { c.innerHTML = '<div class="dest-result text-muted">No matching places found.</div>'; return; }
+                c.innerHTML = results.map(item => `
+                    <button type="button" class="dest-result"
+                        data-lat="${item.latitude}" data-lng="${item.longitude}"
+                        data-name="${escapeHtml(item.name)}" data-id="${escapeHtml(item.id||'')}">
+                        <div class="fw-bold">${escapeHtml(item.name)}</div>
+                        <div class="text-muted" style="font-size:0.71rem;">${escapeHtml(item.kind||'Destination')}</div>
+                    </button>
+                `).join('');
+                c.querySelectorAll('.dest-result').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        pinDestination(Number(btn.dataset.lat), Number(btn.dataset.lng), btn.dataset.name);
+                        ws._dest.placeId = btn.dataset.id || '';
+                    });
+                });
+            }).catch(() => {});
     }
 
-    function workerMapRenderPayload(payload, preferredLabel) {
-        const focusCoordinates = payload.coordinates || {};
-        if (focusCoordinates.latitude == null || focusCoordinates.longitude == null) {
-            throw new Error('No worker coordinates available.');
-        }
-        workerRiskMapReset();
-        workerRiskMap.setView([focusCoordinates.latitude, focusCoordinates.longitude], 14);
-        workerRiskLayers.push(L.marker([focusCoordinates.latitude, focusCoordinates.longitude]).addTo(workerRiskMap).bindPopup(payload.location || preferredLabel || 'Current worker location'));
-        (payload.nearby_hotspots || []).forEach((hotspot) => {
-            workerRiskLayers.push(
-                L.circle([hotspot.latitude, hotspot.longitude], {
-                    radius: 180,
-                    color: '#ef4444',
-                    fillColor: '#fca5a5',
-                    fillOpacity: 0.22,
-                }).addTo(workerRiskMap).bindPopup(`<strong>${hotspot.city || hotspot.risk_type}</strong><br>${hotspot.description || 'Risk hotspot'}`)
-            );
-        });
-        (payload.nearby_safe_havens || []).forEach((haven) => {
-            workerRiskLayers.push(
-                L.circleMarker([haven.latitude, haven.longitude], {
-                    radius: 8,
-                    color: '#2563eb',
-                    fillColor: '#60a5fa',
-                    fillOpacity: 0.85,
-                }).addTo(workerRiskMap).bindPopup(`<strong>${haven.name}</strong><br>${haven.type}`)
-            );
-        });
-        document.getElementById('workerRiskMapMeta').textContent = `Location: ${payload.location || preferredLabel || 'Unknown area'} | Risk score: ${payload.risk_score == null ? '--' : payload.risk_score + '%'} | Hotspots: ${(payload.nearby_hotspots || []).length} | Safe havens: ${(payload.nearby_safe_havens || []).length}`;
-    }
+    /* ── GPS tracking ── */
+    function startTracking() {
+        if (!navigator.geolocation) { setText('riskZoneLabel', 'Browser geolocation unavailable.'); return; }
+        navigator.geolocation.watchPosition(pos => {
+            const lat = pos.coords.latitude, lng = pos.coords.longitude;
+            ws.routeSource = { lat, lng };
+            setText('routeSourceStatus', `Live source: ${lat.toFixed(4)}, ${lng.toFixed(4)}`);
 
-    function workerMapLoadRisk(lat, lng, label) {
-        const params = new URLSearchParams();
-        if (lat != null && lng != null) {
-            params.set('lat', lat);
-            params.set('lng', lng);
-        }
-        const endpoint = params.toString() ? `/api/worker/risk/?${params.toString()}` : '/api/worker/risk/';
-        return fetch(endpoint)
-            .then((response) => {
-                if (!response.ok) {
-                    throw new Error(`Worker risk request failed: ${response.status}`);
-                }
-                return response.json();
-            })
-            .then((payload) => workerMapRenderPayload(payload, label))
-            .catch(() => {
-                document.getElementById('workerRiskMapMeta').textContent = 'No live or saved worker location is available for the risk map.';
-            });
+            if (!ws.userMarker) {
+                ws.userMarker = L.circleMarker([lat, lng], {
+                    radius: 9, color: '#8b5cf6', fillColor: '#a78bfa', fillOpacity: 0.9, weight: 2,
+                }).addTo(ws.map).bindPopup('Your location');
+            } else {
+                ws.userMarker.setLatLng([lat, lng]);
+            }
+            ws.map.setView([lat, lng], 14);
+            if (ws.activeTab === 'risk') analyzePoint(lat, lng, 'current');
+        }, () => setText('riskZoneLabel', 'Location permission required.'),
+        { enableHighAccuracy: true, maximumAge: 15000, timeout: 20000 });
     }
 
     document.addEventListener('DOMContentLoaded', () => {
-        workerRiskMapInit();
-        document.getElementById('workerMapSearchInput').addEventListener('input', (event) => {
-            if (workerMapSelectedPlace && event.target.value.trim() !== (workerMapSelectedPlace.name || '')) {
-                workerMapSelectedPlace = null;
-            }
-            workerMapSearchPlaces(event.target.value.trim());
+        initMap();
+        startTracking();
+
+        const destInput = document.getElementById('routeDestInput');
+        destInput.addEventListener('input', () => {
+            clearTimeout(ws.searchTimer);
+            ws.searchTimer = setTimeout(() => searchDestinations(destInput.value), 300);
         });
-        document.getElementById('workerMapSearchInput').addEventListener('keydown', (event) => {
-            if (event.key === 'Enter') {
-                event.preventDefault();
-                workerMapResolvePlaceFromInput().then((place) => {
-                    if (!place) {
-                        document.getElementById('workerMapSearchMeta').textContent = 'No matching manual location was found.';
-                    }
-                });
-            }
-        });
-        document.getElementById('workerMapSearchButton').addEventListener('click', () => {
-            workerMapResolvePlaceFromInput().then((place) => {
-                if (!place) {
-                    document.getElementById('workerMapSearchMeta').textContent = 'No matching manual location was found.';
-                }
-            });
-        });
-        document.getElementById('workerMapTrackedButton').addEventListener('click', () => {
-            workerMapSelectedPlace = null;
-            resolveCurrentLocation().then((coords) => {
-                if (!coords) {
-                    document.getElementById('workerMapSearchMeta').textContent = 'No live or saved tracked location is available.';
-                    return;
-                }
-                document.getElementById('workerMapSearchMeta').textContent = 'Using your tracked worker location.';
-                workerMapLoadRisk(coords.lat, coords.lng, 'Tracked worker location');
-            });
-        });
-        resolveCurrentLocation().then((coords) => {
-            if (coords) {
-                document.getElementById('workerMapSearchMeta').textContent = 'Using your tracked worker location. You can also search a place manually.';
-                workerMapLoadRisk(coords.lat, coords.lng, 'Tracked worker location');
-                return;
-            }
-            document.getElementById('workerMapSearchMeta').textContent = 'Tracked location is unavailable. Search a place manually to inspect the risk map.';
-            workerMapLoadRisk(null, null, null);
+        destInput.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); buildRoute(); } });
+        document.getElementById('buildRouteBtn').addEventListener('click', buildRoute);
+        document.getElementById('centerMapBtn').addEventListener('click', () => {
+            if (ws.routeSource) ws.map.setView([ws.routeSource.lat, ws.routeSource.lng], 14);
         });
     });
 </script>

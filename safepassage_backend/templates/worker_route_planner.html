@@ -126,6 +126,28 @@
     .empty-state {
         color: #64748b;
     }
+    .route-legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 14px;
+        margin-top: 14px;
+        padding: 12px 16px;
+        background: rgba(248,250,252,0.9);
+        border-radius: 16px;
+        border: 1px solid rgba(148,163,184,0.18);
+    }
+    .legend-entry {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        font-size: 0.8rem;
+        color: #334155;
+    }
+    .legend-line {
+        width: 28px;
+        height: 4px;
+        border-radius: 2px;
+    }
     @media (max-width: 1199.98px) {
         .route-shell,
         .route-summary,
@@ -158,6 +180,14 @@
                 </div>
             </div>
             <button class="btn btn-primary rounded-pill py-3 w-100 fw-bold" type="button" id="workerGenerateRouteButton">Generate Safe Route</button>
+
+            <!-- Route Color Legend -->
+            <div class="route-legend">
+                <div class="legend-entry"><div class="legend-line" style="background:#16a34a;"></div><span><strong>Green</strong> – Low Risk (Safest)</span></div>
+                <div class="legend-entry"><div class="legend-line" style="background:#f59e0b;"></div><span><strong>Yellow</strong> – Medium Risk</span></div>
+                <div class="legend-entry"><div class="legend-line" style="background:#ef4444;"></div><span><strong>Red</strong> – High Risk (Fastest)</span></div>
+            </div>
+
             <div class="route-tier-grid" id="workerRouteTierGrid">
                 <div class="empty-state">Low, medium, and high risk route options will appear after route generation.</div>
             </div>
@@ -181,7 +211,7 @@
 {% block extra_js %}
 <script>
     let workerRouteMap;
-    let workerRoutePolyline = null;
+    let workerRoutePolylines = {};   // all drawn route polylines keyed by tier id
     let workerRouteMarkers = [];
     let workerSelectedDestination = null;
     let workerRouteSearchResults = [];
@@ -204,10 +234,52 @@
     }
 
     function routeResetMap() {
-        if (workerRoutePolyline) workerRouteMap.removeLayer(workerRoutePolyline);
+        // Remove all route polylines
+        Object.values(workerRoutePolylines).forEach(poly => workerRouteMap.removeLayer(poly));
+        workerRoutePolylines = {};
         workerRouteMarkers.forEach((marker) => workerRouteMap.removeLayer(marker));
         workerRouteMarkers = [];
-        workerRoutePolyline = null;
+    }
+
+    function routeDrawAllOptions() {
+        // Draw all 3 route options with proper colors; non-selected are faded
+        workerRouteOptions.forEach(option => {
+            if (!option.polyline || !option.polyline.length) return;
+            const isActive = option.id === workerActiveRouteId;
+            const poly = L.polyline(option.polyline, {
+                color: option.color || '#2563eb',
+                weight: isActive ? 6 : 4,
+                opacity: isActive ? 0.92 : 0.32,
+                dashArray: isActive ? null : '8, 6',
+            }).addTo(workerRouteMap);
+            poly.bindTooltip(
+                `<strong>${option.title}</strong><br>` +
+                `Risk: ${(option.route_summary || {}).overall_risk_label || '--'} · ` +
+                `${(option.route_summary || {}).distance_km != null ? (option.route_summary.distance_km + ' km') : '--'}`,
+                { sticky: true }
+            );
+            poly.on('click', () => routeSelectOption(option.id));
+            workerRoutePolylines[option.id] = poly;
+        });
+
+        // Fit map to the active route bounds
+        const activePoly = workerRoutePolylines[workerActiveRouteId];
+        if (activePoly) {
+            workerRouteMap.fitBounds(activePoly.getBounds(), { padding: [20, 20] });
+        }
+    }
+
+    function routeUpdatePolylineStyles() {
+        workerRouteOptions.forEach(option => {
+            const poly = workerRoutePolylines[option.id];
+            if (!poly) return;
+            const isActive = option.id === workerActiveRouteId;
+            poly.setStyle({
+                weight: isActive ? 6 : 4,
+                opacity: isActive ? 0.92 : 0.32,
+                dashArray: isActive ? null : '8, 6',
+            });
+        });
     }
 
     function routeChooseDestination(item) {
@@ -302,9 +374,27 @@
             polyline: payload.polyline || [],
             route_summary: payload.route_summary || {},
         }];
+        // Default to safest (low risk) route
         const selectedRouteId = payload.default_route_tier || workerRouteOptions[0].id;
+        workerActiveRouteId = selectedRouteId;
         routeRenderTierCards(workerRouteOptions, selectedRouteId);
-        routeSelectOption(selectedRouteId);
+
+        // Clear old layers and draw all routes at once
+        routeResetMap();
+        routeDrawAllOptions();
+
+        // Update summary for selected route
+        const selectedOption = workerRouteOptions.find(o => o.id === selectedRouteId);
+        if (selectedOption) {
+            const summary = selectedOption.route_summary || {};
+            document.getElementById('workerRouteRisk').textContent = routeRiskSummary(summary);
+            document.getElementById('workerRouteDistance').textContent = summary.distance_km != null ? `${summary.distance_km} km` : '--';
+            document.getElementById('workerRouteStrategy').textContent = selectedOption.strategy_label || selectedOption.strategy || '--';
+            const advisories = summary.advisories || [];
+            document.getElementById('workerRouteAdviceList').innerHTML = advisories.length
+                ? advisories.map(item => `<div class="stack-item">${item}</div>`).join('')
+                : '<div class="empty-state">No live advisories for this route.</div>';
+        }
     }
 
     function routeRiskTone(tier) {
@@ -353,9 +443,7 @@
 
     function routeSelectOption(routeId) {
         const selectedOption = workerRouteOptions.find((option) => option.id === routeId);
-        if (!selectedOption) {
-            return;
-        }
+        if (!selectedOption) return;
         workerActiveRouteId = routeId;
         routeRenderTierCards(workerRouteOptions, workerActiveRouteId);
 
@@ -367,18 +455,14 @@
         const advisories = summary.advisories || [];
         adviceList.innerHTML = advisories.length
             ? advisories.map((item) => `<div class="stack-item">${item}</div>`).join('')
-            : '<div class="empty-state">No live advisories were returned for this route.</div>';
+            : '<div class="empty-state">No live advisories returned for this route.</div>';
 
-        routeResetMap();
-        workerRoutePolyline = L.polyline(selectedOption.polyline || [], { color: selectedOption.color || '#2563eb', weight: 6, opacity: 0.85 }).addTo(workerRouteMap);
-        if ((selectedOption.polyline || []).length) {
-            workerRouteMap.fitBounds(workerRoutePolyline.getBounds(), { padding: [20, 20] });
+        // If routes are already drawn, just update styles (no full redraw)
+        if (Object.keys(workerRoutePolylines).length > 0) {
+            routeUpdatePolylineStyles();
+            const activePoly = workerRoutePolylines[workerActiveRouteId];
+            if (activePoly) workerRouteMap.fitBounds(activePoly.getBounds(), { padding: [20, 20] });
         }
-        (selectedOption.route || []).forEach((stop) => {
-            workerRouteMarkers.push(
-                L.marker([stop.latitude, stop.longitude]).addTo(workerRouteMap).bindPopup(`<strong>${stop.location}</strong><br>${stop.risk_label}`)
-            );
-        });
     }
 
     function routeGenerate() {

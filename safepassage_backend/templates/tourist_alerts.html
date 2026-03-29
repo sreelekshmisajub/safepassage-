@@ -12,12 +12,14 @@
         padding: 24px;
     }
     .alert-stack { display: flex; flex-direction: column; gap: 14px; }
+    .alert-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
     .alert-card {
         background: rgba(248, 250, 252, 0.94);
         border: 1px solid rgba(148, 163, 184, 0.18);
         border-radius: 18px;
         padding: 16px;
     }
+    .alert-card h6 { margin-bottom: 6px; }
     .severity-pill {
         display: inline-flex;
         align-items: center;
@@ -31,6 +33,7 @@
     .risk-medium { background: rgba(245, 158, 11, 0.14); color: #b45309; }
     .risk-high { background: rgba(239, 68, 68, 0.12); color: #b91c1c; }
     .risk-unavailable { background: rgba(100, 116, 139, 0.14); color: #475569; }
+    @media (max-width: 767.98px) { .alert-grid { grid-template-columns: 1fr; } }
 </style>
 {% endblock %}
 
@@ -57,6 +60,9 @@
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <h5 class="fw-bold mb-0">Live alert feed</h5>
                     <button class="btn btn-outline-primary rounded-pill px-4" type="button" id="alertRefreshButton">Refresh</button>
+                </div>
+                <div class="alert-grid mb-4" id="alertCategoryGrid">
+                    <div class="alert-card text-muted small">Notification categories will load after live location sync.</div>
                 </div>
                 <div class="alert-stack" id="alertFeed">
                     <div class="alert-card text-muted small">No live alerts yet. GPS sync will start this feed automatically.</div>
@@ -110,6 +116,51 @@
         return label || 'UNAVAILABLE';
     }
 
+    function renderNotificationCategories(risk, alerts, weather, culture) {
+        const alertList = alerts && Array.isArray(alerts.alerts) ? alerts.alerts : [];
+        const culturalWarnings = culture && Array.isArray(culture.scam_alerts) ? culture.scam_alerts.length : 0;
+        const restrictedZones = culture && Array.isArray(culture.restricted_zones) ? culture.restricted_zones.length : 0;
+        const categories = [
+            {
+                title: 'Route Risk Alerts',
+                level: formatRiskLabel(risk.risk_label),
+                detail: risk && risk.advice ? risk.advice : 'Live route-risk guidance unavailable.',
+            },
+            {
+                title: 'Unsafe Zone Entry',
+                level: alertList.length ? formatRiskLabel(alertList[0].severity) : formatRiskLabel(risk.risk_label),
+                detail: alertList.length ? `${alertList.length} nearby alert signals will warn when you approach unsafe zones.` : 'No unsafe-zone alerts are stored near this location right now.',
+            },
+            {
+                title: 'Emergency Alerts',
+                level: 'LOW',
+                detail: 'SOS dispatches live location updates to admin plus the SMS, WhatsApp, and Email channels configured in your emergency contacts.',
+            },
+            {
+                title: 'Travel Updates',
+                level: weather && weather.risk_label ? formatRiskLabel(weather.risk_label) : 'UNAVAILABLE',
+                detail: weather && weather.advice ? weather.advice : 'No live travel or weather update is available right now.',
+            },
+            {
+                title: 'Cultural Warnings',
+                level: culturalWarnings || restrictedZones ? 'MEDIUM' : 'LOW',
+                detail: culturalWarnings || restrictedZones
+                    ? `${culturalWarnings} scam warnings and ${restrictedZones} sensitive-zone warnings are active for this area.`
+                    : 'No cultural or scam warnings are active for this area right now.',
+            },
+        ];
+
+        document.getElementById('alertCategoryGrid').innerHTML = categories.map((item) => `
+            <div class="alert-card">
+                <div class="d-flex justify-content-between align-items-start gap-3 mb-2">
+                    <h6 class="fw-bold mb-0">${escapeHtml(item.title)}</h6>
+                    <span class="severity-pill ${alertsRiskClass(item.level)}">${escapeHtml(item.level)}</span>
+                </div>
+                <div class="small text-muted">${escapeHtml(item.detail)}</div>
+            </div>
+        `).join('');
+    }
+
     function refreshAlerts() {
         if (alertsState.lat == null || alertsState.lng == null) {
             setText('alertRiskAdvice', 'Location is still loading, so live alert refresh is paused.');
@@ -124,7 +175,9 @@
         Promise.all([
             fetchJson(`/api/alerts/?${params.toString()}`),
             fetchJson(`/api/predict-risk/?${params.toString()}`),
-        ]).then(([alerts, risk]) => {
+            fetchJson(`/api/weather-risk/?${params.toString()}`),
+            fetchJson(`/cultural-data/?${params.toString()}`),
+        ]).then(([alerts, risk, weather, culture]) => {
             setText('alertZoneLabel', formatLocationLabel(risk.location, alertsState.lat, alertsState.lng, 'Live location unavailable'));
             const badge = document.getElementById('alertRiskBadge');
             const riskLabel = formatRiskLabel(risk.risk_label);
@@ -132,6 +185,7 @@
             badge.className = `severity-pill ${alertsRiskClass(riskLabel)} mb-3`;
             setText('alertRiskAdvice', risk.advice || 'No risk advice available.');
             setText('alertCoordinates', formatCoordinateLabel(alertsState.lat, alertsState.lng));
+            renderNotificationCategories(risk, alerts, weather, culture);
 
             const container = document.getElementById('alertFeed');
             if (!alerts.alerts || !alerts.alerts.length) {

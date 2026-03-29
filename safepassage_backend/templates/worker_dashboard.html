@@ -7,71 +7,214 @@
     .worker-shell {
         display: flex;
         flex-direction: column;
-        gap: 24px;
+        gap: 18px;
     }
     .worker-hero {
-        background: linear-gradient(135deg, #ffffff 0%, #eff6ff 100%);
+        background:
+            radial-gradient(circle at top right, rgba(37, 99, 235, 0.12), transparent 34%),
+            linear-gradient(145deg, #ffffff 0%, #f8fbff 56%, #eef5ff 100%);
         border: 1px solid rgba(148, 163, 184, 0.18);
-        border-radius: 30px;
-        box-shadow: 0 16px 40px rgba(15, 23, 42, 0.08);
-        padding: 28px;
+        border-radius: 28px;
+        box-shadow: 0 20px 48px rgba(15, 23, 42, 0.08);
+        padding: 22px;
+    }
+    .hero-grid {
+        display: grid;
+        gap: 18px;
+        grid-template-columns: minmax(0, 1.5fr) minmax(290px, 0.9fr);
+        align-items: stretch;
+    }
+    .worker-eyebrow {
+        color: #2563eb;
+        font-size: 0.78rem;
+        font-weight: 800;
+        letter-spacing: 0.12em;
+        margin-bottom: 10px;
+        text-transform: uppercase;
+    }
+    .worker-title {
+        color: #0f172a;
+        font-size: clamp(1.85rem, 2.8vw, 2.55rem);
+        font-weight: 800;
+        letter-spacing: -0.03em;
+        margin-bottom: 10px;
+    }
+    .worker-subtitle {
+        color: #475569;
+        font-size: 0.98rem;
+        line-height: 1.65;
+        margin-bottom: 0;
+        max-width: 740px;
     }
     .worker-pills {
         display: flex;
         flex-wrap: wrap;
-        gap: 12px;
+        gap: 10px;
         margin-bottom: 16px;
     }
     .worker-pill {
         align-items: center;
-        background: rgba(37, 99, 235, 0.08);
+        background: rgba(255, 255, 255, 0.88);
+        border: 1px solid rgba(37, 99, 235, 0.12);
         border-radius: 999px;
         color: #1d4ed8;
         display: inline-flex;
-        font-size: 0.84rem;
+        font-size: 0.8rem;
         font-weight: 700;
         gap: 8px;
-        padding: 10px 16px;
+        padding: 9px 14px;
+    }
+    .hero-panel {
+        background: rgba(15, 23, 42, 0.04);
+        border: 1px solid rgba(148, 163, 184, 0.16);
+        border-radius: 24px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        padding: 18px;
+    }
+    .hero-panel-label {
+        color: #0f172a;
+        font-size: 0.78rem;
+        font-weight: 800;
+        letter-spacing: 0.1em;
+        margin-bottom: 2px;
+        text-transform: uppercase;
+    }
+    .hero-panel-title {
+        color: #0f172a;
+        font-size: 1.05rem;
+        font-weight: 800;
+        margin-bottom: 4px;
+    }
+    .hero-panel-note {
+        color: #475569;
+        font-size: 0.9rem;
+        line-height: 1.55;
+        margin-bottom: 0;
+    }
+    .hero-points {
+        display: grid;
+        gap: 10px;
+    }
+    .hero-point {
+        align-items: center;
+        color: #334155;
+        display: flex;
+        font-size: 0.88rem;
+        font-weight: 600;
+        gap: 10px;
+    }
+    .hero-point i {
+        align-items: center;
+        background: rgba(37, 99, 235, 0.1);
+        border-radius: 999px;
+        color: #1d4ed8;
+        display: inline-flex;
+        height: 30px;
+        justify-content: center;
+        width: 30px;
+    }
+    .action-grid {
+        display: grid;
+        gap: 10px;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+    .action-button {
+        border-radius: 999px;
+        font-size: 0.9rem;
+        font-weight: 800;
+        min-height: 46px;
+        padding: 0.75rem 1rem;
     }
     .metric-grid {
         display: grid;
-        gap: 16px;
+        gap: 14px;
         grid-template-columns: repeat(4, minmax(0, 1fr));
-        margin-top: 24px;
+        margin-top: 18px;
     }
     .metric-card,
     .worker-card {
         background: #ffffff;
         border: 1px solid rgba(148, 163, 184, 0.18);
-        border-radius: 24px;
+        border-radius: 22px;
         box-shadow: 0 12px 32px rgba(15, 23, 42, 0.06);
-        padding: 22px;
+        padding: 18px;
+    }
+    .metric-card {
+        min-height: 188px;
+    }
+    .metric-header {
+        align-items: flex-start;
+        display: flex;
+        gap: 12px;
+        margin-bottom: 12px;
+    }
+    .metric-icon {
+        align-items: center;
+        border-radius: 16px;
+        display: inline-flex;
+        flex-shrink: 0;
+        font-size: 1rem;
+        height: 42px;
+        justify-content: center;
+        width: 42px;
+    }
+    .metric-icon.risk {
+        background: rgba(239, 68, 68, 0.1);
+        color: #dc2626;
+    }
+    .metric-icon.shift {
+        background: rgba(16, 185, 129, 0.12);
+        color: #047857;
+    }
+    .metric-icon.checkin {
+        background: rgba(245, 158, 11, 0.14);
+        color: #b45309;
+    }
+    .metric-icon.haven {
+        background: rgba(37, 99, 235, 0.12);
+        color: #1d4ed8;
     }
     .metric-label {
         color: #64748b;
         font-size: 0.76rem;
         font-weight: 800;
         letter-spacing: 0.08em;
-        margin-bottom: 10px;
+        margin-bottom: 8px;
         text-transform: uppercase;
     }
     .metric-value {
         color: #0f172a;
-        font-size: 1.8rem;
+        font-size: 1.5rem;
         font-weight: 800;
-        margin-bottom: 10px;
+        letter-spacing: -0.03em;
+        margin-bottom: 8px;
     }
     .metric-note {
         color: #475569;
-        font-size: 0.9rem;
+        font-size: 0.88rem;
+        line-height: 1.55;
         margin-bottom: 0;
+    }
+    .metric-actions {
+        display: grid;
+        gap: 8px;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        margin-top: 14px;
+    }
+    .metric-actions .btn {
+        border-radius: 999px;
+        font-size: 0.84rem;
+        font-weight: 700;
+        min-height: 40px;
     }
     .status-badge {
         border-radius: 999px;
         display: inline-flex;
-        font-size: 0.78rem;
+        font-size: 0.74rem;
         font-weight: 800;
-        padding: 8px 14px;
+        padding: 7px 12px;
         text-transform: uppercase;
     }
     .risk-low,
@@ -94,65 +237,169 @@
     }
     .content-grid {
         display: grid;
-        gap: 24px;
-        grid-template-columns: minmax(0, 1.3fr) minmax(0, 0.9fr);
+        gap: 18px;
+        grid-template-columns: minmax(0, 1.45fr) minmax(320px, 0.85fr);
     }
     .map-card {
-        padding: 0;
         overflow: hidden;
+        padding: 0;
+    }
+    .panel-top {
+        align-items: flex-start;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        justify-content: space-between;
+        padding: 18px 18px 0;
+    }
+    .section-kicker {
+        color: #2563eb;
+        display: block;
+        font-size: 0.74rem;
+        font-weight: 800;
+        letter-spacing: 0.1em;
+        margin-bottom: 6px;
+        text-transform: uppercase;
+    }
+    .panel-title {
+        color: #0f172a;
+        font-size: 1.02rem;
+        font-weight: 800;
+        margin-bottom: 2px;
+    }
+    .panel-note {
+        color: #64748b;
+        font-size: 0.86rem;
+        margin-bottom: 0;
+    }
+    .legend-inline {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+    .legend-pill {
+        align-items: center;
+        border-radius: 999px;
+        display: inline-flex;
+        font-size: 0.74rem;
+        font-weight: 800;
+        gap: 8px;
+        padding: 7px 11px;
+    }
+    .legend-pill::before {
+        border-radius: 999px;
+        content: "";
+        display: inline-block;
+        height: 8px;
+        width: 8px;
+    }
+    .legend-pill.safe {
+        background: rgba(37, 99, 235, 0.08);
+        color: #1d4ed8;
+    }
+    .legend-pill.safe::before {
+        background: #2563eb;
+    }
+    .legend-pill.hotspot {
+        background: rgba(239, 68, 68, 0.1);
+        color: #b91c1c;
+    }
+    .legend-pill.hotspot::before {
+        background: #ef4444;
     }
     #workerDashboardMap {
-        height: 520px;
+        height: 410px;
         width: 100%;
     }
     .map-caption {
         background: rgba(255, 255, 255, 0.96);
         border-top: 1px solid rgba(148, 163, 184, 0.16);
         color: #475569;
-        padding: 14px 18px;
+        padding: 14px 18px 18px;
     }
     .stack-list {
         display: flex;
         flex-direction: column;
-        gap: 14px;
+        gap: 12px;
     }
     .stack-item {
-        background: rgba(248, 250, 252, 0.92);
+        background: linear-gradient(180deg, rgba(248, 250, 252, 0.96), rgba(255, 255, 255, 0.96));
         border: 1px solid rgba(148, 163, 184, 0.14);
         border-radius: 18px;
-        padding: 16px;
+        padding: 14px 15px;
     }
     .stack-item strong {
         color: #0f172a;
         display: block;
-        margin-bottom: 6px;
+        font-size: 0.95rem;
+        margin-bottom: 5px;
     }
     .meta-row {
         color: #64748b;
         display: flex;
         flex-wrap: wrap;
-        font-size: 0.8rem;
+        font-size: 0.78rem;
         gap: 12px;
         margin-top: 8px;
-    }
-    .action-grid {
-        display: grid;
-        gap: 12px;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        margin-top: 18px;
     }
     .empty-state {
         background: rgba(248, 250, 252, 0.92);
         border: 1px dashed rgba(148, 163, 184, 0.4);
         border-radius: 18px;
         color: #64748b;
-        padding: 16px;
+        font-size: 0.9rem;
+        line-height: 1.55;
+        padding: 15px;
+    }
+    .escalation-banner {
+        align-items: flex-start;
+        border-radius: 20px;
+        display: none;
+        gap: 14px;
+        margin-bottom: 16px;
+        padding: 14px 18px;
+    }
+    .escalation-banner.reminder-1 { display: flex; background: rgba(245,158,11,0.12); border: 1px solid rgba(245,158,11,0.35); }
+    .escalation-banner.reminder-2 { display: flex; background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.3); }
+    .escalation-banner.sos-level  { display: flex; background: rgba(239,68,68,0.14); border: 2px solid rgba(239,68,68,0.55); animation: pulse-border 1.2s infinite; }
+    @keyframes pulse-border { 0%,100% { border-color: rgba(239,68,68,0.55); } 50% { border-color: rgba(239,68,68,1); } }
+    @media (max-width: 1399.98px) {
+        .metric-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
     }
     @media (max-width: 1199.98px) {
-        .metric-grid,
+        .hero-grid,
         .content-grid,
         .action-grid {
             grid-template-columns: 1fr;
+        }
+        #workerDashboardMap {
+            height: 360px;
+        }
+    }
+    @media (max-width: 767.98px) {
+        .worker-hero,
+        .metric-card,
+        .worker-card {
+            border-radius: 22px;
+            padding: 16px;
+        }
+        .worker-pills {
+            gap: 8px;
+        }
+        .worker-pill {
+            width: 100%;
+        }
+        .metric-grid,
+        .metric-actions {
+            grid-template-columns: 1fr;
+        }
+        .panel-top {
+            padding: 16px 16px 0;
+        }
+        #workerDashboardMap {
+            height: 320px;
         }
     }
 </style>
@@ -160,49 +407,100 @@
 
 {% block dashboard_content %}
 <div class="container-fluid py-2">
+
+    <!-- Shift Escalation Banner -->
+    <div class="escalation-banner" id="dashEscalationBanner">
+        <div id="dashEscalationIcon" style="font-size:1.35rem;flex-shrink:0;"></div>
+        <div class="flex-grow-1">
+            <div class="fw-bold mb-1" id="dashEscalationTitle"></div>
+            <div class="small" id="dashEscalationMessage"></div>
+            <div class="d-flex flex-wrap gap-2 mt-2">
+                <button class="btn btn-sm rounded-pill fw-bold" style="background:#0f172a;color:white;" onclick="dashAcknowledgeEscalation()">I'm Safe – Acknowledge</button>
+                <button class="btn btn-sm btn-danger rounded-pill fw-bold" onclick="workerSubmitCheckin('assistance')">Need Help</button>
+            </div>
+            <div class="small text-muted mt-1" id="dashEscalationCountdown"></div>
+        </div>
+    </div>
+
     <div class="worker-shell" id="workerDashboardRoot">
         <section class="worker-hero">
-            <div class="worker-pills">
-                <span class="worker-pill"><i class="bi bi-geo-alt-fill"></i><span id="workerLocationLabel">Detecting live location</span></span>
-                <span class="worker-pill"><i class="bi bi-moon-stars-fill"></i><span id="workerNightWindow">Night monitoring pending</span></span>
-                <span class="worker-pill"><i class="bi bi-person-badge-fill"></i><span id="workerIdentity">{{ user.get_full_name|default:user.first_name|default:user.username }}</span></span>
+            <div class="hero-grid">
+                <div>
+                    <div class="worker-eyebrow">Night Operations Console</div>
+                    <div class="worker-pills">
+                        <span class="worker-pill"><i class="bi bi-geo-alt-fill"></i><span id="workerLocationLabel">Detecting live location</span></span>
+                        <span class="worker-pill"><i class="bi bi-moon-stars-fill"></i><span id="workerNightWindow">Night monitoring pending</span></span>
+                        <span class="worker-pill"><i class="bi bi-person-badge-fill"></i><span id="workerIdentity">{{ user.get_full_name|default:user.first_name|default:user.username }}</span></span>
+                    </div>
+                    <h1 class="worker-title">Night Worker Dashboard</h1>
+                    <p class="worker-subtitle">A cleaner live safety workspace for shift tracking, night-risk visibility, check-ins, emergency response, and safe-route decisions during local travel.</p>
+                </div>
+
+                <div class="hero-panel">
+                    <div>
+                        <div class="hero-panel-label">Quick Actions</div>
+                        <div class="hero-panel-title">Move faster through the worker safety flow</div>
+                        <p class="hero-panel-note">Use the same worker APIs and live tracking, but from a more compact control panel that keeps the important actions easy to reach.</p>
+                    </div>
+
+                    <div class="action-grid">
+                        <button class="btn btn-success action-button" type="button" id="workerStartShiftButton">Start Shift</button>
+                        <a href="{% url 'worker_safe_route' %}" class="btn btn-primary action-button">Safe Route</a>
+                        <a href="{% url 'worker_sos' %}" class="btn btn-danger action-button">SOS</a>
+                    </div>
+
+                    <div class="hero-points">
+                        <div class="hero-point"><i class="bi bi-shield-check"></i><span>Live GPS and saved worker tracking stay available for recovery states.</span></div>
+                        <div class="hero-point"><i class="bi bi-broadcast-pin"></i><span>Risk, alerts, and nearby havens still refresh from the existing worker endpoints.</span></div>
+                    </div>
+                </div>
             </div>
-            <h1 class="fw-bold mb-2">Night Worker Dashboard</h1>
-            <p class="text-muted mb-0">Live safety monitoring for shift work, safe-route support, check-ins, emergency response, and nearby safe havens.</p>
-            <div class="action-grid">
-                <button class="btn btn-success rounded-pill py-3 fw-bold" type="button" id="workerStartShiftButton">Start Shift</button>
-                <a href="{% url 'worker_safe_route' %}" class="btn btn-primary rounded-pill py-3 fw-bold">Safe Route</a>
-                <a href="{% url 'worker_sos' %}" class="btn btn-danger rounded-pill py-3 fw-bold">SOS</a>
-            </div>
+
             <div class="metric-grid">
                 <div class="metric-card">
-                    <div class="metric-label">Night Risk Score</div>
-                    <div class="metric-value" id="workerRiskScore">--</div>
+                    <div class="metric-header">
+                        <span class="metric-icon risk"><i class="bi bi-activity"></i></span>
+                        <div>
+                            <div class="metric-label">Night Risk Score</div>
+                            <div class="metric-value" id="workerRiskScore">--</div>
+                        </div>
+                    </div>
                     <div class="status-badge risk-unavailable" id="workerRiskBadge">UNAVAILABLE</div>
                     <p class="metric-note mt-3" id="workerRiskAdvice">Waiting for live worker risk analysis.</p>
                 </div>
                 <div class="metric-card">
-                    <div class="metric-label">Shift Status</div>
-                    <div class="metric-value" id="workerShiftState">IDLE</div>
+                    <div class="metric-header">
+                        <span class="metric-icon shift"><i class="bi bi-clock-history"></i></span>
+                        <div>
+                            <div class="metric-label">Shift Status</div>
+                            <div class="metric-value" id="workerShiftState">IDLE</div>
+                        </div>
+                    </div>
                     <div class="status-badge shift-idle" id="workerShiftBadge">Inactive</div>
                     <p class="metric-note mt-3" id="workerShiftMeta">Shift tracking will begin after activation.</p>
                 </div>
                 <div class="metric-card">
-                    <div class="metric-label">Next Check-In</div>
-                    <div class="metric-value" id="workerCheckinDue">--</div>
+                    <div class="metric-header">
+                        <span class="metric-icon checkin"><i class="bi bi-check2-circle"></i></span>
+                        <div>
+                            <div class="metric-label">Next Check-In</div>
+                            <div class="metric-value" id="workerCheckinDue">--</div>
+                        </div>
+                    </div>
                     <p class="metric-note" id="workerCheckinMeta">No active shift check-in schedule yet.</p>
-                    <div class="row g-2 mt-3">
-                        <div class="col-6">
-                            <button class="btn btn-outline-primary rounded-pill w-100" type="button" id="workerCheckinButton">Check In</button>
-                        </div>
-                        <div class="col-6">
-                            <button class="btn btn-outline-dark rounded-pill w-100" type="button" id="workerCheckoutButton">Check Out</button>
-                        </div>
+                    <div class="metric-actions">
+                        <button class="btn btn-outline-primary w-100" type="button" id="workerCheckinButton">Check In</button>
+                        <button class="btn btn-outline-dark w-100" type="button" id="workerCheckoutButton">Check Out</button>
                     </div>
                 </div>
                 <div class="metric-card">
-                    <div class="metric-label">Nearby Safe Havens</div>
-                    <div class="metric-value" id="workerHavenCount">0</div>
+                    <div class="metric-header">
+                        <span class="metric-icon haven"><i class="bi bi-shield-shaded"></i></span>
+                        <div>
+                            <div class="metric-label">Nearby Safe Havens</div>
+                            <div class="metric-value" id="workerHavenCount">0</div>
+                        </div>
+                    </div>
                     <p class="metric-note" id="workerHavenMeta">Waiting for live nearby haven lookup.</p>
                 </div>
             </div>
@@ -210,6 +508,17 @@
 
         <div class="content-grid">
             <section class="worker-card map-card">
+                <div class="panel-top">
+                    <div>
+                        <span class="section-kicker">Live Map</span>
+                        <div class="panel-title">Worker Safety Map</div>
+                        <p class="panel-note">Current worker area with live safe havens and risk hotspots.</p>
+                    </div>
+                    <div class="legend-inline">
+                        <span class="legend-pill safe">Safe haven</span>
+                        <span class="legend-pill hotspot">Risk hotspot</span>
+                    </div>
+                </div>
                 <div id="workerDashboardMap"></div>
                 <div class="map-caption">
                     <strong>Worker Safety Map</strong>
@@ -217,10 +526,13 @@
                 </div>
             </section>
 
-            <div class="d-flex flex-column gap-4">
+            <div class="d-flex flex-column gap-3">
                 <section class="worker-card">
                     <div class="d-flex justify-content-between align-items-center mb-3">
-                        <h5 class="fw-bold mb-0">Real-Time Alerts</h5>
+                        <div>
+                            <span class="section-kicker">Monitoring</span>
+                            <h5 class="fw-bold mb-0">Real-Time Alerts</h5>
+                        </div>
                         <a href="{% url 'worker_alerts' %}" class="small text-decoration-none">Open Alerts</a>
                     </div>
                     <div class="stack-list" id="workerAlertList">
@@ -230,7 +542,10 @@
 
                 <section class="worker-card">
                     <div class="d-flex justify-content-between align-items-center mb-3">
-                        <h5 class="fw-bold mb-0">Nearby Safe Havens</h5>
+                        <div>
+                            <span class="section-kicker">Recovery</span>
+                            <h5 class="fw-bold mb-0">Nearby Safe Havens</h5>
+                        </div>
                         <a href="{% url 'worker_safe_havens' %}" class="small text-decoration-none">View Map</a>
                     </div>
                     <div class="stack-list" id="workerHavenList">
@@ -357,7 +672,7 @@
         const startButton = document.getElementById('workerStartShiftButton');
         if (startButton) {
             startButton.textContent = shiftActive ? 'End Shift' : 'Start Shift';
-            startButton.className = shiftActive ? 'btn btn-danger rounded-pill py-3 fw-bold' : 'btn btn-success rounded-pill py-3 fw-bold';
+            startButton.className = shiftActive ? 'btn btn-danger action-button' : 'btn btn-success action-button';
             startButton.onclick = shiftActive ? workerEndShift : workerStartShift;
         }
 
@@ -463,8 +778,65 @@
         });
     }
 
+    /* ── Shift Escalation Monitoring ── */
+    let _dashEscalationAck = false;
+    let _dashSosTriggered = false;
+
+    function checkDashEscalation() {
+        if (_dashEscalationAck) return;
+        fetch('/api/worker/shift-escalation/')
+            .then(r => r.json())
+            .then(data => {
+                const banner = document.getElementById('dashEscalationBanner');
+                const level = data.escalation_level || 'none';
+                if (level === 'none') { banner.className = 'escalation-banner'; return; }
+                const icons = { reminder_1: '⚠️', reminder_2: '🔔', sos: '🆘' };
+                const titles = {
+                    reminder_1: 'Reminder 1: Shift timing overdue',
+                    reminder_2: 'Reminder 2: Shift timing overdue — respond now',
+                    sos: 'ESCALATION: Auto-SOS triggered',
+                };
+                const cleanIcons = { reminder_1: '!', reminder_2: '!!', sos: 'SOS' };
+                const cleanTitles = {
+                    reminder_1: 'Reminder 1: Shift timing overdue',
+                    reminder_2: 'Reminder 2: Shift timing overdue - respond now',
+                    sos: 'ESCALATION: Auto-SOS triggered',
+                };
+                const cls = { reminder_1: 'reminder-1', reminder_2: 'reminder-2', sos: 'sos-level' };
+                banner.className = `escalation-banner ${cls[level]}`;
+                document.getElementById('dashEscalationIcon').textContent = cleanIcons[level];
+                document.getElementById('dashEscalationTitle').textContent = cleanTitles[level];
+                document.getElementById('dashEscalationMessage').textContent = data.message || '';
+                const remaining = level === 'reminder_1' ? (20 - data.minutes_overdue) : level === 'reminder_2' ? (30 - data.minutes_overdue) : 0;
+                document.getElementById('dashEscalationCountdown').textContent = level === 'sos'
+                    ? 'SOS alert dispatched to emergency contacts.'
+                    : `Auto-escalation in ~${Math.max(1, remaining)} min if no response.`;
+                if (level === 'sos' && !_dashSosTriggered) {
+                    _dashSosTriggered = true;
+                    resolveCurrentLocation().then(coords => {
+                        fetch('/api/emergency/', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
+                            body: JSON.stringify({ latitude: coords ? coords.lat : null, longitude: coords ? coords.lng : null, mode: 'silent', source: 'shift_escalation' }),
+                        }).catch(() => {});
+                    });
+                }
+            }).catch(() => {});
+    }
+
+    function dashAcknowledgeEscalation() {
+        _dashEscalationAck = true;
+        document.getElementById('dashEscalationBanner').className = 'escalation-banner';
+        workerSubmitCheckin('ok');
+        setTimeout(() => { _dashEscalationAck = false; }, 30 * 60 * 1000);
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
         workerInitMap();
+        const ackButton = document.querySelector("#dashEscalationBanner button[onclick*='dashAcknowledgeEscalation']");
+        if (ackButton) ackButton.textContent = "I'm Safe - Acknowledge";
+        checkDashEscalation();
+        setInterval(checkDashEscalation, 2 * 60 * 1000);
         const ciBtn = document.getElementById('workerCheckinButton');
         if (ciBtn) ciBtn.addEventListener('click', () => workerSubmitCheckin('ok'));
         const coBtn = document.getElementById('workerCheckoutButton');

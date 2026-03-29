@@ -267,33 +267,29 @@
             <!-- Journey Details -->
             <div class="profile-card">
                 <div class="section-header">
-                    <h5 class="fw-bold mb-0"><i class="bi bi-airplane-engines-fill me-2"></i> Current Journey</h5>
+                    <h5 class="fw-bold mb-0"><i class="bi bi-geo-alt-fill me-2"></i> Current Journey</h5>
                 </div>
+                <p class="text-muted small mb-3">Track your local travel — walking, cab, or public transport. Your location is updated live from the Safety Map.</p>
                 <form id="journeyForm" class="row g-3">
                     <div class="col-md-6">
                         <label class="form-label-small">Arrival Date (India)</label>
-                        <input type="date" name="arrival_date" class="form-control form-control-custom" 
+                        <input type="date" name="arrival_date" class="form-control form-control-custom"
                                value="{{ journey.arrival_date|date:'Y-m-d' }}" required>
                     </div>
                     <div class="col-md-6">
                         <label class="form-label-small">Departure Date</label>
-                        <input type="date" name="departure_date" class="form-control form-control-custom" 
+                        <input type="date" name="departure_date" class="form-control form-control-custom"
                                value="{{ journey.departure_date|date:'Y-m-d' }}" required>
                     </div>
                     <div class="col-md-12">
                         <label class="form-label-small">Current Location</label>
-                        <input type="text" name="current_location" class="form-control form-control-custom" 
-                               value="{{ journey.current_location }}" placeholder="Updates from live dashboard or enter manually" required>
+                        <input type="text" name="current_location" class="form-control form-control-custom"
+                               value="{{ journey.current_location }}" placeholder="Auto-updated from live GPS or enter manually" required>
                     </div>
                     <div class="col-md-12">
-                        <label class="form-label-small">Hotel/Stay Address</label>
-                        <textarea name="hotel_address" class="form-control form-control-custom" 
-                                  rows="3">{{ journey.hotel_address|default:'' }}</textarea>
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label-small">Flight Number</label>
-                        <input type="text" name="flight_number" class="form-control form-control-custom" 
-                               value="{{ journey.flight_number|default:'' }}">
+                        <label class="form-label-small">Hotel / Stay Address</label>
+                        <textarea name="hotel_address" class="form-control form-control-custom"
+                                  rows="2">{{ journey.hotel_address|default:'' }}</textarea>
                     </div>
                     <div class="col-md-6">
                         <label class="form-label-small">Travel Insurance</label>

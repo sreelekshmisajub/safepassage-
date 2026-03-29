@@ -1,7 +1,8 @@
 import json
 from datetime import timedelta
 
-from django.test import TestCase
+from django.core import mail
+from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
@@ -86,7 +87,7 @@ class LandingPageTests(TestCase):
         response = self.client.get(reverse("index"))
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.context["landing_routes"]["safe_route"], "/safe-route/")
+        self.assertEqual(response.context["landing_routes"]["safe_route"], "/map/?tab=routes")
         self.assertEqual(response.context["landing_routes"]["sos"], "/sos/")
         self.assertTrue(response.context["landing_config"]["can_trigger_emergency"])
 
@@ -264,6 +265,9 @@ class TouristApiTests(TestCase):
         payload = response.json()
         self.assertEqual(payload["status"], "success")
         self.assertTrue(EmergencyAlert.objects.filter(user=self.user, mode="silent").exists())
+        self.assertIn("delivery_channels", payload)
+        self.assertEqual(payload["delivery_channels"]["sms_contacts"], 1)
+        self.assertEqual(payload["delivery_channels"]["whatsapp_contacts"], 1)
 
     def test_tourist_dashboard_renders(self):
         response = self.client.get(reverse("tourist_dashboard"))
@@ -276,8 +280,8 @@ class TouristApiTests(TestCase):
         response = self.client.get(reverse("tourist_dashboard_hub"), {"mode": "tourist"})
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Safe Route")
-        self.assertContains(response, "View Map")
+        self.assertContains(response, "Map & Routes")
+        self.assertContains(response, "Live Safety Map")
 
     def test_safe_route_endpoint_returns_route_payload(self):
         response = self.client.get(
@@ -295,6 +299,9 @@ class TouristApiTests(TestCase):
         self.assertEqual(payload["status"], "success")
         self.assertIn("route_summary", payload)
         self.assertGreaterEqual(len(payload["route"]), 2)
+        self.assertEqual(payload["default_route_tier"], "low")
+        self.assertEqual([item["id"] for item in payload["route_options"]], ["low", "medium", "high"])
+        self.assertIn("corridor_hotspot_definition", payload)
 
     def test_safe_route_endpoint_accepts_destination_place(self):
         response = self.client.get(
@@ -332,10 +339,8 @@ class TouristApiTests(TestCase):
     def test_safe_route_page_renders(self):
         response = self.client.get(reverse("tourist_safe_route"))
 
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Safe Route Navigation")
-        self.assertContains(response, "Search place in India")
-        self.assertContains(response, "/api/place-search/")
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response["Location"], "/map/?tab=routes")
 
     def test_cultural_safety_page_renders(self):
         response = self.client.get(reverse("tourist_cultural_safety"))
@@ -360,6 +365,8 @@ class TouristApiTests(TestCase):
         self.assertTrue(payload["restricted_zones"])
         self.assertIn("embassy", payload["emergency"])
         self.assertIn("official_lines", payload["emergency"])
+        self.assertIn("location_insights", payload)
+        self.assertIn("cultural_risk_score_meta", payload)
 
     def test_sos_page_renders_live_dispatch_controls(self):
         response = self.client.get(reverse("tourist_sos"))
@@ -696,3 +703,57 @@ class AdminModuleTests(TestCase):
         self.assertEqual(response.status_code, 302)
         self.incident.refresh_from_db()
         self.assertEqual(self.incident.status, "reviewing")
+
+    @override_settings(
+        EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
+        DEFAULT_FROM_EMAIL="alerts@safepassage.test",
+        EMAIL_HOST_USER="alerts@safepassage.test",
+    )
+    def test_admin_notifications_broadcast_sends_individual_emails(self):
+        response = self.client.post(
+            reverse("admin_notifications"),
+            {
+                "audience": "all",
+                "subject": "Safety Notice",
+                "message": "Stay alert near MG Road tonight.",
+            },
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Broadcast delivered to 3 user(s)")
+        self.assertEqual(len(mail.outbox), 3)
+        self.assertTrue(all(message.from_email == "alerts@safepassage.test" for message in mail.outbox))
+        self.assertEqual(
+            sorted(message.to[0] for message in mail.outbox),
+            sorted(
+                [
+                    self.admin_user.email,
+                    self.tourist_user.email,
+                    self.worker_user.email,
+                ]
+            ),
+        )
+
+    @override_settings(
+        EMAIL_BACKEND="django.core.mail.backends.smtp.EmailBackend",
+        EMAIL_HOST="smtp.gmail.com",
+        EMAIL_PORT=587,
+        EMAIL_USE_TLS=True,
+        EMAIL_HOST_USER="",
+        EMAIL_HOST_PASSWORD="",
+        DEFAULT_FROM_EMAIL="",
+    )
+    def test_admin_notifications_rejects_missing_smtp_configuration(self):
+        response = self.client.post(
+            reverse("admin_notifications"),
+            {
+                "audience": "all",
+                "subject": "Safety Notice",
+                "message": "Stay alert near MG Road tonight.",
+            },
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "SMTP notification delivery is not configured correctly yet.")

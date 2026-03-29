@@ -41,6 +41,22 @@
                 <hr class="my-4">
                 <p class="small text-muted mb-1">Emergency contacts on your profile</p>
                 <div class="fw-bold">{{ emergency_contacts_count|default:0 }} saved contacts</div>
+                <div class="mt-3 d-flex flex-column gap-2">
+                    {% for contact in emergency_contacts %}
+                    <div class="contact-card">
+                        <div class="fw-bold mb-1">{{ contact.name }}{% if contact.is_primary %} <span class="badge bg-primary ms-2">Primary</span>{% endif %}</div>
+                        <div class="small text-muted mb-1">{{ contact.get_relationship_display }} | {{ contact.phone }}</div>
+                        <div class="small text-muted">
+                            {% if contact.sms_enabled %}<span class="badge bg-info text-dark me-1">SMS</span>{% endif %}
+                            {% if contact.whatsapp_enabled %}<span class="badge bg-success me-1">WhatsApp</span>{% endif %}
+                            {% if contact.email %}<span class="badge bg-warning text-dark me-1">Email</span>{% endif %}
+                            {% if not contact.sms_enabled and not contact.whatsapp_enabled and not contact.email %}No alert channel selected{% endif %}
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="contact-card text-muted small">No emergency contacts are configured yet. Add contacts in your tourist profile to enable SMS, WhatsApp, and Email alert routing.</div>
+                    {% endfor %}
+                </div>
             </div>
         </div>
         <div class="col-xl-7">

@@ -10,7 +10,7 @@
         gap: 24px;
     }
     .sos-card {
-        background: rgba(255, 255, 255, 0.86);
+        background: rgba(255, 255, 255, 0.88);
         border: 1px solid rgba(255, 255, 255, 0.8);
         border-radius: 28px;
         box-shadow: 0 14px 36px rgba(15, 23, 42, 0.08);
@@ -20,21 +20,18 @@
         background: radial-gradient(circle at top, rgba(254, 226, 226, 0.95), rgba(255, 255, 255, 0.96));
         border: 1px solid rgba(239, 68, 68, 0.16);
     }
-    .status-grid,
-    .contact-grid {
+    .status-grid, .contact-grid {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 16px;
     }
-    .status-box,
-    .contact-box {
+    .status-box, .contact-box {
         background: rgba(248, 250, 252, 0.94);
         border: 1px solid rgba(148, 163, 184, 0.16);
         border-radius: 20px;
         padding: 18px;
     }
-    .hero-pill,
-    .risk-pill {
+    .hero-pill, .risk-pill {
         display: inline-flex;
         align-items: center;
         justify-content: center;
@@ -46,53 +43,97 @@
     .risk-low { background: rgba(16, 185, 129, 0.12); color: #047857; }
     .risk-medium { background: rgba(245, 158, 11, 0.16); color: #b45309; }
     .risk-high { background: rgba(239, 68, 68, 0.12); color: #b91c1c; }
-    .hero-pill {
-        background: rgba(30, 64, 175, 0.1);
-        color: #1d4ed8;
-    }
+    .hero-pill { background: rgba(30, 64, 175, 0.1); color: #1d4ed8; }
     .risk-unavailable { background: rgba(100, 116, 139, 0.14); color: #475569; }
     .sos-buttons {
         display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 12px;
         margin-top: 22px;
     }
-    .dispatch-log {
-        background: rgba(15, 23, 42, 0.96);
-        color: white;
+    .sos-buttons-row2 {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+        margin-top: 10px;
     }
+    .dispatch-log { background: rgba(15, 23, 42, 0.96); color: white; }
     .dispatch-output {
-        min-height: 140px;
+        min-height: 120px;
         border-radius: 20px;
         background: rgba(15, 23, 42, 0.88);
         border: 1px solid rgba(148, 163, 184, 0.18);
         padding: 18px;
     }
-    .voice-trigger {
-        background: linear-gradient(155deg, #0f172a 0%, #1e293b 100%);
+    .voice-trigger { background: linear-gradient(155deg, #0f172a 0%, #1e293b 100%); color: white; }
+    /* Fake call overlay */
+    .fake-call-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: linear-gradient(160deg, #0f172a 0%, #1e293b 100%);
+        z-index: 99999;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
         color: white;
     }
-    @media (max-width: 1199.98px) {
-        .sos-shell {
-            grid-template-columns: 1fr;
-        }
+    .fake-call-overlay.active { display: flex; }
+    .fake-caller-avatar {
+        width: 100px;
+        height: 100px;
+        border-radius: 50%;
+        background: rgba(255,255,255,0.12);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2.8rem;
+        margin-bottom: 20px;
     }
+    .fake-call-btn {
+        width: 64px; height: 64px; border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1.6rem; border: none; cursor: pointer;
+    }
+    /* Alert history */
+    .history-item {
+        background: rgba(248, 250, 252, 0.9);
+        border: 1px solid rgba(148, 163, 184, 0.16);
+        border-radius: 16px;
+        padding: 14px 16px;
+        margin-bottom: 10px;
+    }
+    @media (max-width: 1199.98px) { .sos-shell { grid-template-columns: 1fr; } }
     @media (max-width: 767.98px) {
-        .status-grid,
-        .contact-grid,
-        .sos-buttons {
-            grid-template-columns: 1fr;
-        }
+        .status-grid, .contact-grid, .sos-buttons { grid-template-columns: 1fr; }
+        .sos-buttons-row2 { grid-template-columns: 1fr 1fr; }
     }
 </style>
 {% endblock %}
 
 {% block dashboard_content %}
+<!-- Fake Incoming Call Overlay -->
+<div class="fake-call-overlay" id="fakeCallOverlay">
+    <div class="fake-caller-avatar"><i class="bi bi-person-fill"></i></div>
+    <h2 class="fw-bold mb-1" id="fakeCallerName">Mom</h2>
+    <p class="text-white-50 mb-1">Incoming call…</p>
+    <p class="small text-white-50 mb-5" id="fakeCallerNumber">+91 98765 43210</p>
+    <div class="d-flex gap-5">
+        <button class="fake-call-btn" style="background:#22c55e;" onclick="endFakeCall()" title="Answer">
+            <i class="bi bi-telephone-fill text-white"></i>
+        </button>
+        <button class="fake-call-btn" style="background:#ef4444;" onclick="endFakeCall()" title="Decline">
+            <i class="bi bi-telephone-x-fill text-white"></i>
+        </button>
+    </div>
+    <p class="small text-white-50 mt-4">This is a discreet fake call. Tap either button to dismiss.</p>
+</div>
+
 <div class="container-fluid py-2">
     <div class="row mb-4">
         <div class="col-xl-8">
             <h1 class="fw-bold mb-1">SOS and Panic Center</h1>
-            <p class="text-muted mb-0">Live GPS-backed emergency dispatch for tourists, including voice trigger, quiet alerting, and loud local alarm mode.</p>
+            <p class="text-muted mb-0">Live GPS-backed emergency dispatch, voice trigger, fake call, alert history, and sound controls.</p>
         </div>
     </div>
 
@@ -116,7 +157,6 @@
                     </div>
                     <p class="small text-muted mt-3 mb-0" id="sosRiskAdvice">Live risk guidance will appear once your location is available.</p>
                 </div>
-
                 <div class="status-box">
                     <div class="small text-muted mb-1">Embassy support</div>
                     <h5 class="fw-bold mb-1" id="sosEmbassyName">Waiting for nationality and location</h5>
@@ -129,7 +169,11 @@
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <div>
                         <h5 class="fw-bold mb-1 text-white">Emergency Dispatch</h5>
-                        <p class="small text-white-50 mb-0">Saved emergency contacts: {{ emergency_contacts_count|default:0 }}</p>
+                        <p class="small text-white-50 mb-0">
+                            {{ emergency_contacts_count|default:0 }} contacts saved — alerts sent via
+                            <span class="badge bg-success" style="font-size:0.68rem;">SMS</span>
+                            <span class="badge" style="background:#25D366;font-size:0.68rem;">WhatsApp</span>
+                        </p>
                     </div>
                     <span class="risk-pill risk-low" id="dispatchBadge">READY</span>
                 </div>
@@ -147,8 +191,16 @@
                 <button class="btn btn-dark rounded-pill py-3 fw-bold" type="button" id="loudSosButton">
                     <i class="bi bi-megaphone-fill me-2"></i>Loud Alarm
                 </button>
-                <button class="btn btn-outline-secondary rounded-pill py-3 fw-bold" type="button" id="stopAlarmButton">
-                    <i class="bi bi-slash-circle me-2"></i>Stop Local Alarm
+            </div>
+            <div class="sos-buttons-row2">
+                <button class="btn btn-outline-secondary rounded-pill py-2 fw-bold" type="button" id="stopAlarmButton">
+                    <i class="bi bi-slash-circle me-1"></i>Stop Alarm
+                </button>
+                <button class="btn rounded-pill py-2 fw-bold" type="button" id="soundToggleButton" style="background:rgba(245,158,11,0.12);color:#b45309;border:1px solid rgba(245,158,11,0.3);">
+                    <i class="bi bi-volume-up-fill me-1" id="soundToggleIcon"></i><span id="soundToggleLabel">Sound ON</span>
+                </button>
+                <button class="btn btn-outline-primary rounded-pill py-2 fw-bold" type="button" id="fakeCallButton">
+                    <i class="bi bi-telephone-inbound me-1"></i>Fake Call
                 </button>
             </div>
         </section>
@@ -159,7 +211,7 @@
                     <div>
                         <div class="small text-uppercase text-white-50 mb-1">Voice Trigger</div>
                         <h4 class="fw-bold mb-1">SafePassage Help</h4>
-                        <p class="small text-white-50 mb-0">Say the trigger phrase to dispatch a silent SOS with your live location.</p>
+                        <p class="small text-white-50 mb-0">Say the trigger phrase to dispatch a silent SOS with your live location. Auto-restarts after trigger.</p>
                     </div>
                     <span class="hero-pill" id="voiceStatusBadge">STANDBY</span>
                 </div>
@@ -186,32 +238,91 @@
                         <a href="tel:181" class="btn btn-outline-secondary rounded-pill btn-sm">Call 181</a>
                     </div>
                     <div class="contact-box">
-                        <div class="fw-bold mb-1">Emergency Contacts</div>
-                        <div class="small text-muted mb-3">{{ emergency_contacts_count|default:0 }} saved on your profile</div>
+                        <div class="fw-bold mb-1">Manage Contacts</div>
+                        <div class="small text-muted mb-3">{{ emergency_contacts_count|default:0 }} saved — Configure SMS + WhatsApp alerts</div>
                         <a href="{% url 'tourist_profile_hub' %}" class="btn btn-outline-dark rounded-pill btn-sm">Open Profile</a>
                     </div>
                 </div>
             </div>
 
             <div class="sos-card">
-                <h5 class="fw-bold mb-3">Live Response Checklist</h5>
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="fw-bold mb-0"><i class="bi bi-people-fill text-primary me-2"></i>My Emergency Contacts</h5>
+                    <span class="badge bg-light text-dark rounded-pill">{{ emergency_contacts_count|default:0 }}</span>
+                </div>
                 <div class="contact-grid">
+                    {% for contact in emergency_contacts %}
                     <div class="contact-box">
-                        <div class="fw-bold mb-1">1. Share location</div>
-                        <div class="small text-muted">GPS lock is required before SafePassage can dispatch your SOS.</div>
+                        <div class="d-flex justify-content-between align-items-start mb-1">
+                            <div class="fw-bold text-truncate" style="max-width: 140px;">{{ contact.name }}</div>
+                            {% if contact.is_primary %}
+                            <span class="badge bg-primary" style="font-size: 0.6rem; padding: 2px 6px;">PRIMARY</span>
+                            {% endif %}
+                        </div>
+                        <div class="small text-muted mb-2 text-truncate">{{ contact.get_relationship_display }} | <a href="tel:{{ contact.phone }}" class="text-decoration-none">{{ contact.phone }}</a></div>
+                        <div class="d-flex gap-1 flex-wrap">
+                            {% if contact.sms_enabled %}
+                            <span class="badge bg-info text-dark" style="font-size: 0.6rem; padding: 2px 6px;">SMS</span>
+                            {% endif %}
+                            {% if contact.whatsapp_enabled %}
+                            <span class="badge bg-success" style="font-size: 0.6rem; padding: 2px 6px;">WHATSAPP</span>
+                            {% endif %}
+                            {% if contact.email %}
+                            <span class="badge bg-warning text-dark" style="font-size: 0.6rem; padding: 2px 6px;">EMAIL</span>
+                            {% endif %}
+                        </div>
                     </div>
-                    <div class="contact-box">
-                        <div class="fw-bold mb-1">2. Pick alert mode</div>
-                        <div class="small text-muted">Use Silent Alert for discreet help or Loud Alarm to draw nearby attention.</div>
+                    {% empty %}
+                    <div class="contact-box border-dashed text-center py-4" style="grid-column: span 2; border: 1px dashed #cbd5e1; background: transparent;">
+                        <i class="bi bi-person-plus text-muted mb-2 d-block" style="font-size: 1.5rem;"></i>
+                        <p class="small text-muted mb-2">No personal emergency contacts saved yet.</p>
+                        <a href="{% url 'tourist_profile_hub' %}" class="btn btn-primary btn-sm rounded-pill">Add Contacts</a>
                     </div>
-                    <div class="contact-box">
-                        <div class="fw-bold mb-1">3. Stay visible</div>
-                        <div class="small text-muted">Move toward police, hospitals, or busy commercial streets when possible.</div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Fake Call Setup -->
+            <div class="sos-card">
+                <h5 class="fw-bold mb-3"><i class="bi bi-telephone-inbound-fill text-primary me-2"></i>Fake Incoming Call Setup</h5>
+                <p class="small text-muted mb-3">Trigger a fake call on your screen to discreetly exit an uncomfortable situation.</p>
+                <div class="row g-2 mb-3">
+                    <div class="col-6">
+                        <label class="small text-muted mb-1 d-block">Caller Name</label>
+                        <input type="text" id="fakeCallerNameInput" class="form-control form-control-sm rounded-pill" value="Mom" placeholder="e.g. Mom">
                     </div>
-                    <div class="contact-box">
-                        <div class="fw-bold mb-1">4. Keep this page open</div>
-                        <div class="small text-muted">The dispatch panel will confirm the alert status and source of activation.</div>
+                    <div class="col-6">
+                        <label class="small text-muted mb-1 d-block">Number (display)</label>
+                        <input type="text" id="fakeCallerNumberInput" class="form-control form-control-sm rounded-pill" value="+91 98765 43210" placeholder="Any number">
                     </div>
+                </div>
+                <div class="row g-2 mb-3">
+                    <div class="col-6">
+                        <label class="small text-muted mb-1 d-block">Delay (seconds)</label>
+                        <select id="fakeCallDelay" class="form-select form-select-sm rounded-pill">
+                            <option value="0">Immediately</option>
+                            <option value="5" selected>5 seconds</option>
+                            <option value="10">10 seconds</option>
+                            <option value="30">30 seconds</option>
+                        </select>
+                    </div>
+                </div>
+                <button class="btn btn-outline-primary rounded-pill w-100 fw-bold btn-sm" type="button" id="scheduleFakeCallBtn">
+                    <i class="bi bi-telephone-inbound me-2"></i>Schedule Fake Call
+                </button>
+                <div class="small text-muted mt-2" id="fakeCallStatus">Not scheduled.</div>
+            </div>
+
+            <!-- SOS Alert History -->
+            <div class="sos-card">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="fw-bold mb-0"><i class="bi bi-clock-history me-2"></i>SOS Alert History</h5>
+                    <button class="btn btn-outline-secondary btn-sm rounded-pill" type="button" onclick="loadAlertHistory()">
+                        <i class="bi bi-arrow-clockwise"></i>
+                    </button>
+                </div>
+                <div id="alertHistoryList">
+                    <div class="text-muted small">Loading alert history...</div>
                 </div>
             </div>
         </section>
@@ -222,76 +333,63 @@
 {% block extra_js %}
 <script>
     const emergencyState = {
-        lat: null,
-        lng: null,
-        recognition: null,
-        listening: false,
+        lat: null, lng: null,
+        recognition: null, listening: false,
         siren: null,
+        soundEnabled: true,
+        fakeCallTimer: null,
+        voiceAutoRestart: false,
     };
 
-    function setText(id, value) {
-        const node = document.getElementById(id);
-        if (node) node.textContent = value;
-    }
-
+    function setText(id, value) { const n = document.getElementById(id); if (n) n.textContent = value; }
     function riskClass(label) {
         if (label === 'HIGH') return 'risk-high';
         if (label === 'MEDIUM') return 'risk-medium';
         if (label === 'UNAVAILABLE' || label === 'LOCATING') return 'risk-unavailable';
         return 'risk-low';
     }
-
     function setBadge(id, label) {
-        const node = document.getElementById(id);
-        const value = label || 'UNAVAILABLE';
-        node.textContent = value;
-        node.className = `risk-pill ${riskClass(value)}`;
+        const n = document.getElementById(id);
+        const v = label || 'UNAVAILABLE';
+        n.textContent = v; n.className = `risk-pill ${riskClass(v)}`;
     }
-
     function fetchJson(url, options) {
-        return fetch(url, options).then((response) => {
-            if (!response.ok) throw new Error(`Request failed: ${response.status}`);
-            return response.json();
-        });
+        return fetch(url, options).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); });
     }
-
     function setDispatchState(badgeLabel, badgeClass, headline, detail) {
         const badge = document.getElementById('dispatchBadge');
-        badge.textContent = badgeLabel;
-        badge.className = `risk-pill ${badgeClass}`;
+        badge.textContent = badgeLabel; badge.className = `risk-pill ${badgeClass}`;
         setText('dispatchHeadline', headline);
         setText('dispatchDetail', detail);
     }
-
-    function formatCoordinateLabel(lat, lng) {
-        return `Lat ${lat.toFixed(5)}, Lng ${lng.toFixed(5)}`;
-    }
-
+    function formatCoord(lat, lng) { return `Lat ${lat.toFixed(5)}, Lng ${lng.toFixed(5)}`; }
     function formatLocationLabel(label, lat, lng, fallback) {
         if (label) return label;
-        if (lat != null && lng != null) return formatCoordinateLabel(lat, lng);
+        if (lat != null && lng != null) return formatCoord(lat, lng);
         return fallback || 'Live location unavailable';
     }
 
     function syncLocation(lat, lng) {
         return fetch('/update-location/', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': '{{ csrf_token }}',
-            },
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
             body: JSON.stringify({ latitude: lat, longitude: lng }),
         });
     }
 
+    /* ── Sound Toggle ── */
+    function updateSoundToggleUI() {
+        const icon = document.getElementById('soundToggleIcon');
+        const label = document.getElementById('soundToggleLabel');
+        icon.className = emergencyState.soundEnabled ? 'bi bi-volume-up-fill me-1' : 'bi bi-volume-mute-fill me-1';
+        label.textContent = emergencyState.soundEnabled ? 'Sound ON' : 'Sound OFF';
+    }
+
+    /* ── Siren ── */
     function stopLocalAlarm() {
         if (!emergencyState.siren) return;
-        window.clearInterval(emergencyState.siren.intervalId);
-        try {
-            emergencyState.siren.oscillators.forEach((oscillator) => oscillator.stop());
-        } catch (error) {
-            console.warn('SafePassage siren stop warning:', error);
-        }
+        clearInterval(emergencyState.siren.intervalId);
+        try { emergencyState.siren.oscillators.forEach(o => o.stop()); } catch (e) {}
         emergencyState.siren.audioContext.close().catch(() => {});
         emergencyState.siren = null;
         setDispatchState('READY', 'risk-low', 'Local alarm stopped.', 'Live SOS dispatch remains available.');
@@ -304,119 +402,68 @@
             { start: 760, end: 1160, duration: 0.35 },
             { start: 1160, end: 780, duration: 0.35 },
         ];
-
-        oscillators.forEach((oscillator) => oscillator.frequency.cancelScheduledValues(startTime));
-
+        oscillators.forEach(o => o.frequency.cancelScheduledValues(startTime));
         let cursor = startTime;
-        pattern.forEach((segment) => {
-            oscillators[0].frequency.setValueAtTime(segment.start, cursor);
-            oscillators[0].frequency.linearRampToValueAtTime(segment.end, cursor + segment.duration);
-
-            oscillators[1].frequency.setValueAtTime(segment.start / 2, cursor);
-            oscillators[1].frequency.linearRampToValueAtTime(segment.end / 2, cursor + segment.duration);
-
-            oscillators[2].frequency.setValueAtTime((segment.start * 3) / 2, cursor);
-            oscillators[2].frequency.linearRampToValueAtTime((segment.end * 3) / 2, cursor + segment.duration);
-
-            cursor += segment.duration;
+        pattern.forEach(seg => {
+            oscillators[0].frequency.setValueAtTime(seg.start, cursor);
+            oscillators[0].frequency.linearRampToValueAtTime(seg.end, cursor + seg.duration);
+            oscillators[1].frequency.setValueAtTime(seg.start / 2, cursor);
+            oscillators[1].frequency.linearRampToValueAtTime(seg.end / 2, cursor + seg.duration);
+            oscillators[2].frequency.setValueAtTime((seg.start * 3) / 2, cursor);
+            oscillators[2].frequency.linearRampToValueAtTime((seg.end * 3) / 2, cursor + seg.duration);
+            cursor += seg.duration;
         });
-
         return cursor - startTime;
     }
 
     async function startLocalAlarm() {
+        if (!emergencyState.soundEnabled) return true; // skip sound but allow dispatch
         if (emergencyState.siren) {
             if (emergencyState.siren.audioContext.state === 'suspended') {
-                try {
-                    await emergencyState.siren.audioContext.resume();
-                } catch (error) {
-                    console.warn('SafePassage siren resume warning:', error);
-                }
+                try { await emergencyState.siren.audioContext.resume(); } catch (e) {}
             }
             return emergencyState.siren.audioContext.state === 'running';
         }
-
         const AudioContextClass = window.AudioContext || window.webkitAudioContext;
         if (!AudioContextClass) return false;
-
         try {
             const audioContext = new AudioContextClass();
             const filter = audioContext.createBiquadFilter();
-            filter.type = 'lowpass';
-            filter.frequency.setValueAtTime(1850, audioContext.currentTime);
-            filter.Q.value = 0.85;
-
+            filter.type = 'lowpass'; filter.frequency.setValueAtTime(1850, audioContext.currentTime); filter.Q.value = 0.85;
             const masterGain = audioContext.createGain();
             masterGain.gain.setValueAtTime(0.0001, audioContext.currentTime);
             masterGain.gain.exponentialRampToValueAtTime(0.16, audioContext.currentTime + 0.08);
-
-            filter.connect(masterGain);
-            masterGain.connect(audioContext.destination);
-
-            const primary = audioContext.createOscillator();
-            primary.type = 'sawtooth';
-            const body = audioContext.createOscillator();
-            body.type = 'triangle';
-            const edge = audioContext.createOscillator();
-            edge.type = 'square';
-
-            const primaryGain = audioContext.createGain();
-            primaryGain.gain.value = 0.09;
-            const bodyGain = audioContext.createGain();
-            bodyGain.gain.value = 0.055;
-            const edgeGain = audioContext.createGain();
-            edgeGain.gain.value = 0.018;
-
-            primary.connect(primaryGain);
-            body.connect(bodyGain);
-            edge.connect(edgeGain);
-            primaryGain.connect(filter);
-            bodyGain.connect(filter);
-            edgeGain.connect(filter);
-
-            const tremolo = audioContext.createOscillator();
-            tremolo.type = 'sine';
+            filter.connect(masterGain); masterGain.connect(audioContext.destination);
+            const primary = audioContext.createOscillator(); primary.type = 'sawtooth';
+            const body = audioContext.createOscillator(); body.type = 'triangle';
+            const edge = audioContext.createOscillator(); edge.type = 'square';
+            const pg = audioContext.createGain(); pg.gain.value = 0.09;
+            const bg = audioContext.createGain(); bg.gain.value = 0.055;
+            const eg = audioContext.createGain(); eg.gain.value = 0.018;
+            primary.connect(pg); body.connect(bg); edge.connect(eg);
+            pg.connect(filter); bg.connect(filter); eg.connect(filter);
+            const tremolo = audioContext.createOscillator(); tremolo.type = 'sine';
             tremolo.frequency.setValueAtTime(7.4, audioContext.currentTime);
-            const tremoloDepth = audioContext.createGain();
-            tremoloDepth.gain.setValueAtTime(0.032, audioContext.currentTime);
-            tremolo.connect(tremoloDepth);
-            tremoloDepth.connect(masterGain.gain);
-
-            primary.start();
-            body.start();
-            edge.start();
-            tremolo.start();
-
+            const td = audioContext.createGain(); td.gain.setValueAtTime(0.032, audioContext.currentTime);
+            tremolo.connect(td); td.connect(masterGain.gain);
+            primary.start(); body.start(); edge.start(); tremolo.start();
             const oscillators = [primary, body, edge];
             const cycleDuration = scheduleAmbulancePattern(audioContext, oscillators, audioContext.currentTime + 0.02);
-            const intervalId = window.setInterval(() => {
-                scheduleAmbulancePattern(audioContext, oscillators, audioContext.currentTime + 0.04);
-            }, Math.max(500, Math.round((cycleDuration - 0.05) * 1000)));
-
-            if (audioContext.state === 'suspended') {
-                await audioContext.resume();
-            }
-
-            emergencyState.siren = {
-                audioContext,
-                oscillators: [primary, body, edge, tremolo],
-                intervalId,
-            };
+            const intervalId = setInterval(() => scheduleAmbulancePattern(audioContext, oscillators, audioContext.currentTime + 0.04), Math.max(500, Math.round((cycleDuration - 0.05) * 1000)));
+            if (audioContext.state === 'suspended') await audioContext.resume();
+            emergencyState.siren = { audioContext, oscillators: [primary, body, edge, tremolo], intervalId };
             return audioContext.state === 'running';
-        } catch (error) {
-            console.warn('SafePassage siren start failed:', error);
-            return false;
-        }
+        } catch (e) { return false; }
     }
 
     function refreshEmergencyContext(lat, lng) {
         const params = new URLSearchParams({ lat: lat.toFixed(6), lng: lng.toFixed(6) });
         Promise.all([
-            fetchJson(`/api/predict-risk/?${params.toString()}`),
-            fetchJson(`/api/embassy-info/?${params.toString()}`),
+            fetchJson(`/api/predict-risk/?${params}`),
+            fetchJson(`/api/embassy-info/?${params}`),
         ]).then(([risk, embassy]) => {
             setText('sosLocationLabel', formatLocationLabel(risk.location, lat, lng, 'Live location unavailable'));
-            setText('sosCoordinates', formatCoordinateLabel(lat, lng));
+            setText('sosCoordinates', formatCoord(lat, lng));
             setText('gpsStatusBadge', 'GPS locked');
             setText('sosRiskScore', risk.risk_score != null ? `${risk.risk_score}%` : '--');
             setBadge('sosRiskBadge', risk.risk_label || 'UNAVAILABLE');
@@ -428,62 +475,112 @@
                 callLink.href = `tel:${embassy.phone.replace(/[^+\d]/g, '')}`;
                 callLink.classList.remove('disabled');
             } else {
-                callLink.href = '#';
-                callLink.classList.add('disabled');
+                callLink.href = '#'; callLink.classList.add('disabled');
             }
-        }).catch(() => {
-            setText('sosRiskAdvice', 'Live emergency context failed to refresh. We will retry on the next GPS update.');
-        });
+        }).catch(() => setText('sosRiskAdvice', 'Live emergency context failed to refresh.'));
     }
 
     async function sendEmergency(mode, sourceLabel, options = {}) {
         const shouldStartAlarm = mode === 'loud' && options.armLocalAlarm;
         const alarmStarted = shouldStartAlarm ? await startLocalAlarm() : Boolean(emergencyState.siren);
-
         if (emergencyState.lat == null || emergencyState.lng == null) {
             if (mode === 'loud' && alarmStarted) {
-                setDispatchState('ALARM ONLY', 'risk-high', 'Local alarm is active, but live dispatch needs GPS.', 'Enable browser location to send your coordinates, or call emergency services directly.');
-                return;
+                setDispatchState('ALARM ONLY', 'risk-high', 'Local alarm active, but GPS needed for dispatch.', 'Enable location to send coordinates, or call services directly.');
+            } else {
+                setDispatchState('WAIT', 'risk-medium', 'GPS lock required before dispatch.', 'Enable browser location, then try again.');
             }
-            setDispatchState('WAIT', 'risk-medium', 'GPS lock is required before dispatch.', 'Enable browser location, then try again.');
             return;
         }
-
         setDispatchState(
             mode === 'loud' ? 'SENDING' : 'DISPATCHING',
             mode === 'loud' ? 'risk-high' : 'risk-medium',
-            `${mode === 'loud' ? 'Loud' : 'Silent'} SOS is being transmitted...`,
-            mode === 'loud' && !alarmStarted
-                ? `Source: ${sourceLabel}. Live location is being sent, but the browser did not start the local alarm audio.`
-                : `Source: ${sourceLabel}. Sending live location ${emergencyState.lat.toFixed(5)}, ${emergencyState.lng.toFixed(5)}.`
+            `${mode === 'loud' ? 'Loud' : 'Silent'} SOS transmitting...`,
+            `Source: ${sourceLabel}. Sending SMS + WhatsApp alerts to emergency contacts. Location: ${emergencyState.lat.toFixed(5)}, ${emergencyState.lng.toFixed(5)}.`
         );
-
         fetchJson('/api/emergency/', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': '{{ csrf_token }}',
-            },
-            body: JSON.stringify({
-                latitude: emergencyState.lat,
-                longitude: emergencyState.lng,
-                mode: mode,
-            }),
-        }).then((payload) => {
-            if (mode !== 'loud') {
-                stopLocalAlarm();
-            }
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
+            body: JSON.stringify({ latitude: emergencyState.lat, longitude: emergencyState.lng, mode }),
+        }).then(payload => {
+            if (mode !== 'loud') stopLocalAlarm();
+            const deliveryChannels = payload.delivery_channels || {};
+            const smsCount = Number(deliveryChannels.sms_contacts || 0);
+            const whatsappCount = Number(deliveryChannels.whatsapp_contacts || 0);
+            const contactNames = Array.isArray(payload.contact_deliveries)
+                ? payload.contact_deliveries.slice(0, 3).map(contact => contact.name).join(', ')
+                : '';
             setDispatchState(
                 mode === 'loud' ? 'LOUD ALERT' : 'SENT',
                 mode === 'loud' ? 'risk-high' : 'risk-low',
-                `${mode === 'loud' ? 'Loud' : 'Silent'} SOS dispatched successfully.`,
-                `Alert source: ${sourceLabel}. Location shared for ${formatLocationLabel(payload.location, emergencyState.lat, emergencyState.lng, 'your coordinates')}.`
+                `${mode === 'loud' ? 'Loud' : 'Silent'} SOS dispatched.`,
+                `Alert source: ${sourceLabel}. SMS: ${smsCount}, WhatsApp: ${whatsappCount}. ${contactNames ? `Selected contacts: ${contactNames}. ` : ''}Location: ${formatLocationLabel(payload.location, emergencyState.lat, emergencyState.lng, 'your coordinates')}.`
             );
+            logAlertToHistory(mode, sourceLabel, payload);
+            loadAlertHistory();
         }).catch(() => {
-            setDispatchState('FAILED', 'risk-high', 'Emergency dispatch failed.', 'Retry now or call emergency services directly using the official numbers on this page.');
+            setDispatchState('FAILED', 'risk-high', 'Emergency dispatch failed.', 'Retry now or call emergency services directly.');
         });
     }
 
+    /* ── SOS Alert History (local session log + API) ── */
+    const _localHistory = JSON.parse(localStorage.getItem('sos_history') || '[]');
+
+    function logAlertToHistory(mode, source, payload = null) {
+        const entry = {
+            mode, source,
+            lat: emergencyState.lat, lng: emergencyState.lng,
+            ts: new Date().toISOString(),
+            location_label: payload && payload.location ? payload.location : formatLocationLabel(null, emergencyState.lat, emergencyState.lng, 'Live location unavailable'),
+            status: payload && payload.status ? payload.status : 'success',
+            delivery_channels: payload && payload.delivery_channels ? payload.delivery_channels : null,
+        };
+        _localHistory.unshift(entry);
+        if (_localHistory.length > 20) _localHistory.pop();
+        localStorage.setItem('sos_history', JSON.stringify(_localHistory));
+    }
+
+    function loadAlertHistory() {
+        const container = document.getElementById('alertHistoryList');
+        // Merge local session logs with server-side if available
+        fetchJson('/api/sos-history/')
+            .then(data => renderHistoryItems((data.alerts || []).concat(_localHistory)))
+            .catch(() => renderHistoryItems(_localHistory));
+    }
+
+    function renderHistoryItems(items) {
+        const container = document.getElementById('alertHistoryList');
+        if (!items.length) {
+            container.innerHTML = '<div class="text-muted small">No SOS alerts have been triggered yet.</div>';
+            return;
+        }
+        container.innerHTML = items.slice(0, 10).map(item => {
+            const ts = item.ts || item.timestamp || '';
+            const dtLabel = ts ? new Date(ts).toLocaleString() : 'Unknown time';
+            const mode = item.mode || 'unknown';
+            const src = item.source || item.triggered_by || '--';
+            const delivery = item.delivery_channels || {};
+            const locationLabel = item.location_label || '';
+            const status = item.status || '';
+            return `<div class="history-item">
+                <div class="d-flex justify-content-between align-items-start gap-2">
+                    <div>
+                        <div class="fw-bold small">${mode.charAt(0).toUpperCase() + mode.slice(1)} Alert</div>
+                        <div class="small text-muted">Source: ${src}</div>
+                        ${locationLabel ? `<div class="small text-muted">${locationLabel}</div>` : ''}
+                        ${item.lat ? `<div class="small text-muted">${Number(item.lat).toFixed(4)}, ${Number(item.lng || item.longitude || 0).toFixed(4)}</div>` : ''}
+                        ${(delivery.sms_contacts || delivery.whatsapp_contacts) ? `<div class="small text-muted">SMS: ${delivery.sms_contacts || 0} | WhatsApp: ${delivery.whatsapp_contacts || 0}</div>` : ''}
+                    </div>
+                    <div class="text-end">
+                        <span class="risk-pill ${mode === 'loud' ? 'risk-high' : 'risk-medium'}" style="font-size:0.65rem;">${mode.toUpperCase()}</span>
+                        ${status ? `<div class="small text-muted mt-1">${status}</div>` : ''}
+                        <div class="small text-muted mt-1">${dtLabel}</div>
+                    </div>
+                </div>
+            </div>`;
+        }).join('');
+    }
+
+    /* ── Voice Trigger (with auto-restart) ── */
     function setupVoiceTrigger() {
         const VoiceRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         const button = document.getElementById('voiceToggleButton');
@@ -494,65 +591,132 @@
             return;
         }
 
-        emergencyState.recognition = new VoiceRecognition();
-        emergencyState.recognition.continuous = true;
-        emergencyState.recognition.interimResults = true;
-        emergencyState.recognition.lang = 'en-IN';
+        function createRecognition() {
+            const r = new VoiceRecognition();
+            r.continuous = true; r.interimResults = true; r.lang = 'en-IN';
 
-        emergencyState.recognition.onstart = () => {
-            emergencyState.listening = true;
-            button.textContent = 'Stop Voice Trigger';
-            setText('voiceStatusBadge', 'LISTENING');
-            setText('voiceTranscript', 'Listening for: SafePassage Help');
-        };
+            r.onstart = () => {
+                emergencyState.listening = true;
+                button.textContent = 'Stop Voice Trigger';
+                setText('voiceStatusBadge', 'LISTENING');
+                setText('voiceTranscript', 'Listening for: SafePassage Help');
+            };
 
-        emergencyState.recognition.onend = () => {
-            emergencyState.listening = false;
-            button.textContent = 'Start Voice Trigger';
-            setText('voiceStatusBadge', 'STANDBY');
-        };
+            r.onend = () => {
+                emergencyState.listening = false;
+                button.textContent = 'Start Voice Trigger';
+                setText('voiceStatusBadge', 'STANDBY');
+                // Auto-restart if it ended unexpectedly and flag is set
+                if (emergencyState.voiceAutoRestart) {
+                    setTimeout(() => {
+                        try { r.start(); } catch (e) {}
+                    }, 500);
+                }
+            };
 
-        emergencyState.recognition.onerror = () => {
-            setText('voiceTranscript', 'Voice recognition could not continue. Try again.');
-        };
+            r.onerror = event => {
+                if (event.error === 'not-allowed') {
+                    setText('voiceTranscript', 'Microphone access denied.');
+                    emergencyState.voiceAutoRestart = false;
+                } else {
+                    setText('voiceTranscript', `Mic error (${event.error}). Auto-restarting…`);
+                }
+            };
 
-        emergencyState.recognition.onresult = (event) => {
-            const transcript = Array.from(event.results)
-                .map((result) => result[0].transcript)
-                .join(' ')
-                .trim();
-            setText('voiceTranscript', transcript || 'Listening for: SafePassage Help');
-            const normalized = transcript.toLowerCase();
-            if (normalized.includes('safepassage help') || normalized.includes('safe passage help')) {
-                emergencyState.recognition.stop();
-                setText('voiceStatusBadge', 'TRIGGERED');
-                sendEmergency('silent', 'voice trigger');
-            }
-        };
+            r.onresult = event => {
+                const transcript = Array.from(event.results).map(res => res[0].transcript).join(' ').trim();
+                setText('voiceTranscript', transcript || 'Listening for: SafePassage Help');
+                const normalized = transcript.toLowerCase();
+                if (normalized.includes('safepassage help') || normalized.includes('safe passage help')) {
+                    emergencyState.voiceAutoRestart = false;
+                    r.stop();
+                    setText('voiceStatusBadge', 'TRIGGERED');
+                    sendEmergency('silent', 'voice trigger');
+                    // Restart after 3s
+                    setTimeout(() => {
+                        emergencyState.voiceAutoRestart = true;
+                        try { r.start(); } catch (e) {}
+                    }, 3000);
+                }
+            };
+            return r;
+        }
+
+        emergencyState.recognition = createRecognition();
 
         button.addEventListener('click', () => {
-            if (!emergencyState.recognition) return;
             if (emergencyState.listening) {
+                emergencyState.voiceAutoRestart = false;
                 emergencyState.recognition.stop();
             } else {
+                emergencyState.voiceAutoRestart = true;
                 emergencyState.recognition.start();
             }
         });
     }
 
+    /* ── Fake Call ── */
+    function scheduleFakeCall() {
+        if (emergencyState.fakeCallTimer) clearTimeout(emergencyState.fakeCallTimer);
+        const name = document.getElementById('fakeCallerNameInput').value.trim() || 'Mom';
+        const number = document.getElementById('fakeCallerNumberInput').value.trim() || '+91 98765 43210';
+        const delay = parseInt(document.getElementById('fakeCallDelay').value, 10) || 0;
+        setText('fakeCallStatus', delay === 0 ? 'Triggering now…' : `Fake call will ring in ${delay}s…`);
+        emergencyState.fakeCallTimer = setTimeout(() => {
+            document.getElementById('fakeCallerName').textContent = name;
+            document.getElementById('fakeCallerNumber').textContent = number;
+            document.getElementById('fakeCallOverlay').classList.add('active');
+            setText('fakeCallStatus', 'Fake call active.');
+            // Play ringtone using Web Audio if sound is enabled
+            if (emergencyState.soundEnabled && (window.AudioContext || window.webkitAudioContext)) {
+                playRingtone();
+            }
+        }, delay * 1000);
+    }
+
+    function playRingtone() {
+        try {
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            const osc = ctx.createOscillator(); osc.type = 'sine'; osc.frequency.value = 880;
+            const gain = ctx.createGain(); gain.gain.setValueAtTime(0.1, ctx.currentTime);
+            osc.connect(gain); gain.connect(ctx.destination); osc.start();
+            osc.stop(ctx.currentTime + 0.5);
+            setTimeout(() => { const o2 = ctx.createOscillator(); o2.type='sine'; o2.frequency.value=880; const g2=ctx.createGain(); g2.gain.setValueAtTime(0.1,ctx.currentTime); o2.connect(g2); g2.connect(ctx.destination); o2.start(); o2.stop(ctx.currentTime+0.5); setTimeout(()=>ctx.close(),1000); }, 800);
+        } catch (e) {}
+    }
+
+    window.endFakeCall = function() {
+        document.getElementById('fakeCallOverlay').classList.remove('active');
+        setText('fakeCallStatus', 'Call dismissed.');
+    };
+
     document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('silentSosButton').addEventListener('click', () => sendEmergency('silent', 'manual button'));
         document.getElementById('loudSosButton').addEventListener('click', () => sendEmergency('loud', 'manual button', { armLocalAlarm: true }));
         document.getElementById('stopAlarmButton').addEventListener('click', stopLocalAlarm);
+        document.getElementById('soundToggleButton').addEventListener('click', () => {
+            emergencyState.soundEnabled = !emergencyState.soundEnabled;
+            if (!emergencyState.soundEnabled) stopLocalAlarm();
+            updateSoundToggleUI();
+        });
+        document.getElementById('fakeCallButton').addEventListener('click', () => {
+            document.getElementById('fakeCallerName').textContent = document.getElementById('fakeCallerNameInput').value.trim() || 'Mom';
+            document.getElementById('fakeCallerNumber').textContent = document.getElementById('fakeCallerNumberInput').value.trim() || '+91 98765 43210';
+            document.getElementById('fakeCallOverlay').classList.add('active');
+            setText('fakeCallStatus', 'Fake call active.');
+            if (emergencyState.soundEnabled) playRingtone();
+        });
+        document.getElementById('scheduleFakeCallBtn').addEventListener('click', scheduleFakeCall);
+
         setupVoiceTrigger();
+        loadAlertHistory();
 
         if (!navigator.geolocation) {
             setText('gpsStatusBadge', 'GPS unavailable');
-            setDispatchState('WAIT', 'risk-medium', 'Browser geolocation is unavailable.', 'Use a browser or device with GPS support to activate live SOS dispatch.');
+            setDispatchState('WAIT', 'risk-medium', 'Browser geolocation is unavailable.', 'Use a browser or device with GPS support.');
             return;
         }
-
-        navigator.geolocation.watchPosition((position) => {
+        navigator.geolocation.watchPosition(position => {
             emergencyState.lat = position.coords.latitude;
             emergencyState.lng = position.coords.longitude;
             setText('gpsStatusBadge', `GPS locked (${Math.round(position.coords.accuracy || 0)} m)`);
@@ -560,7 +724,7 @@
             syncLocation(emergencyState.lat, emergencyState.lng);
         }, () => {
             setText('gpsStatusBadge', 'GPS denied');
-            setDispatchState('WAIT', 'risk-medium', 'Location permission is required.', 'Allow GPS access so SafePassage can send a real emergency location.');
+            setDispatchState('WAIT', 'risk-medium', 'Location permission required.', 'Allow GPS access so SafePassage can send a real emergency location.');
         }, { enableHighAccuracy: true, maximumAge: 10000, timeout: 20000 });
     });
 </script>

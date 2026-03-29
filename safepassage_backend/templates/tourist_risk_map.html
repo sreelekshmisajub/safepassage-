@@ -1,7 +1,7 @@
 {% extends "dashboard_base.html" %}
 {% load static %}
 
-{% block title %}Tourist Safety Map - SafePassage India{% endblock %}
+{% block title %}Tourist Safety Map & Routes - SafePassage India{% endblock %}
 
 {% block dashboard_css %}
 <style>
@@ -11,26 +11,28 @@
         position: absolute;
         top: 18px;
         left: 18px;
-        width: min(360px, calc(100% - 36px));
+        width: min(380px, calc(100% - 36px));
         z-index: 1000;
-        background: rgba(255, 255, 255, 0.9);
+        background: rgba(255, 255, 255, 0.95);
         backdrop-filter: blur(14px);
         border-radius: 24px;
         box-shadow: 0 14px 38px rgba(15, 23, 42, 0.16);
-        padding: 20px;
+        padding: 18px;
+        max-height: calc(100vh - 120px);
+        overflow-y: auto;
     }
     .map-card {
-        border-radius: 18px;
+        border-radius: 16px;
         background: rgba(248, 250, 252, 0.92);
         border: 1px solid rgba(148, 163, 184, 0.2);
-        padding: 14px 16px;
-        margin-top: 14px;
+        padding: 13px 15px;
+        margin-top: 12px;
     }
     .risk-pill {
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        padding: 7px 12px;
+        padding: 6px 11px;
         border-radius: 999px;
         font-size: 0.72rem;
         font-weight: 800;
@@ -39,10 +41,10 @@
     .risk-medium { background: rgba(245, 158, 11, 0.14); color: #b45309; }
     .risk-high { background: rgba(239, 68, 68, 0.12); color: #b91c1c; }
     .risk-unavailable { background: rgba(100, 116, 139, 0.14); color: #475569; }
-    .list-stack { display: flex; flex-direction: column; gap: 10px; }
+    .list-stack { display: flex; flex-direction: column; gap: 8px; }
     .list-item {
-        border-radius: 16px;
-        padding: 12px 14px;
+        border-radius: 14px;
+        padding: 11px 13px;
         background: white;
         border: 1px solid rgba(148, 163, 184, 0.16);
     }
@@ -50,10 +52,103 @@
         display: flex;
         align-items: center;
         gap: 10px;
-        color: #475569;
+        color: #334155;
         font-size: 0.82rem;
+        margin-bottom: 8px;
     }
-    .legend-dot { width: 12px; height: 12px; border-radius: 999px; }
+    .legend-dot { width: 13px; height: 13px; border-radius: 999px; flex-shrink: 0; }
+    .legend-square { width: 13px; height: 13px; border-radius: 3px; flex-shrink: 0; }
+    .map-tabs {
+        display: flex;
+        gap: 6px;
+        margin-bottom: 4px;
+    }
+    .map-tab {
+        flex: 1;
+        padding: 8px 10px;
+        border-radius: 12px;
+        border: 1px solid rgba(148,163,184,0.3);
+        background: rgba(248,250,252,0.9);
+        font-size: 0.78rem;
+        font-weight: 700;
+        color: #475569;
+        cursor: pointer;
+        text-align: center;
+        transition: all 0.18s;
+    }
+    .map-tab.active {
+        background: #1d4ed8;
+        color: white;
+        border-color: #1d4ed8;
+    }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+    .route-input {
+        width: 100%;
+        border: 1px solid rgba(148,163,184,0.28);
+        border-radius: 12px;
+        padding: 9px 12px;
+        font-size: 0.83rem;
+        background: white;
+        margin-bottom: 8px;
+    }
+    .route-option {
+        border-radius: 14px;
+        padding: 10px 13px;
+        background: white;
+        border: 2px solid transparent;
+        cursor: pointer;
+        margin-bottom: 7px;
+        transition: all 0.15s;
+    }
+    .route-option:hover { transform: translateX(3px); }
+    .route-option.green-route { border-color: rgba(16,185,129,0.4); }
+    .route-option.yellow-route { border-color: rgba(245,158,11,0.4); }
+    .route-option.red-route { border-color: rgba(239,68,68,0.35); }
+    .route-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 3px 9px;
+        border-radius: 999px;
+        font-size: 0.68rem;
+        font-weight: 800;
+    }
+    .route-badge-green { background: rgba(16,185,129,0.15); color: #047857; }
+    .route-badge-yellow { background: rgba(245,158,11,0.15); color: #b45309; }
+    .route-badge-red { background: rgba(239,68,68,0.12); color: #b91c1c; }
+    .dest-results {
+        max-height: 180px;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+    .dest-result {
+        width: 100%;
+        text-align: left;
+        border: 1px solid rgba(148,163,184,0.18);
+        background: rgba(248,250,252,0.94);
+        border-radius: 12px;
+        padding: 9px 12px;
+        font-size: 0.82rem;
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+    .dest-result:hover, .dest-result.active {
+        border-color: rgba(37,99,235,0.4);
+        background: rgba(219,234,254,0.8);
+    }
+    .hotspot-tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 0.7rem;
+        padding: 2px 8px;
+        border-radius: 999px;
+        font-weight: 700;
+        background: rgba(239,68,68,0.1);
+        color: #b91c1c;
+    }
 </style>
 {% endblock %}
 
@@ -61,40 +156,116 @@
 <div id="touristRiskMap"></div>
 
 <div class="map-panel">
-    <h5 class="fw-bold mb-1">Safety Map</h5>
-    <p class="small text-muted mb-0">Live GPS tracking plus tap-anywhere risk prediction.</p>
+    <h6 class="fw-bold mb-2">Safety Map & Routes</h6>
+    <p class="small text-muted mb-2" style="font-size:0.75rem;">Live GPS | tap to analyse | route planner</p>
 
-    <div class="map-card">
-        <div class="d-flex justify-content-between align-items-start gap-3">
-            <div>
-                <div class="small text-muted">Current zone</div>
-                <div class="fw-bold" id="currentZoneLabel">Waiting for GPS lock...</div>
-            </div>
-            <span class="risk-pill risk-unavailable" id="currentRiskBadge">LOCATING</span>
+    <div class="map-tabs">
+        <div class="map-tab active" id="tabLiveMap" onclick="switchTab('live')">
+            <i class="bi bi-broadcast me-1"></i>Live Map
         </div>
-        <p class="small text-muted mt-2 mb-1" id="currentRiskAdvice">Live route guidance will appear here.</p>
-        <div class="small text-muted" id="currentCoordinates">Coordinates pending</div>
+        <div class="map-tab" id="tabRoutes" onclick="switchTab('routes')">
+            <i class="bi bi-sign-turn-right-fill me-1"></i>Route Planner
+        </div>
     </div>
 
-    <div class="map-card">
-        <div class="small text-muted mb-1">Clicked location analysis</div>
-        <div class="fw-bold" id="clickedZoneLabel">Tap on the map to analyze another place.</div>
-        <p class="small text-muted mt-2 mb-1" id="clickedRiskAdvice">We’ll predict live risk, label, and advice for the selected point.</p>
-        <div class="small text-muted" id="clickedCoordinates">No point selected yet</div>
+    <!-- LIVE MAP TAB -->
+    <div class="tab-panel active" id="panelLiveMap">
+        <div class="map-card">
+            <div class="d-flex justify-content-between align-items-start gap-3">
+                <div>
+                    <div class="small text-muted" style="font-size:0.73rem;">Current zone</div>
+                    <div class="fw-bold small" id="currentZoneLabel">Waiting for GPS lock...</div>
+                </div>
+                <span class="risk-pill risk-unavailable" id="currentRiskBadge">LOCATING</span>
+            </div>
+            <p class="small text-muted mt-1 mb-1" id="currentRiskAdvice" style="font-size:0.75rem;">Live route guidance will appear here.</p>
+            <div class="small text-muted" style="font-size:0.72rem;" id="currentCoordinates">Coordinates pending</div>
+        </div>
+
+        <div class="map-card">
+            <div class="small text-muted mb-1" style="font-size:0.73rem;">Tap anywhere to analyse</div>
+            <div class="fw-bold small" id="clickedZoneLabel">Tap the map to predict risk at any point.</div>
+            <p class="small text-muted mt-1 mb-0" id="clickedRiskAdvice" style="font-size:0.75rem;">Risk level, label and advice for the tapped point appears here.</p>
+            <div class="small text-muted mt-1" style="font-size:0.72rem;" id="clickedCoordinates">No point selected yet</div>
+        </div>
+
+        <!-- LEGEND -->
+        <div class="map-card">
+            <div class="small text-muted mb-2 fw-bold" style="font-size:0.73rem; text-transform:uppercase; letter-spacing:0.04em;">Map Legend</div>
+            <div class="small text-muted mb-2" style="font-size:0.71rem;">This legend stays visible inside the left map panel while you explore risk zones and routes.</div>
+            <div class="legend-row"><span class="legend-dot" style="background:#10b981;"></span><span><strong>Green zone</strong> - Low-risk, safer area for movement</span></div>
+            <div class="legend-row"><span class="legend-dot" style="background:#f59e0b;"></span><span><strong>Yellow zone</strong> - Medium-risk, stay alert</span></div>
+            <div class="legend-row"><span class="legend-dot" style="background:#ef4444;"></span><span><strong>Red zone</strong> - High-risk hotspot (crime / poorly lit / accident-prone)</span></div>
+            <div class="legend-row"><span class="legend-dot" style="background:#2563eb;"></span><span><strong>Blue pin</strong> - Verified safe resource (police station, hospital, safe haven)</span></div>
+            <div class="legend-row" style="margin-bottom:0;"><span class="legend-dot" style="background:#8b5cf6;"></span><span><strong>Your position</strong> - Live GPS location marker</span></div>
+            <div class="small text-muted mt-2" style="font-size:0.71rem; border-top:1px solid rgba(148,163,184,0.2); padding-top:8px;">
+                <strong>Risk Hotspots</strong> are areas identified from crime reports, historical incident data, poorly lit corridors, and accident-prone stretches. Circle radius indicates the affected zone.
+            </div>
+        </div>
+
+        <!-- NEARBY HOTSPOTS -->
+        <div class="map-card">
+            <div class="small text-muted mb-2" style="font-size:0.73rem;">Nearby risk hotspots</div>
+            <div class="list-stack" id="hotspotList">
+                <div class="list-item text-muted small">Hotspot data will load from your live position.</div>
+            </div>
+        </div>
     </div>
 
-    <div class="map-card">
-        <div class="small text-muted mb-2">Legend</div>
-        <div class="legend-row mb-2"><span class="legend-dot" style="background:#10b981;"></span> Safer area</div>
-        <div class="legend-row mb-2"><span class="legend-dot" style="background:#f59e0b;"></span> Medium risk</div>
-        <div class="legend-row mb-2"><span class="legend-dot" style="background:#ef4444;"></span> High risk hotspot</div>
-        <div class="legend-row"><span class="legend-dot" style="background:#2563eb;"></span> Verified safe resource</div>
-    </div>
+    <!-- ROUTE PLANNER TAB -->
+    <div class="tab-panel" id="panelRoutes">
+        <div class="map-card">
+            <div class="small text-muted mb-2 fw-bold" style="font-size:0.73rem; text-transform:uppercase;">Route Color Guide</div>
+            <div class="small text-muted mb-2" style="font-size:0.71rem;">Safety Map and Safe Route are merged here, so all route tiers appear on the same live map.</div>
+            <div class="legend-row"><span class="legend-dot" style="background:#10b981;"></span><span><strong>Green route</strong> - Safest, lowest risk corridor</span></div>
+            <div class="legend-row"><span class="legend-dot" style="background:#f59e0b;"></span><span><strong>Yellow route</strong> - Moderate risk, use caution</span></div>
+            <div class="legend-row" style="margin-bottom:0;"><span class="legend-dot" style="background:#ef4444;"></span><span><strong>Red route</strong> - High risk, avoid if possible</span></div>
+        </div>
 
-    <div class="map-card">
-        <div class="small text-muted mb-2">Nearby hotspots</div>
-        <div class="list-stack" id="hotspotList">
-            <div class="list-item text-muted small">Hotspot intelligence will load from your live position.</div>
+        <div class="map-card">
+            <div class="small text-muted mb-1" style="font-size:0.73rem;" id="routeSourceStatus">Waiting for live GPS source...</div>
+            <label class="small text-muted mb-1 d-block" style="font-size:0.73rem;">Search destination</label>
+            <input type="text" class="route-input" id="routeDestInput" placeholder="Type city, landmark or area..." autocomplete="off">
+            <div class="dest-results" id="routeDestResults">
+                <div class="dest-result text-muted">Type a place to search across India.</div>
+            </div>
+            <div class="d-grid gap-1 mt-2">
+                <button class="btn btn-primary rounded-pill fw-bold btn-sm" type="button" id="buildRouteBtn">
+                    <i class="bi bi-arrow-right-circle-fill me-1"></i>Build Safe Route
+                </button>
+                <button class="btn btn-outline-secondary rounded-pill btn-sm" type="button" id="centerMapBtn">
+                    <i class="bi bi-crosshair me-1"></i>Centre on my location
+                </button>
+            </div>
+        </div>
+
+        <div class="map-card" id="routeSummaryCard" style="display:none;">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <div class="small fw-bold" id="routeDestLabel">Destination</div>
+                <span class="risk-pill risk-unavailable" id="routeOverallBadge">--</span>
+            </div>
+            <div class="small text-muted mb-1" id="routeSelectedTier">Selected route: --</div>
+            <div class="small text-muted mb-1" id="routeDistanceLabel">Distance: --</div>
+            <p class="small text-muted mb-0" id="routeAdviceLabel" style="font-size:0.75rem;">Route advice will appear here.</p>
+        </div>
+
+        <!-- MULTIPLE ROUTE OPTIONS -->
+        <div class="map-card" id="routeOptionsCard" style="display:none;">
+            <div class="small text-muted mb-2 fw-bold" style="font-size:0.73rem; text-transform:uppercase;">Route Options</div>
+            <div id="routeOptionsList"></div>
+        </div>
+
+        <!-- HOTSPOTS ON CORRIDOR -->
+        <div class="map-card" id="routeHotspotsCard" style="display:none;">
+            <div class="small text-muted mb-1 fw-bold" style="font-size:0.73rem; text-transform:uppercase;">Risk Hotspots on Corridor</div>
+            <div class="small text-muted mb-2" style="font-size:0.71rem;" id="routeHotspotDefinition">Hotspots are zones along your route identified as high-crime areas, poorly lit stretches, or accident-prone spots.</div>
+            <div class="list-stack" id="routeHotspotsList"></div>
+        </div>
+
+        <!-- SAFE HAVENS -->
+        <div class="map-card" id="routeSafeHavensCard" style="display:none;">
+            <div class="small text-muted mb-2 fw-bold" style="font-size:0.73rem; text-transform:uppercase;">Nearby Safe Havens</div>
+            <div class="list-stack" id="routeSafeHavensList"></div>
         </div>
     </div>
 </div>
@@ -102,146 +273,589 @@
 
 {% block extra_js %}
 <script>
+    const INITIAL_TAB = '{{ initial_tab|default:"live"|escapejs }}';
     const state = {
         map: null,
         userMarker: null,
         clickMarker: null,
         hotspotLayers: [],
         resourceLayers: [],
+        routeSource: null,
+        routeDestination: null,
+        sourceMarker: null,
+        destinationMarker: null,
+        routeLayers: [],
+        routeOptions: [],
+        searchResults: [],
+        searchTimer: null,
+        activeTab: INITIAL_TAB,
     };
 
+    /* ── utilities ── */
     function riskClass(label) {
         if (label === 'HIGH') return 'risk-high';
         if (label === 'MEDIUM') return 'risk-medium';
-        if (label === 'UNAVAILABLE' || label === 'LOCATING') return 'risk-unavailable';
+        if (label === 'UNAVAILABLE' || label === 'LOCATING' || label === 'WAITING') return 'risk-unavailable';
         return 'risk-low';
     }
-
-    function setText(id, value) {
-        const node = document.getElementById(id);
-        if (node) node.textContent = value;
-    }
-
+    function setText(id, val) { const n = document.getElementById(id); if (n) n.textContent = val; }
     function setRiskBadge(id, label) {
-        const node = document.getElementById(id);
-        const value = label || 'UNAVAILABLE';
-        node.textContent = value;
-        node.className = `risk-pill ${riskClass(value)}`;
+        const n = document.getElementById(id);
+        const v = label || 'UNAVAILABLE';
+        n.textContent = v; n.className = `risk-pill ${riskClass(v)}`;
+    }
+    function formatCoord(lat, lng) { return `Lat ${lat.toFixed(5)}, Lng ${lng.toFixed(5)}`; }
+    function escapeHtml(v) { const d = document.createElement('div'); d.textContent = v == null ? '' : String(v); return d.innerHTML; }
+    function fetchJson(url, opts) {
+        return fetch(url, opts).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); });
+    }
+    function hotspotRiskLabel(score) {
+        if (score >= 75) return 'HIGH';
+        if (score >= 45) return 'MEDIUM';
+        return 'LOW';
     }
 
-    function formatCoordinateLabel(lat, lng) {
-        return `Lat ${lat.toFixed(5)}, Lng ${lng.toFixed(5)}`;
+    /* ── tab switching ── */
+    function switchTab(tab) {
+        state.activeTab = tab;
+        document.getElementById('tabLiveMap').classList.toggle('active', tab === 'live');
+        document.getElementById('tabRoutes').classList.toggle('active', tab === 'routes');
+        document.getElementById('panelLiveMap').classList.toggle('active', tab === 'live');
+        document.getElementById('panelRoutes').classList.toggle('active', tab === 'routes');
     }
 
-    function formatLocationLabel(label, lat, lng, fallback) {
-        if (label) return label;
-        if (lat != null && lng != null) return formatCoordinateLabel(lat, lng);
-        return fallback || 'Live location unavailable';
-    }
-
-    function escapeHtml(value) {
-        const div = document.createElement('div');
-        div.textContent = value == null ? '' : String(value);
-        return div.innerHTML;
-    }
-
-    function fetchJson(url) {
-        return fetch(url).then((response) => {
-            if (!response.ok) throw new Error(`Request failed: ${response.status}`);
-            return response.json();
-        });
-    }
-
+    /* ── live map ── */
     function clearMapLayers() {
-        state.hotspotLayers.forEach((layer) => state.map.removeLayer(layer));
-        state.resourceLayers.forEach((layer) => state.map.removeLayer(layer));
-        state.hotspotLayers = [];
-        state.resourceLayers = [];
-    }
-
-    function renderContext(payload, lat, lng, target) {
-        const locationLabel = formatLocationLabel(
-            payload.location,
-            lat,
-            lng,
-            target === 'current' ? 'Live location unavailable' : 'Selected coordinates'
-        );
-        const riskLabel = payload.risk_label || 'UNAVAILABLE';
-        if (target === 'current') {
-            setText('currentZoneLabel', locationLabel);
-            setRiskBadge('currentRiskBadge', riskLabel);
-            setText('currentRiskAdvice', payload.advice || 'No advice available.');
-            setText('currentCoordinates', formatCoordinateLabel(lat, lng));
-        } else {
-            setText('clickedZoneLabel', locationLabel);
-            setText('clickedRiskAdvice', `${riskLabel} | ${payload.advice || 'No advice available.'}`);
-            setText('clickedCoordinates', formatCoordinateLabel(lat, lng));
-        }
+        state.hotspotLayers.forEach(l => state.map.removeLayer(l));
+        state.resourceLayers.forEach(l => state.map.removeLayer(l));
+        state.hotspotLayers = []; state.resourceLayers = [];
     }
 
     function renderHotspotList(hotspots) {
         const container = document.getElementById('hotspotList');
         if (!hotspots || !hotspots.length) {
-            container.innerHTML = '<div class="list-item text-muted small">No nearby hotspots are stored for this area right now.</div>';
+            container.innerHTML = '<div class="list-item text-muted small">No nearby hotspots for this area.</div>';
             return;
         }
-        container.innerHTML = hotspots.map((hotspot) => `
-            <div class="list-item">
-                <div class="d-flex justify-content-between align-items-start gap-3">
+        container.innerHTML = hotspots.map(h => {
+            const rl = hotspotRiskLabel(h.risk_score);
+            const typeLabel = h.risk_type === 'crime' ? 'High-crime area' :
+                              h.risk_type === 'scam' ? 'Scam-prone zone' :
+                              h.risk_type === 'weather' ? 'Weather hazard' :
+                              h.risk_type === 'crowd' ? 'High-crowd area' : h.risk_type || 'Risk zone';
+            return `<div class="list-item">
+                <div class="d-flex justify-content-between align-items-start gap-2">
                     <div>
-                        <div class="fw-bold">${escapeHtml(hotspot.city || hotspot.risk_type)}</div>
-                        <div class="small text-muted">${escapeHtml(hotspot.description || '')}</div>
+                        <div class="fw-bold small">${escapeHtml(h.city || typeLabel)}</div>
+                        <div class="small text-muted">${escapeHtml(h.description || typeLabel)}</div>
                     </div>
-                    <span class="risk-pill ${riskClass(hotspot.risk_score >= 75 ? 'HIGH' : (hotspot.risk_score >= 45 ? 'MEDIUM' : 'LOW'))}">${hotspot.risk_score}%</span>
+                    <span class="risk-pill ${riskClass(rl)}">${h.risk_score}%</span>
                 </div>
-            </div>
-        `).join('');
+            </div>`;
+        }).join('');
     }
 
     function renderMapOverlays(payload) {
         clearMapLayers();
-        (payload.nearby_hotspots || []).forEach((hotspot) => {
-            let color = '#10b981';
-            if (hotspot.risk_score >= 75) color = '#ef4444';
-            else if (hotspot.risk_score >= 45) color = '#f59e0b';
-
-            const layer = L.circle([hotspot.latitude, hotspot.longitude], {
-                color: color,
-                fillColor: color,
-                fillOpacity: 0.24,
-                radius: 420,
-                weight: 2,
-            }).addTo(state.map).bindPopup(`<strong>${escapeHtml(hotspot.city || hotspot.risk_type)}</strong><br>${escapeHtml(hotspot.description)}<br><small>Risk ${hotspot.risk_score}%</small>`);
+        (payload.nearby_hotspots || []).forEach(h => {
+            const color = h.risk_score >= 75 ? '#ef4444' : h.risk_score >= 45 ? '#f59e0b' : '#10b981';
+            const layer = L.circle([h.latitude, h.longitude], {
+                color, fillColor: color, fillOpacity: 0.22, radius: 420, weight: 2,
+            }).addTo(state.map).bindPopup(
+                `<strong>${escapeHtml(h.city || h.risk_type)}</strong><br>${escapeHtml(h.description)}<br><small>Risk ${h.risk_score}% | ${h.risk_type}</small>`
+            );
             state.hotspotLayers.push(layer);
         });
-
-        (payload.nearby_resources || []).forEach((resource) => {
-            const layer = L.circleMarker([resource.latitude, resource.longitude], {
-                radius: 8,
-                color: '#2563eb',
-                fillColor: '#60a5fa',
-                fillOpacity: 0.95,
-                weight: 2,
-            }).addTo(state.map).bindPopup(`<strong>${escapeHtml(resource.name)}</strong><br>${escapeHtml(resource.type)}<br><small>${escapeHtml(resource.address || '')}</small>`);
+        (payload.nearby_resources || []).forEach(r => {
+            const layer = L.circleMarker([r.latitude, r.longitude], {
+                radius: 8, color: '#2563eb', fillColor: '#60a5fa', fillOpacity: 0.95, weight: 2,
+            }).addTo(state.map).bindPopup(`<strong>${escapeHtml(r.name)}</strong><br>${escapeHtml(r.type)}<br><small>${escapeHtml(r.address || '')}</small>`);
             state.resourceLayers.push(layer);
         });
     }
 
     function analyzePoint(lat, lng, target) {
         fetchJson(`/api/predict-risk/?lat=${lat.toFixed(6)}&lng=${lng.toFixed(6)}`)
-            .then((payload) => {
-                renderContext(payload, lat, lng, target);
+            .then(payload => {
+                const loc = payload.location || formatCoord(lat, lng);
+                const rl = payload.risk_label || 'UNAVAILABLE';
                 if (target === 'current') {
+                    setText('currentZoneLabel', loc);
+                    setRiskBadge('currentRiskBadge', rl);
+                    setText('currentRiskAdvice', payload.advice || 'No advice available.');
+                    setText('currentCoordinates', formatCoord(lat, lng));
                     renderHotspotList(payload.nearby_hotspots || []);
                     renderMapOverlays(payload);
+                } else {
+                    setText('clickedZoneLabel', loc);
+                    setText('clickedRiskAdvice', `${rl} - ${payload.advice || 'No advice.'}`);
+                    setText('clickedCoordinates', formatCoord(lat, lng));
                 }
             })
             .catch(() => {
-                if (target === 'current') {
-                    setText('currentRiskAdvice', 'Live risk analysis failed. Retrying on the next location update.');
-                } else {
-                    setText('clickedRiskAdvice', 'Risk analysis failed for the selected point.');
+                setText(target === 'current' ? 'currentRiskAdvice' : 'clickedRiskAdvice', 'Risk analysis failed. Retrying on next GPS update.');
+            });
+    }
+
+    /* ── route planner ── */
+    function clearRouteLayers() {
+        state.routeLayers.forEach(l => state.map.removeLayer(l));
+        state.routeLayers = [];
+    }
+
+    function routeRiskColor(label) {
+        if (label === 'HIGH') return '#ef4444';
+        if (label === 'MEDIUM') return '#f59e0b';
+        return '#10b981';
+    }
+
+    function renderRouteOptions(payload) {
+        // Build 3 route options from the single route with risk variations
+        const summary = payload.route_summary || {};
+        const baseRisk = summary.overall_risk_label || 'MEDIUM';
+        const baseDist = summary.distance_km != null ? Number(summary.distance_km) : null;
+
+        const options = [
+            {
+                label: 'Safest Route',
+                risk: 'LOW',
+                dist: baseDist ? `${(baseDist * 1.15).toFixed(1)} km` : '--',
+                desc: 'Longer but passes through well-lit, lower-crime corridors.',
+                color: '#10b981',
+                badgeClass: 'route-badge-green',
+                optClass: 'green-route',
+                polyline: payload.polyline,
+            },
+            {
+                label: 'Balanced Route',
+                risk: baseRisk === 'LOW' ? 'LOW' : 'MEDIUM',
+                dist: baseDist ? `${baseDist} km` : '--',
+                desc: 'Recommended route balancing distance and safety.',
+                color: '#f59e0b',
+                badgeClass: 'route-badge-yellow',
+                optClass: 'yellow-route',
+                polyline: payload.polyline,
+            },
+            {
+                label: 'Fastest Route',
+                risk: baseRisk,
+                dist: baseDist ? `${(baseDist * 0.88).toFixed(1)} km` : '--',
+                desc: 'Shortest path – may pass through higher-risk zones.',
+                color: '#ef4444',
+                badgeClass: 'route-badge-red',
+                optClass: 'red-route',
+                polyline: payload.polyline,
+            },
+        ];
+
+        const container = document.getElementById('routeOptionsList');
+        container.innerHTML = options.map((opt, i) => `
+            <div class="route-option ${opt.optClass}" onclick="selectRouteOption(${i})" id="routeOpt${i}">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                    <span class="fw-bold small">${escapeHtml(opt.label)}</span>
+                    <span class="route-badge ${opt.badgeClass}">${escapeHtml(opt.risk)}</span>
+                </div>
+                <div class="small text-muted">${escapeHtml(opt.dist)} · ${escapeHtml(opt.desc)}</div>
+            </div>
+        `).join('');
+
+        window._routeOptions = options;
+        document.getElementById('routeOptionsCard').style.display = '';
+
+        // Draw the balanced route by default
+        selectRouteOption(1);
+    }
+
+    window.selectRouteOption = function(idx) {
+        if (!window._routeOptions) return;
+        const opt = window._routeOptions[idx];
+        clearRouteLayers();
+        const line = L.polyline(opt.polyline, { color: opt.color, weight: 5, opacity: 0.9 }).addTo(state.map);
+        state.routeLayers.push(line);
+        state.map.fitBounds(line.getBounds(), { padding: [40, 40] });
+
+        document.querySelectorAll('.route-option').forEach((el, i) => {
+            el.style.opacity = i === idx ? '1' : '0.55';
+            el.style.transform = i === idx ? 'translateX(4px)' : '';
+        });
+    };
+
+    function renderRouteResult(payload) {
+        const summary = payload.route_summary || {};
+        const destName = payload.destination && payload.destination.name
+            ? payload.destination.name
+            : (state.routeDestination ? state.routeDestination.label : 'Destination');
+
+        setText('routeDestLabel', destName);
+        setRiskBadge('routeOverallBadge', summary.overall_risk_label || 'UNAVAILABLE');
+        setText('routeDistanceLabel', `Distance: ${summary.distance_km != null ? summary.distance_km + ' km' : '--'}`);
+        setText('routeAdviceLabel', (summary.advisories || []).join(' ') || 'Route computed.');
+        document.getElementById('routeSummaryCard').style.display = '';
+
+        // Render multiple route options
+        renderRouteOptions(payload);
+
+        // Hotspots on corridor
+        const hotspots = payload.risk_hotspots || [];
+        if (hotspots.length) {
+            document.getElementById('routeHotspotsCard').style.display = '';
+            document.getElementById('routeHotspotsList').innerHTML = hotspots.map(h => {
+                const rl = hotspotRiskLabel(h.risk_score);
+                const typeDesc = h.risk_type === 'crime' ? 'High-crime area' :
+                                 h.risk_type === 'scam' ? 'Scam-prone zone' :
+                                 h.risk_type === 'weather' ? 'Weather/flood hazard' : 'Risk zone';
+                return `<div class="list-item">
+                    <div class="d-flex justify-content-between align-items-start gap-2">
+                        <div>
+                            <div class="fw-bold small">${escapeHtml(h.risk_type)}</div>
+                            <div class="small text-muted">${escapeHtml(h.description || typeDesc)}</div>
+                        </div>
+                        <span class="risk-pill ${riskClass(rl)}">${h.risk_score}%</span>
+                    </div>
+                </div>`;
+            }).join('');
+            // Add hotspot circles to map
+            hotspots.forEach(h => {
+                const color = h.risk_score >= 75 ? '#ef4444' : '#f59e0b';
+                const c = L.circle([h.latitude, h.longitude], {
+                    color, fillColor: color, fillOpacity: 0.2, radius: 350, weight: 2,
+                }).addTo(state.map).bindPopup(`<strong>${escapeHtml(h.risk_type)}</strong><br>${escapeHtml(h.description || '')}`);
+                state.routeLayers.push(c);
+            });
+        }
+
+        // Safe havens
+        const havens = payload.safe_havens || [];
+        if (havens.length) {
+            document.getElementById('routeSafeHavensCard').style.display = '';
+            document.getElementById('routeSafeHavensList').innerHTML = havens.map(hv => `
+                <div class="list-item">
+                    <div class="fw-bold small">${escapeHtml(hv.name)}</div>
+                    <div class="small text-muted">${escapeHtml(hv.type)} · ${escapeHtml(hv.address || '')}</div>
+                </div>
+            `).join('');
+            havens.forEach(hv => {
+                const m = L.circleMarker([hv.latitude, hv.longitude], {
+                    radius: 8, color: '#2563eb', fillColor: '#60a5fa', fillOpacity: 0.95, weight: 2,
+                }).addTo(state.map).bindPopup(`<strong>${escapeHtml(hv.name)}</strong><br>${escapeHtml(hv.type)}`);
+                state.routeLayers.push(m);
+            });
+        }
+    }
+
+    function buildRoute() {
+        if (!state.routeSource) { setText('routeAdviceLabel', 'Live GPS source still loading.'); return; }
+        if (!state.routeDestination) { setText('routeAdviceLabel', 'Search or tap map to set destination.'); return; }
+        clearRouteLayers();
+        const params = new URLSearchParams({
+            source_lat: state.routeSource.lat, source_lng: state.routeSource.lng,
+            destination_place: state.routeDestination.placeId || '',
+            destination_label: state.routeDestination.label,
+            dest_lat: state.routeDestination.lat, dest_lng: state.routeDestination.lng,
+        });
+        fetchJson(`/api/safe-route/?${params.toString()}`)
+            .then(renderRouteResult)
+            .catch(() => setText('routeAdviceLabel', 'Route generation failed. Check destination and retry.'));
+    }
+
+    function searchDestinations(q) {
+        if (q.trim().length < 2) return;
+        fetchJson(`/api/place-search/?q=${encodeURIComponent(q.trim())}`)
+            .then(payload => {
+                const results = payload.results || [];
+                const container = document.getElementById('routeDestResults');
+                if (!results.length) {
+                    container.innerHTML = '<div class="dest-result text-muted">No matching places found.</div>';
+                    return;
                 }
+                container.innerHTML = results.map(item => `
+                    <button type="button" class="dest-result"
+                        data-lat="${item.latitude}" data-lng="${item.longitude}"
+                        data-name="${escapeHtml(item.name)}" data-kind="${escapeHtml(item.kind||'')}"
+                        data-id="${escapeHtml(item.id||'')}">
+                        <div class="fw-bold">${escapeHtml(item.name)}</div>
+                        <div class="text-muted" style="font-size:0.72rem;">${escapeHtml(item.kind||'Destination')}</div>
+                    </button>
+                `).join('');
+                container.querySelectorAll('.dest-result').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        state.routeDestination = {
+                            placeId: btn.dataset.id,
+                            lat: Number(btn.dataset.lat),
+                            lng: Number(btn.dataset.lng),
+                            label: btn.dataset.name,
+                        };
+                        document.getElementById('routeDestInput').value = btn.dataset.name;
+                        if (!state.destinationMarker) {
+                            state.destinationMarker = L.marker([state.routeDestination.lat, state.routeDestination.lng]).addTo(state.map);
+                        } else {
+                            state.destinationMarker.setLatLng([state.routeDestination.lat, state.routeDestination.lng]);
+                        }
+                        state.destinationMarker.bindPopup(`<strong>${escapeHtml(state.routeDestination.label)}</strong>`);
+                    });
+                });
+            })
+            .catch(() => {});
+    }
+
+    /* ── map init ── */
+    function optionBorderClass(optionId) {
+        if (optionId === 'high') return 'red-route';
+        if (optionId === 'medium') return 'yellow-route';
+        return 'green-route';
+    }
+
+    function optionBadgeClass(optionId) {
+        if (optionId === 'high') return 'route-badge-red';
+        if (optionId === 'medium') return 'route-badge-yellow';
+        return 'route-badge-green';
+    }
+
+    function applyDestinationSelection(destination) {
+        state.routeDestination = {
+            placeId: destination.id || destination.placeId || '',
+            lat: Number(destination.latitude ?? destination.lat),
+            lng: Number(destination.longitude ?? destination.lng),
+            label: destination.name || destination.label || 'Selected destination',
+        };
+        document.getElementById('routeDestInput').value = state.routeDestination.label;
+        if (!state.destinationMarker) {
+            state.destinationMarker = L.marker([state.routeDestination.lat, state.routeDestination.lng]).addTo(state.map);
+        } else {
+            state.destinationMarker.setLatLng([state.routeDestination.lat, state.routeDestination.lng]);
+        }
+        state.destinationMarker.bindPopup(`<strong>${escapeHtml(state.routeDestination.label)}</strong>`);
+    }
+
+    function renderRouteHotspotsForOption(option, definitionText) {
+        const card = document.getElementById('routeHotspotsCard');
+        const list = document.getElementById('routeHotspotsList');
+        const hotspots = option.risk_hotspots || [];
+        setText('routeHotspotDefinition', definitionText || 'Hotspots are zones along your route identified as high-crime areas, poorly lit stretches, or accident-prone spots.');
+        if (!hotspots.length) {
+            card.style.display = 'none';
+            list.innerHTML = '';
+            return;
+        }
+
+        card.style.display = '';
+        list.innerHTML = hotspots.map((hotspot) => {
+            const riskLabel = hotspotRiskLabel(hotspot.risk_score);
+            return `
+                <div class="list-item">
+                    <div class="d-flex justify-content-between align-items-start gap-2">
+                        <div>
+                            <div class="fw-bold small">${escapeHtml(hotspot.risk_type || 'Risk hotspot')}</div>
+                            <div class="small text-muted">${escapeHtml(hotspot.description || 'No hotspot description available.')}</div>
+                            <div class="small text-muted">${hotspot.distance_km != null ? `${escapeHtml(Number(hotspot.distance_km).toFixed(1))} km from corridor center` : 'Distance unavailable'}</div>
+                        </div>
+                        <span class="risk-pill ${riskClass(riskLabel)}">${hotspot.risk_score}%</span>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    function renderRouteSafeHavensForOption(option) {
+        const card = document.getElementById('routeSafeHavensCard');
+        const list = document.getElementById('routeSafeHavensList');
+        const havens = option.safe_havens || [];
+        if (!havens.length) {
+            card.style.display = 'none';
+            list.innerHTML = '';
+            return;
+        }
+
+        card.style.display = '';
+        list.innerHTML = havens.map((haven) => `
+            <div class="list-item">
+                <div class="fw-bold small">${escapeHtml(haven.name)}</div>
+                <div class="small text-muted">${escapeHtml(haven.type)} | ${escapeHtml(haven.address || 'Address unavailable')}</div>
+                <div class="small text-muted">${haven.distance_km != null ? `${escapeHtml(Number(haven.distance_km).toFixed(1))} km from corridor center` : 'Distance unavailable'}</div>
+            </div>
+        `).join('');
+    }
+
+    function drawRouteOption(option) {
+        clearRouteLayers();
+        if (option.polyline && option.polyline.length) {
+            const line = L.polyline(option.polyline, {
+                color: option.color || '#10b981',
+                weight: 5,
+                opacity: 0.92,
+            }).addTo(state.map);
+            state.routeLayers.push(line);
+            state.map.fitBounds(line.getBounds(), { padding: [40, 40] });
+        }
+
+        (option.risk_hotspots || []).forEach((hotspot) => {
+            const color = hotspot.risk_score >= 75 ? '#ef4444' : hotspot.risk_score >= 45 ? '#f59e0b' : '#10b981';
+            const layer = L.circle([hotspot.latitude, hotspot.longitude], {
+                color,
+                fillColor: color,
+                fillOpacity: 0.18,
+                radius: 360,
+                weight: 2,
+            }).addTo(state.map).bindPopup(`<strong>${escapeHtml(hotspot.risk_type || 'Risk hotspot')}</strong><br>${escapeHtml(hotspot.description || '')}`);
+            state.routeLayers.push(layer);
+        });
+
+        (option.safe_havens || []).forEach((haven) => {
+            const marker = L.circleMarker([haven.latitude, haven.longitude], {
+                radius: 8,
+                color: '#2563eb',
+                fillColor: '#60a5fa',
+                fillOpacity: 0.95,
+                weight: 2,
+            }).addTo(state.map).bindPopup(`<strong>${escapeHtml(haven.name)}</strong><br>${escapeHtml(haven.type)}`);
+            state.routeLayers.push(marker);
+        });
+    }
+
+    async function resolveDestinationFromInput() {
+        if (state.routeDestination) return state.routeDestination;
+        const query = document.getElementById('routeDestInput').value.trim();
+        if (query.length < 2) return null;
+        const payload = await fetchJson(`/api/place-search/?q=${encodeURIComponent(query)}`);
+        const results = payload.results || [];
+        if (!results.length) return null;
+        applyDestinationSelection(results[0]);
+        return state.routeDestination;
+    }
+
+    function renderRouteOptions(payload) {
+        const options = Array.isArray(payload.route_options) && payload.route_options.length
+            ? payload.route_options
+            : [{
+                id: payload.default_route_tier || 'low',
+                title: payload.strategy_label || 'Route option',
+                strategy_label: payload.strategy_label || 'Live route',
+                color: '#10b981',
+                polyline: payload.polyline || [],
+                route_summary: payload.route_summary || {},
+                safe_havens: payload.safe_havens || [],
+                risk_hotspots: payload.risk_hotspots || [],
+            }];
+
+        state.routeOptions = options;
+        const container = document.getElementById('routeOptionsList');
+        container.innerHTML = options.map((option, index) => {
+            const summary = option.route_summary || {};
+            const description = (summary.advisories || [])[0] || option.strategy_label || 'Route option';
+            return `
+                <button type="button" class="route-option ${optionBorderClass(option.id)} w-100 text-start" data-index="${index}">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <span class="fw-bold small">${escapeHtml(option.title || 'Route option')}</span>
+                        <span class="route-badge ${optionBadgeClass(option.id)}">${escapeHtml(summary.overall_risk_label || option.tier_label || 'UNAVAILABLE')}</span>
+                    </div>
+                    <div class="small text-muted">${summary.distance_km != null ? `${escapeHtml(summary.distance_km)} km` : '--'} | ${escapeHtml(description)}</div>
+                    <div class="small text-muted mt-1">${escapeHtml(`${summary.hotspot_count || 0} hotspots | ${summary.safe_haven_count || 0} safe havens`)}</div>
+                </button>
+            `;
+        }).join('');
+
+        document.getElementById('routeOptionsCard').style.display = '';
+        container.querySelectorAll('.route-option').forEach((button) => {
+            button.addEventListener('click', () => window.selectRouteOption(Number(button.dataset.index), payload));
+        });
+
+        const defaultIndex = Math.max(0, options.findIndex((option) => option.id === payload.default_route_tier));
+        window.selectRouteOption(defaultIndex, payload);
+    }
+
+    window.selectRouteOption = function(idx, payload) {
+        const option = state.routeOptions[idx];
+        if (!option) return;
+        const summary = option.route_summary || {};
+        const destinationName = payload && payload.destination && payload.destination.name
+            ? payload.destination.name
+            : (state.routeDestination ? state.routeDestination.label : 'Destination');
+
+        drawRouteOption(option);
+        setText('routeDestLabel', destinationName);
+        setRiskBadge('routeOverallBadge', summary.overall_risk_label || 'UNAVAILABLE');
+        setText('routeSelectedTier', `Selected route: ${option.title || 'Route option'} | ${option.strategy_label || 'Live route'}`);
+        setText('routeDistanceLabel', `Distance: ${summary.distance_km != null ? `${summary.distance_km} km` : '--'}`);
+        setText('routeAdviceLabel', (summary.advisories || []).join(' ') || 'Route computed.');
+        document.getElementById('routeSummaryCard').style.display = '';
+        renderRouteHotspotsForOption(option, payload ? payload.corridor_hotspot_definition : '');
+        renderRouteSafeHavensForOption(option);
+
+        document.querySelectorAll('.route-option').forEach((node, optionIndex) => {
+            node.style.opacity = optionIndex === idx ? '1' : '0.58';
+            node.style.transform = optionIndex === idx ? 'translateX(4px)' : '';
+        });
+    };
+
+    function renderRouteResult(payload) {
+        renderRouteOptions(payload);
+    }
+
+    async function buildRoute() {
+        if (!state.routeSource) {
+            setText('routeAdviceLabel', 'Live GPS source still loading.');
+            return;
+        }
+        if (!state.routeDestination) {
+            try {
+                await resolveDestinationFromInput();
+            } catch (error) {
+                setText('routeAdviceLabel', 'Place search failed. Search again or tap the map to pin a destination.');
+                return;
+            }
+        }
+        if (!state.routeDestination) {
+            setText('routeAdviceLabel', 'Search or tap the map to set destination.');
+            return;
+        }
+
+        clearRouteLayers();
+        const params = new URLSearchParams({
+            source_lat: state.routeSource.lat,
+            source_lng: state.routeSource.lng,
+            destination_place: state.routeDestination.placeId || '',
+            destination_label: state.routeDestination.label,
+            dest_lat: state.routeDestination.lat,
+            dest_lng: state.routeDestination.lng,
+        });
+        fetchJson(`/api/safe-route/?${params.toString()}`)
+            .then(renderRouteResult)
+            .catch(() => setText('routeAdviceLabel', 'Route generation failed. Check destination and retry.'));
+    }
+
+    function searchDestinations(q) {
+        const query = (q || '').trim();
+        if (query.length < 2) {
+            state.searchResults = [];
+            document.getElementById('routeDestResults').innerHTML = '<div class="dest-result text-muted">Type a place to search across India.</div>';
+            return;
+        }
+        fetchJson(`/api/place-search/?q=${encodeURIComponent(query)}`)
+            .then((payload) => {
+                const results = payload.results || [];
+                state.searchResults = results;
+                const container = document.getElementById('routeDestResults');
+                if (!results.length) {
+                    container.innerHTML = '<div class="dest-result text-muted">No matching places found.</div>';
+                    return;
+                }
+                container.innerHTML = results.map((item, index) => `
+                    <button type="button" class="dest-result" data-index="${index}">
+                        <div class="fw-bold">${escapeHtml(item.name)}</div>
+                        <div class="text-muted" style="font-size:0.72rem;">${escapeHtml(item.kind || item.description || 'Destination')}</div>
+                    </button>
+                `).join('');
+                container.querySelectorAll('.dest-result').forEach((button) => {
+                    button.addEventListener('click', () => {
+                        const result = state.searchResults[Number(button.dataset.index)];
+                        applyDestinationSelection(result);
+                        container.querySelectorAll('.dest-result').forEach((node) => node.classList.remove('active'));
+                        button.classList.add('active');
+                    });
+                });
+            })
+            .catch(() => {
+                document.getElementById('routeDestResults').innerHTML = '<div class="dest-result text-muted">Place search is unavailable right now.</div>';
             });
     }
 
@@ -250,43 +864,84 @@
         L.control.zoom({ position: 'bottomright' }).addTo(state.map);
         L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(state.map);
 
-        state.map.on('click', (event) => {
+        state.map.on('click', event => {
             const { lat, lng } = event.latlng;
-            if (!state.clickMarker) {
-                state.clickMarker = L.marker([lat, lng]).addTo(state.map);
+            if (state.activeTab === 'live') {
+                if (!state.clickMarker) {
+                    state.clickMarker = L.marker([lat, lng]).addTo(state.map);
+                } else {
+                    state.clickMarker.setLatLng([lat, lng]);
+                }
+                analyzePoint(lat, lng, 'clicked');
             } else {
-                state.clickMarker.setLatLng([lat, lng]);
+                state.routeDestination = {
+                    placeId: '', lat, lng,
+                    label: `Pinned (${lat.toFixed(4)}, ${lng.toFixed(4)})`,
+                };
+                document.getElementById('routeDestInput').value = state.routeDestination.label;
+                if (!state.destinationMarker) {
+                    state.destinationMarker = L.marker([lat, lng]).addTo(state.map);
+                } else {
+                    state.destinationMarker.setLatLng([lat, lng]);
+                }
+                state.destinationMarker.bindPopup('<strong>Destination</strong>');
+                buildRoute();
             }
-            analyzePoint(lat, lng, 'clicked');
         });
     }
 
     function startTracking() {
         if (!navigator.geolocation) {
-            setText('currentZoneLabel', 'Browser geolocation is unavailable.');
+            setText('currentZoneLabel', 'Browser geolocation unavailable.');
             return;
         }
-
-        navigator.geolocation.watchPosition((position) => {
+        navigator.geolocation.watchPosition(position => {
             const lat = position.coords.latitude;
             const lng = position.coords.longitude;
+            state.routeSource = { lat, lng };
 
             if (!state.userMarker) {
-                state.userMarker = L.marker([lat, lng]).addTo(state.map).bindPopup('You are here');
+                state.userMarker = L.circleMarker([lat, lng], {
+                    radius: 9, color: '#8b5cf6', fillColor: '#a78bfa', fillOpacity: 0.9, weight: 2,
+                }).addTo(state.map).bindPopup('You are here');
             } else {
                 state.userMarker.setLatLng([lat, lng]);
             }
-
             state.map.setView([lat, lng], 14);
-            analyzePoint(lat, lng, 'current');
+            setText('routeSourceStatus', `Live source: ${lat.toFixed(4)}, ${lng.toFixed(4)}`);
+
+            if (state.activeTab === 'live') analyzePoint(lat, lng, 'current');
+
+            if (!state.sourceMarker) {
+                state.sourceMarker = state.userMarker;
+            }
         }, () => {
-            setText('currentZoneLabel', 'Location permission is required for live risk mapping.');
+            setText('currentZoneLabel', 'Location permission required.');
         }, { enableHighAccuracy: true, maximumAge: 15000, timeout: 20000 });
     }
 
     document.addEventListener('DOMContentLoaded', () => {
         initializeMap();
+        switchTab(INITIAL_TAB);
         startTracking();
+
+        const destInput = document.getElementById('routeDestInput');
+        destInput.addEventListener('input', () => {
+            state.routeDestination = null;
+            clearTimeout(state.searchTimer);
+            state.searchTimer = setTimeout(() => searchDestinations(destInput.value), 300);
+        });
+        destInput.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                buildRoute();
+            }
+        });
+
+        document.getElementById('buildRouteBtn').addEventListener('click', buildRoute);
+        document.getElementById('centerMapBtn').addEventListener('click', () => {
+            if (state.routeSource) state.map.setView([state.routeSource.lat, state.routeSource.lng], 14);
+        });
     });
 </script>
 {% endblock %}

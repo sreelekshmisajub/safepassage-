@@ -71,6 +71,35 @@
                 <h5 class="fw-bold mb-3">Last Alert</h5>
                 <div class="text-muted">{% if latest_alert %}{{ latest_alert.timestamp }} | {{ latest_alert.mode|upper }}{% if latest_alert_location %} | {{ latest_alert_location }}{% endif %}{% else %}No worker SOS recorded yet.{% endif %}</div>
             </div>
+            <div class="info-card" style="grid-column: span 2;">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="fw-bold mb-0">Active Emergency Contacts</h5>
+                    <span class="badge bg-dark rounded-pill">{{ emergency_contacts_count|default:0 }}</span>
+                </div>
+                <div class="row g-3">
+                    {% for contact in emergency_contacts %}
+                    <div class="col-md-6">
+                        <div class="p-3 border rounded-3" style="background: rgba(148, 163, 184, 0.05); border-color: rgba(148, 163, 184, 0.18) !important;">
+                            <div class="d-flex justify-content-between align-items-start mb-1">
+                                <span class="fw-bold text-truncate" style="max-width: 140px;">{{ contact.name }}</span>
+                                {% if contact.is_primary %}<span class="badge bg-danger ms-2" style="font-size: 0.6rem; vertical-align: middle;">PRIMARY</span>{% endif %}
+                            </div>
+                            <div class="small text-muted mb-2 text-truncate">{{ contact.get_relationship_display }} | <a href="tel:{{ contact.phone }}" class="text-decoration-none text-muted">{{ contact.phone }}</a></div>
+                            <div class="d-flex gap-1 flex-wrap">
+                                {% if contact.sms_enabled %}<span class="badge bg-info text-dark" style="font-size: 0.6rem; padding: 2px 6px;">SMS</span>{% endif %}
+                                {% if contact.whatsapp_enabled %}<span class="badge bg-success" style="font-size: 0.6rem; padding: 2px 6px;">WHATSAPP</span>{% endif %}
+                                {% if contact.email %}<span class="badge bg-warning text-dark" style="font-size: 0.6rem; padding: 2px 6px;">EMAIL</span>{% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="col-12 text-center py-3">
+                        <p class="text-muted small mb-1">No personal emergency contacts have been saved yet.</p>
+                        <a href="{% url 'worker_profile' %}" class="btn btn-sm btn-link text-danger fw-bold text-decoration-none">Add Contacts to Profile</a>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
         </div>
     </section>
 </div>

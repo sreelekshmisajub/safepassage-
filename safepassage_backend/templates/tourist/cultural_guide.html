@@ -527,6 +527,63 @@
         );
     }
 
+    function renderLocationInsights(insights) {
+        const liveInsights = insights || {};
+        renderStackItems(
+            'localCustomContainer',
+            liveInsights.local_customs || [],
+            (item) => `
+                <article class="stack-item">
+                    <strong>${cultureEscapeHtml(item.title || 'Local custom')}</strong>
+                    <p>${cultureEscapeHtml(item.content || '')}</p>
+                </article>
+            `,
+            'No live local-custom guidance is stored for this zone yet.'
+        );
+        renderStackItems(
+            'dressCodeContainer',
+            liveInsights.dress_codes || [],
+            (item) => `
+                <article class="stack-item">
+                    <strong>${cultureEscapeHtml(item.title || 'Dress code')}</strong>
+                    <p>${cultureEscapeHtml(item.content || '')}</p>
+                </article>
+            `,
+            'No live dress-code guidance is stored for this zone yet.'
+        );
+        renderStackItems(
+            'behaviorGuidelinesContainer',
+            liveInsights.behavior_guidelines || [],
+            (item) => `
+                <article class="stack-item">
+                    <strong>${cultureEscapeHtml(item.title || 'Behavior guideline')}</strong>
+                    <p>${cultureEscapeHtml(item.content || '')}</p>
+                </article>
+            `,
+            'No live behavior guidance is stored for this zone yet.'
+        );
+        renderStackItems(
+            'restrictedActionsContainer',
+            liveInsights.restricted_actions || [],
+            (item) => `
+                <article class="stack-item">
+                    <strong>${cultureEscapeHtml(item.title || 'Restricted action')}</strong>
+                    <p>${cultureEscapeHtml(item.content || '')}</p>
+                </article>
+            `,
+            'No live restricted-action guidance is stored for this zone yet.'
+        );
+    }
+
+    function renderRiskMeta(meta) {
+        cultureSetText(
+            'cultureRiskPurpose',
+            meta && meta.purpose
+                ? meta.purpose
+                : 'Purpose and calculation details are unavailable because no live cultural-risk metadata was returned.'
+        );
+    }
+
     function syncLocation(position) {
         culturalState.location = {
             lat: position.coords.latitude,
@@ -590,6 +647,8 @@
                 renderQuickHelp(payload.quick_help || []);
                 renderEmergency(payload.emergency || {});
                 renderDatasetContext(payload.dataset_context || {});
+                renderLocationInsights(payload.location_insights || {});
+                renderRiskMeta(payload.cultural_risk_score_meta || {});
             })
             .catch(() => {
                 cultureSetText('cultureDatasetStatus', 'Unavailable');
@@ -599,6 +658,7 @@
     }
 
     document.addEventListener('DOMContentLoaded', () => {
+        document.getElementById('restrictedActionsContainer').innerHTML = '<div class="empty-state">No live restricted-action guidance has loaded for this zone yet.</div>';
         const assistSelect = document.getElementById('assistLanguageSelect');
         culturalState.assistLanguage = assistSelect.value;
         assistSelect.addEventListener('change', () => {
@@ -656,6 +716,7 @@
                     <div class="metric-value" id="cultureRiskScore">--</div>
                     <div class="risk-badge risk-unavailable" id="cultureRiskBadge">UNAVAILABLE</div>
                     <p class="metric-note mt-3" id="cultureRiskAdvice">Live cultural risk analysis will start after GPS sync.</p>
+                    <p class="metric-note mt-2" style="font-size:0.72rem; opacity:0.7;" id="cultureRiskPurpose">Purpose and calculation details will load with the live cultural risk score.</p>
                 </div>
                 <div class="metric-card">
                     <div class="metric-label">Dataset Coverage</div>
@@ -696,6 +757,54 @@
                         </div>
                         <div class="stack-list" id="dontsContainer">
                             <div class="empty-state">Live caution guidance has not been loaded yet.</div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="info-card">
+                    <div class="info-card-header">
+                        <h2 class="info-card-title"><i class="bi bi-geo-fill text-primary me-2"></i>Local Customs</h2>
+                    </div>
+                    <p class="info-card-subtitle">Location-aware customs and etiquette pulled from live cultural guidance for the active tourist zone.</p>
+                    <div class="info-card-body">
+                        <div class="stack-list" id="localCustomContainer">
+                            <div class="empty-state">No live local-custom guidance has loaded yet.</div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="info-card">
+                    <div class="info-card-header">
+                        <h2 class="info-card-title"><i class="bi bi-person-badge-fill text-primary me-2"></i>Dress Code & Appearance</h2>
+                    </div>
+                    <p class="info-card-subtitle">Location-specific dress guidelines to respect local customs and avoid unwanted attention.</p>
+                    <div class="info-card-body">
+                        <div class="stack-list" id="dressCodeContainer">
+                            <div class="empty-state">No live dress-code guidance has loaded for this zone yet.</div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="info-card">
+                    <div class="info-card-header">
+                        <h2 class="info-card-title"><i class="bi bi-people-fill text-info me-2"></i>Behavior Guidelines</h2>
+                    </div>
+                    <p class="info-card-subtitle">How to behave in public, transport hubs, religious spaces, and other nearby contexts in this live zone.</p>
+                    <div class="info-card-body">
+                        <div class="stack-list" id="behaviorGuidelinesContainer">
+                            <div class="empty-state">No live behavior guidance has loaded for this zone yet.</div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="info-card">
+                    <div class="info-card-header">
+                        <h2 class="info-card-title"><i class="bi bi-x-octagon-fill text-danger me-2"></i>Restricted Actions &amp; Behaviors</h2>
+                    </div>
+                    <p class="info-card-subtitle">Specific actions that may be illegal, disrespectful, or dangerous in this location.</p>
+                    <div class="info-card-body">
+                        <div class="stack-list" id="restrictedActionsContainer">
+                            <div class="empty-state">No live restricted-action guidance has loaded for this zone yet.</div>
                         </div>
                     </div>
                 </section>

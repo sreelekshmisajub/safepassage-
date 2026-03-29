@@ -8,14 +8,136 @@
     @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap');
 
     body { font-family: 'Outfit', sans-serif; }
-    .main-content { min-height: 100vh; background: linear-gradient(180deg, #eff6ff 0%, #f8fafc 100%); }
+    .main-content {
+        min-height: 100vh;
+        background:
+            radial-gradient(circle at top right, rgba(59, 130, 246, 0.10), transparent 24%),
+            linear-gradient(180deg, #eef6ff 0%, #f8fafc 100%);
+    }
+    .tourist-shell {
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+    }
+    .hero-panel {
+        background:
+            radial-gradient(circle at top right, rgba(37, 99, 235, 0.14), transparent 30%),
+            linear-gradient(145deg, rgba(255, 255, 255, 0.92), rgba(248, 250, 252, 0.94));
+        border: 1px solid rgba(148, 163, 184, 0.18);
+        border-radius: 28px;
+        box-shadow: 0 20px 50px rgba(15, 23, 42, 0.08);
+        padding: 22px;
+    }
+    .hero-grid {
+        display: grid;
+        gap: 18px;
+        grid-template-columns: minmax(0, 1.45fr) minmax(320px, 0.95fr);
+        align-items: stretch;
+    }
+    .hero-eyebrow {
+        color: #2563eb;
+        font-size: 0.78rem;
+        font-weight: 800;
+        letter-spacing: 0.12em;
+        margin-bottom: 8px;
+        text-transform: uppercase;
+    }
+    .hero-title {
+        color: #0f172a;
+        font-size: clamp(1.9rem, 3vw, 2.7rem);
+        font-weight: 800;
+        letter-spacing: -0.04em;
+        margin-bottom: 10px;
+    }
+    .hero-copy {
+        color: #475569;
+        font-size: 0.98rem;
+        line-height: 1.65;
+        margin-bottom: 0;
+        max-width: 760px;
+    }
+    .hero-coordinate {
+        color: #64748b;
+        font-size: 0.84rem;
+        margin-top: 12px;
+    }
+    .hero-side {
+        background: rgba(15, 23, 42, 0.04);
+        border: 1px solid rgba(148, 163, 184, 0.14);
+        border-radius: 24px;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        padding: 18px;
+    }
+    .hero-side-label {
+        color: #0f172a;
+        font-size: 0.76rem;
+        font-weight: 800;
+        letter-spacing: 0.1em;
+        margin-bottom: 3px;
+        text-transform: uppercase;
+    }
+    .hero-side-title {
+        color: #0f172a;
+        font-size: 1.06rem;
+        font-weight: 800;
+        margin-bottom: 4px;
+    }
+    .hero-side-note {
+        color: #475569;
+        font-size: 0.9rem;
+        line-height: 1.55;
+        margin-bottom: 0;
+    }
+    .profile-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+    .profile-actions .btn {
+        border-radius: 999px;
+        font-size: 0.84rem;
+        font-weight: 700;
+        padding: 0.65rem 1rem;
+    }
+    .hero-actions-grid {
+        display: grid;
+        gap: 10px;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+    .hero-actions-grid .btn {
+        border-radius: 999px;
+        font-size: 0.88rem;
+        font-weight: 800;
+        min-height: 46px;
+        padding: 0.8rem 1rem;
+    }
+    .hero-footnote {
+        align-items: center;
+        color: #334155;
+        display: flex;
+        font-size: 0.86rem;
+        font-weight: 600;
+        gap: 10px;
+    }
+    .hero-footnote i {
+        align-items: center;
+        background: rgba(37, 99, 235, 0.1);
+        border-radius: 999px;
+        color: #1d4ed8;
+        display: inline-flex;
+        height: 30px;
+        justify-content: center;
+        width: 30px;
+    }
     .card-risk {
-        background: rgba(255, 255, 255, 0.78);
+        background: rgba(255, 255, 255, 0.82);
         border: 1px solid rgba(255, 255, 255, 0.7);
         backdrop-filter: blur(12px);
-        border-radius: 28px;
-        box-shadow: 0 10px 35px rgba(15, 23, 42, 0.08);
-        padding: 26px;
+        border-radius: 22px;
+        box-shadow: 0 12px 32px rgba(15, 23, 42, 0.07);
+        padding: 18px;
     }
     .fw-800 { font-weight: 800; }
     .x-small { font-size: 0.74rem; }
@@ -23,17 +145,39 @@
         display: inline-flex;
         align-items: center;
         gap: 8px;
-        padding: 10px 16px;
+        padding: 8px 13px;
         border-radius: 999px;
-        font-size: 0.85rem;
+        font-size: 0.8rem;
         font-weight: 700;
     }
     .summary-pill.location { background: rgba(14, 165, 233, 0.12); color: #0369a1; }
     .summary-pill.status { background: rgba(16, 185, 129, 0.12); color: #047857; }
+    .section-intro {
+        align-items: center;
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 6px;
+    }
+    .section-kicker {
+        color: #2563eb;
+        display: block;
+        font-size: 0.74rem;
+        font-weight: 800;
+        letter-spacing: 0.1em;
+        margin-bottom: 5px;
+        text-transform: uppercase;
+    }
+    .section-title {
+        color: #0f172a;
+        font-size: 1.05rem;
+        font-weight: 800;
+        margin-bottom: 0;
+    }
     .circular-progress {
         position: relative;
-        width: 124px;
-        height: 124px;
+        width: 106px;
+        height: 106px;
         border-radius: 50%;
         background: conic-gradient(#10b981 0%, #dbeafe 0deg);
         display: flex;
@@ -44,70 +188,88 @@
     .circular-progress::before {
         content: "";
         position: absolute;
-        width: 100px;
-        height: 100px;
+        width: 82px;
+        height: 82px;
         border-radius: 50%;
         background: rgba(255, 255, 255, 0.95);
     }
-    .circular-progress span { position: relative; font-size: 1.6rem; font-weight: 800; color: #0f172a; }
+    .circular-progress span { position: relative; font-size: 1.35rem; font-weight: 800; color: #0f172a; }
     .risk-pill, .severity-pill {
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        padding: 8px 14px;
+        padding: 7px 12px;
         border-radius: 999px;
-        font-size: 0.76rem;
+        font-size: 0.72rem;
         font-weight: 800;
     }
     .risk-low { background: rgba(16, 185, 129, 0.12); color: #047857; }
     .risk-medium { background: rgba(245, 158, 11, 0.14); color: #b45309; }
     .risk-high { background: rgba(239, 68, 68, 0.12); color: #b91c1c; }
     .risk-unavailable { background: rgba(100, 116, 139, 0.14); color: #475569; }
-    .list-stack { display: flex; flex-direction: column; gap: 14px; }
+    .metric-card {
+        height: 100%;
+        min-height: 210px;
+    }
+    .list-stack { display: flex; flex-direction: column; gap: 10px; }
     .list-card {
-        background: rgba(255, 255, 255, 0.82);
+        background: rgba(255, 255, 255, 0.88);
         border: 1px solid rgba(148, 163, 184, 0.18);
-        border-radius: 20px;
-        padding: 16px;
+        border-radius: 18px;
+        padding: 14px;
     }
     .empty-state {
         background: rgba(255, 255, 255, 0.72);
         border: 1px dashed rgba(148, 163, 184, 0.45);
         border-radius: 18px;
         color: #64748b;
-        padding: 16px;
+        font-size: 0.9rem;
+        line-height: 1.55;
+        padding: 14px;
     }
     .signal-grid, .translate-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
     .signal-box {
-        padding: 12px 14px;
-        border-radius: 16px;
+        padding: 10px 12px;
+        border-radius: 14px;
         background: rgba(37, 99, 235, 0.08);
         color: #1e3a8a;
-        font-size: 0.84rem;
+        font-size: 0.8rem;
         font-weight: 700;
     }
-    .map-card { height: 560px; padding: 0; overflow: hidden; position: relative; }
+    .resource-cta {
+        border-radius: 999px;
+        font-size: 0.84rem;
+        font-weight: 800;
+        margin-top: 12px;
+        min-height: 42px;
+    }
+    .map-card {
+        height: 470px;
+        overflow: hidden;
+        padding: 0;
+        position: relative;
+    }
     #touristLiveMap { width: 100%; height: 100%; }
     .map-overlay {
         position: absolute;
-        left: 20px;
-        bottom: 20px;
-        width: min(320px, calc(100% - 40px));
-        background: rgba(255, 255, 255, 0.84);
-        border-radius: 22px;
-        padding: 18px;
+        left: 16px;
+        bottom: 16px;
+        width: min(295px, calc(100% - 32px));
+        background: rgba(255, 255, 255, 0.88);
+        border-radius: 18px;
+        padding: 14px;
         box-shadow: 0 8px 28px rgba(15, 23, 42, 0.12);
         z-index: 1000;
     }
-    .culture-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+    .culture-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
     .culture-col {
-        background: rgba(255, 255, 255, 0.82);
+        background: rgba(255, 255, 255, 0.88);
         border: 1px solid rgba(148, 163, 184, 0.18);
-        border-radius: 20px;
-        padding: 16px;
+        border-radius: 18px;
+        padding: 14px;
     }
     .culture-col ul { margin: 0; padding-left: 18px; color: #475569; }
-    .culture-col li + li { margin-top: 10px; }
+    .culture-col li + li { margin-top: 8px; }
     .translator {
         background: linear-gradient(160deg, #0f172a 0%, #1e293b 100%);
         color: white;
@@ -116,67 +278,137 @@
         width: 100%;
         border: 1px solid rgba(148, 163, 184, 0.2);
         border-radius: 14px;
-        padding: 12px 14px;
+        padding: 10px 12px;
         background: rgba(15, 23, 42, 0.35);
         color: white;
     }
     .translator-output {
-        min-height: 120px;
+        min-height: 98px;
         border-radius: 18px;
-        padding: 16px;
+        padding: 14px;
         background: rgba(15, 23, 42, 0.4);
         border: 1px solid rgba(148, 163, 184, 0.16);
     }
-    @media (max-width: 1199.98px) { .culture-grid { grid-template-columns: 1fr; } }
+    .readiness-box {
+        align-items: flex-start;
+        display: flex;
+        gap: 12px;
+    }
+    .readiness-icon {
+        align-items: center;
+        background: rgba(14, 165, 233, 0.1);
+        border-radius: 18px;
+        color: #0284c7;
+        display: inline-flex;
+        font-size: 1.35rem;
+        height: 48px;
+        justify-content: center;
+        width: 48px;
+    }
+    @media (max-width: 1399.98px) {
+        .hero-actions-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+    @media (max-width: 1199.98px) {
+        .hero-grid,
+        .culture-grid {
+            grid-template-columns: 1fr;
+        }
+        .map-card {
+            height: 430px;
+        }
+    }
     @media (max-width: 767.98px) {
-        .signal-grid, .translate-actions { grid-template-columns: 1fr; }
-        .map-card { height: 420px; }
+        .hero-panel,
+        .card-risk {
+            border-radius: 22px;
+            padding: 16px;
+        }
+        .summary-pill,
+        .profile-actions .btn {
+            width: 100%;
+            justify-content: center;
+        }
+        .signal-grid,
+        .translate-actions,
+        .hero-actions-grid {
+            grid-template-columns: 1fr;
+        }
+        .map-card {
+            height: 360px;
+        }
+        .map-overlay {
+            width: calc(100% - 24px);
+            left: 12px;
+            bottom: 12px;
+        }
     }
 </style>
 {% endblock %}
 
 {% block dashboard_content %}
-<div class="container-fluid py-2" id="touristDashboardRoot" data-contact-count="{{ emergency_contacts_count|default:0 }}">
-    <div class="row align-items-center mb-5">
-        <div class="col-lg-7">
-            <h1 class="fw-800 text-dark mb-2">Explore <span class="text-primary">Safe</span></h1>
-            <div class="d-flex flex-wrap gap-2">
-                <span class="summary-pill location"><i class="bi bi-geo-alt-fill"></i><span id="liveLocationLabel">Detecting live location...</span></span>
-                <span class="summary-pill status"><i class="bi bi-shield-lock-fill"></i><span id="gpsLockBadge">GPS pending</span></span>
+<div class="container-fluid py-2 tourist-shell" id="touristDashboardRoot" data-contact-count="{{ emergency_contacts_count|default:0 }}">
+    <section class="hero-panel">
+        <div class="hero-grid">
+            <div>
+                <div class="hero-eyebrow">Tourist Safety Command</div>
+                <h1 class="hero-title">Explore <span class="text-primary">Safe</span></h1>
+                <p class="hero-copy">Live local-travel protection for walking, cab rides, and public transport with real-time risk awareness, cultural guidance, translation support, and emergency readiness.</p>
+                <div class="d-flex flex-wrap gap-2 mt-3">
+                    <span class="summary-pill location"><i class="bi bi-geo-alt-fill"></i><span id="liveLocationLabel">Detecting live location...</span></span>
+                    <span class="summary-pill status"><i class="bi bi-shield-lock-fill"></i><span id="gpsLockBadge">GPS pending</span></span>
+                </div>
+                <p class="hero-coordinate mb-0" id="coordinateLabel">Waiting for browser geolocation permission.</p>
             </div>
-            <p class="small text-muted mt-3 mb-0" id="coordinateLabel">Waiting for browser geolocation permission.</p>
+
+            <div class="hero-side">
+                <div>
+                    <div class="hero-side-label">Quick Access</div>
+                    <div class="hero-side-title">Move through the tourist safety flow faster</div>
+                    <p class="hero-side-note">The same live dashboard data, but with a tighter control area for routes, map access, SOS, and profile shortcuts.</p>
+                </div>
+
+                <div class="profile-actions">
+                    <a href="{% url 'tourist_profile_hub' %}" class="btn btn-light shadow-sm border-0">
+                        <i class="bi bi-person me-2"></i>{{ user.first_name|default:"Traveler" }}
+                    </a>
+                    <a href="{% url 'logout' %}" class="btn btn-outline-danger">Logout</a>
+                </div>
+
+                <div class="hero-actions-grid">
+                    <a href="{% url 'tourist_map_hub' %}?tab=routes" class="btn btn-primary">
+                        <i class="bi bi-sign-turn-right-fill me-2"></i>Map & Routes
+                    </a>
+                    <a href="{% url 'tourist_sos' %}" class="btn btn-danger">
+                        <i class="bi bi-exclamation-octagon-fill me-2"></i>SOS
+                    </a>
+                    <a href="{% url 'tourist_map_hub' %}?tab=live" class="btn btn-outline-primary">
+                        <i class="bi bi-geo-alt-fill me-2"></i>Live Safety Map
+                    </a>
+                </div>
+
+                <div class="hero-footnote">
+                    <i class="bi bi-broadcast-pin"></i>
+                    <span>All cards below stay connected to the same live tourist APIs and GPS-driven updates.</span>
+                </div>
+            </div>
         </div>
-        <div class="col-lg-5 text-lg-end mt-4 mt-lg-0">
-            <a href="{% url 'tourist_profile_hub' %}" class="btn btn-white shadow-sm rounded-pill px-4 py-2 border-0 me-2">
-                <i class="bi bi-person me-2"></i>{{ user.first_name|default:"Traveler" }}
-            </a>
-            <a href="{% url 'logout' %}" class="btn btn-outline-danger rounded-pill px-4 py-2">Logout</a>
+    </section>
+
+    <div class="section-intro">
+        <div>
+            <span class="section-kicker">Live Overview</span>
+            <h2 class="section-title">Current safety signals</h2>
         </div>
+        <span class="small text-muted">Risk, alerts, resources, and embassy support are all location-aware.</span>
     </div>
 
     <div class="row g-3 mb-4">
-        <div class="col-md-4">
-            <a href="{% url 'tourist_safe_route' %}" class="btn btn-primary w-100 rounded-pill py-3 fw-bold">
-                <i class="bi bi-sign-turn-right-fill me-2"></i>Safe Route
-            </a>
-        </div>
-        <div class="col-md-4">
-            <a href="{% url 'tourist_sos' %}" class="btn btn-danger w-100 rounded-pill py-3 fw-bold">
-                <i class="bi bi-exclamation-octagon-fill me-2"></i>SOS
-            </a>
-        </div>
-        <div class="col-md-4">
-            <a href="{% url 'tourist_map_hub' %}" class="btn btn-outline-primary w-100 rounded-pill py-3 fw-bold">
-                <i class="bi bi-geo-alt-fill me-2"></i>View Map
-            </a>
-        </div>
-    </div>
-
-    <div class="row g-4 mb-5">
         <div class="col-lg-3 col-md-6">
-            <div class="card-risk text-center h-100">
-                <p class="text-muted small fw-800 text-uppercase mb-4">Current Risk Score</p>
-                <div class="circular-progress mb-4" id="riskCircle"><span id="riskValue">--</span></div>
+            <div class="card-risk metric-card text-center">
+                <p class="text-muted small fw-800 text-uppercase mb-3">Current Risk Score</p>
+                <div class="circular-progress mb-3" id="riskCircle"><span id="riskValue">--</span></div>
                 <div class="risk-pill risk-unavailable" id="riskBadge">LOCATING</div>
                 <p class="small text-muted mt-3 mb-2" id="riskAdvice">Risk analysis will start after live location sync.</p>
                 <p class="small text-muted mb-0" id="syncTime">Sync not started</p>
@@ -184,8 +416,8 @@
         </div>
 
         <div class="col-lg-3 col-md-6">
-            <div class="card-risk h-100">
-                <p class="text-muted small fw-800 text-uppercase mb-4 d-flex justify-content-between">
+            <div class="card-risk metric-card">
+                <p class="text-muted small fw-800 text-uppercase mb-3 d-flex justify-content-between">
                     <span>Primary Alert</span><i class="bi bi-radar text-warning"></i>
                 </p>
                 <div class="list-card mb-3">
@@ -204,24 +436,24 @@
         </div>
 
         <div class="col-lg-3 col-md-6">
-            <div class="card-risk h-100 border-start border-4 border-primary">
-                <p class="text-muted small fw-800 text-uppercase mb-4">Safety Infrastructure</p>
+            <div class="card-risk metric-card border-start border-4 border-primary">
+                <p class="text-muted small fw-800 text-uppercase mb-3">Safety Infrastructure</p>
                 <div class="list-stack" id="resourceList">
                     <div class="empty-state">Verified safe havens near your current location will appear here.</div>
                 </div>
-                <a href="{% url 'tourist_map_hub' %}" class="btn btn-outline-primary w-100 rounded-pill mt-4 fw-bold">Open Live Risk Map</a>
+                <a href="{% url 'tourist_map_hub' %}" class="btn btn-outline-primary w-100 resource-cta">Open Live Risk Map</a>
             </div>
         </div>
 
         <div class="col-lg-3 col-md-6">
-            <div class="card-risk h-100 border-start border-4 border-danger">
-                <p class="text-muted small fw-800 text-uppercase mb-4">Diplomatic Support</p>
+            <div class="card-risk metric-card border-start border-4 border-danger">
+                <p class="text-muted small fw-800 text-uppercase mb-3">Diplomatic Support</p>
                 <div class="list-card mb-3">
                     <h6 class="fw-800 text-danger mb-1" id="embassyName">Embassy details pending</h6>
                     <p class="small text-muted mb-0" id="embassyAddress">Grant live location to load embassy support details.</p>
                 </div>
                 <div class="d-grid gap-2">
-                    <a href="#" class="btn btn-danger rounded-pill py-3 fw-bold disabled" id="embassyCallLink">
+                    <a href="#" class="btn btn-danger rounded-pill fw-bold disabled" id="embassyCallLink">
                         <i class="bi bi-telephone-outbound-fill me-2"></i><span id="embassyPhoneText">NO DIRECT LINE</span>
                     </a>
                     <div class="small text-muted" id="embassyAlert">Embassy alert guidance will update after sync.</div>
@@ -230,14 +462,22 @@
         </div>
     </div>
 
-    <div class="row g-4 mb-5">
+    <div class="section-intro">
+        <div>
+            <span class="section-kicker">Live Terrain</span>
+            <h2 class="section-title">Map, culture, and movement context</h2>
+        </div>
+        <span class="small text-muted">Current position, nearby hotspots, cultural cues, and weather stay in sync here.</span>
+    </div>
+
+    <div class="row g-3 mb-4">
         <div class="col-xxl-9 col-xl-8">
             <div class="card-risk map-card mb-4">
                 <div id="touristLiveMap"></div>
                 <div class="map-overlay">
                     <h6 class="fw-800 mb-1">Live Position Intelligence</h6>
                     <p class="small text-muted mb-3" id="mapLocationStatus">Waiting for current coordinates.</p>
-                    <div class="small text-muted">Green = safer corridor, Yellow = caution, Red = high risk, Blue = safe resource</div>
+                    <div class="small text-muted">Legend: Green = safer corridor, Yellow = caution, Red = hotspot, Blue = safe resource</div>
                     <div class="small text-muted mt-2" id="mapResourceCount">Resources: 0 nearby</div>
                 </div>
             </div>
@@ -245,7 +485,7 @@
             <div class="row g-4">
                 <div class="col-lg-7">
                     <div class="card-risk h-100">
-                        <div class="d-flex justify-content-between align-items-center mb-4">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
                             <h4 class="fw-800 mb-0"><i class="bi bi-stars text-info me-2"></i>Cultural Intelligence</h4>
                             <span class="small text-muted" id="cultureLocationLabel">Live zone pending</span>
                         </div>
@@ -268,8 +508,8 @@
 
                 <div class="col-lg-5">
                     <div class="card-risk h-100">
-                        <h4 class="fw-800 mb-4"><i class="bi bi-cloud-sun-fill text-warning me-2"></i>Weather and Route Conditions</h4>
-                        <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h4 class="fw-800 mb-3"><i class="bi bi-cloud-sun-fill text-warning me-2"></i>Weather and Route Conditions</h4>
+                        <div class="d-flex justify-content-between align-items-center mb-3">
                             <div>
                                 <h2 class="fw-800 mb-0" id="weatherTemp">--</h2>
                                 <p class="text-muted mb-0">
@@ -279,7 +519,7 @@
                             </div>
                             <i class="bi bi-brightness-high-fill display-4 text-warning"></i>
                         </div>
-                        <div class="p-4 bg-primary bg-opacity-5 rounded-4 border border-primary border-opacity-10">
+                        <div class="p-3 bg-primary bg-opacity-5 rounded-4 border border-primary border-opacity-10">
                             <p class="small mb-0 text-dark" id="weatherAdvice">Weather-aware movement guidance will load from your current coordinates.</p>
                         </div>
                     </div>
@@ -289,7 +529,7 @@
 
         <div class="col-xxl-3 col-xl-4">
             <div class="card-risk mb-4">
-                <div class="d-flex justify-content-between align-items-center mb-4">
+                <div class="d-flex justify-content-between align-items-center mb-3">
                     <h5 class="fw-800 mb-0">Live Situation</h5>
                     <span class="badge bg-danger rounded-pill">LIVE</span>
                 </div>
@@ -300,7 +540,7 @@
 
             <div class="card-risk translator mb-4">
                 <h5 class="fw-800 mb-1">Language Assistant</h5>
-                <p class="x-small opacity-75 mb-4">Translate emergency phrases instantly.</p>
+                <p class="x-small opacity-75 mb-3">Translate a single word or full emergency phrase instantly, then speak it aloud.</p>
                 <div class="mb-3">
                     <label for="translateInput" class="x-small text-uppercase opacity-75 mb-2 d-block">Phrase</label>
                     <textarea id="translateInput" class="translator-field" rows="3" placeholder="Type the phrase you want translated"></textarea>
@@ -327,8 +567,8 @@
             </div>
 
             <div class="card-risk">
-                <div class="d-flex align-items-center">
-                    <div class="display-6 me-3 text-info"><i class="bi bi-shield-check"></i></div>
+                <div class="readiness-box">
+                    <div class="readiness-icon"><i class="bi bi-shield-check"></i></div>
                     <div>
                         <h6 class="fw-800 text-info mb-1">Emergency Readiness</h6>
                         <p class="x-small text-muted mb-1" id="readinessStatus">Waiting for live GPS lock.</p>
@@ -628,8 +868,12 @@
             alert('Speech playback is not supported in this browser.');
             return;
         }
+        const languageMap = { hi: 'hi-IN', ml: 'ml-IN', ta: 'ta-IN', te: 'te-IN', kn: 'kn-IN' };
         window.speechSynthesis.cancel();
-        window.speechSynthesis.speak(new SpeechSynthesisUtterance(phrase));
+        const utterance = new SpeechSynthesisUtterance(phrase);
+        utterance.lang = languageMap[document.getElementById('translateLanguage').value] || 'hi-IN';
+        utterance.rate = 0.92;
+        window.speechSynthesis.speak(utterance);
     }
 
     function refreshDashboard(lat, lng, accuracy) {

@@ -37,6 +37,34 @@
     .status-assistance { background: rgba(245, 158, 11, 0.18); color: #b45309; }
     .status-checkout { background: rgba(30, 41, 59, 0.14); color: #0f172a; }
     .status-empty { background: rgba(148, 163, 184, 0.18); color: #475569; }
+    .escalation-banner {
+        border-radius: 20px;
+        padding: 18px 22px;
+        margin-bottom: 22px;
+        display: none;
+        align-items: flex-start;
+        gap: 14px;
+    }
+    .escalation-banner.reminder-1 {
+        display: flex;
+        background: rgba(245, 158, 11, 0.12);
+        border: 1px solid rgba(245, 158, 11, 0.35);
+    }
+    .escalation-banner.reminder-2 {
+        display: flex;
+        background: rgba(239, 68, 68, 0.08);
+        border: 1px solid rgba(239, 68, 68, 0.3);
+    }
+    .escalation-banner.sos-level {
+        display: flex;
+        background: rgba(239, 68, 68, 0.14);
+        border: 2px solid rgba(239, 68, 68, 0.55);
+        animation: pulse-border 1.2s infinite;
+    }
+    @keyframes pulse-border {
+        0%, 100% { border-color: rgba(239,68,68,0.55); }
+        50% { border-color: rgba(239,68,68,1); }
+    }
     @media (max-width: 1199.98px) {
         .shift-layout {
             grid-template-columns: 1fr;
@@ -50,6 +78,25 @@
 
 {% block dashboard_content %}
 <div class="container-fluid py-2">
+
+    <!-- Shift Escalation Banner -->
+    <div class="escalation-banner" id="escalationBanner">
+        <div id="escalationIcon" style="font-size:1.6rem; flex-shrink:0;"></div>
+        <div class="flex-grow-1">
+            <div class="fw-bold mb-1" id="escalationTitle"></div>
+            <div class="small" id="escalationMessage"></div>
+            <div class="d-flex flex-wrap gap-2 mt-3">
+                <button class="btn btn-sm rounded-pill fw-bold" id="escalationAckBtn" style="background:#0f172a;color:white;" onclick="acknowledgeEscalation()">
+                    I'm Safe – Acknowledge
+                </button>
+                <button class="btn btn-sm btn-danger rounded-pill fw-bold" id="escalationSosBtn" onclick="workerManualCheckin('assistance')">
+                    Need Help
+                </button>
+            </div>
+            <div class="small text-muted mt-2" id="escalationCountdown"></div>
+        </div>
+    </div>
+
     <div class="shift-layout">
         <section class="shift-card">
             <h2 class="fw-bold mb-1">Shift Management</h2>
@@ -180,6 +227,92 @@
         });
     }
 
-    document.addEventListener('DOMContentLoaded', refreshWorkerShiftStatus);
+    document.addEventListener('DOMContentLoaded', () => {
+        refreshWorkerShiftStatus();
+        checkShiftEscalation();
+        // Re-check every 2 minutes
+        setInterval(checkShiftEscalation, 2 * 60 * 1000);
+    });
+
+    let _escalationAcknowledged = false;
+    let _escalationSosTriggered = false;
+    let _countdownTimer = null;
+
+    function checkShiftEscalation() {
+        if (_escalationAcknowledged) return;
+        fetch('/api/worker/shift-escalation/')
+            .then(r => r.json())
+            .then(data => renderEscalation(data))
+            .catch(() => {});
+    }
+
+    function renderEscalation(data) {
+        const banner = document.getElementById('escalationBanner');
+        const level = data.escalation_level || 'none';
+        if (level === 'none') {
+            banner.className = 'escalation-banner';
+            return;
+        }
+
+        const icons = { reminder_1: '⚠️', reminder_2: '🔔', sos: '🆘' };
+        const titles = {
+            reminder_1: 'Reminder 1: Shift timing overdue',
+            reminder_2: 'Reminder 2: Shift timing overdue — please respond',
+            sos: 'ESCALATION: Auto-SOS triggered — no response received',
+        };
+        const bannerClasses = {
+            reminder_1: 'escalation-banner reminder-1',
+            reminder_2: 'escalation-banner reminder-2',
+            sos: 'escalation-banner sos-level',
+        };
+
+        banner.className = bannerClasses[level];
+        document.getElementById('escalationIcon').textContent = icons[level];
+        document.getElementById('escalationTitle').textContent = titles[level];
+        document.getElementById('escalationMessage').textContent = data.message || '';
+
+        // Show countdown to next level
+        if (level !== 'sos') {
+            const remaining = level === 'reminder_1' ? (20 - data.minutes_overdue) : (30 - data.minutes_overdue);
+            document.getElementById('escalationCountdown').textContent =
+                `Auto-escalation in ~${Math.max(1, remaining)} minute(s) if no response.`;
+        } else {
+            document.getElementById('escalationCountdown').textContent =
+                'SOS alert has been automatically dispatched to emergency contacts.';
+        }
+
+        // Auto-trigger SOS when level reaches sos and not yet triggered
+        if (level === 'sos' && !_escalationSosTriggered) {
+            _escalationSosTriggered = true;
+            autoTriggerEscalationSOS(data);
+        }
+    }
+
+    function autoTriggerEscalationSOS(data) {
+        // Send SOS silently on the worker's behalf
+        resolveCurrentLocation().then(coords => {
+            const body = {
+                latitude: coords ? coords.lat : null,
+                longitude: coords ? coords.lng : null,
+                mode: 'silent',
+                source: 'shift_escalation',
+                shift_id: data.shift_id,
+            };
+            fetch('/api/emergency/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
+                body: JSON.stringify(body),
+            }).catch(() => {});
+        });
+    }
+
+    function acknowledgeEscalation() {
+        _escalationAcknowledged = true;
+        document.getElementById('escalationBanner').className = 'escalation-banner';
+        // Submit a safe check-in to reset escalation
+        workerManualCheckin('ok');
+        // Re-allow escalation checks after 30 minutes
+        setTimeout(() => { _escalationAcknowledged = false; }, 30 * 60 * 1000);
+    }
 </script>
 {% endblock %}

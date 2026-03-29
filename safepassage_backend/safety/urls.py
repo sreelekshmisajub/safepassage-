@@ -45,6 +45,7 @@ urlpatterns = [
     path('api/worker/start-shift/', views.start_shift, name='start_shift'),
     path('api/worker/end-shift/', views.end_shift, name='end_shift'),
     path('api/worker/shift-status/', views.api_worker_shift_status, name='api_worker_shift_status'),
+    path('api/worker/shift-escalation/', views.api_worker_shift_escalation, name='api_worker_shift_escalation'),
     path('api/worker/submit-checkin/', views.submit_checkin, name='submit_checkin'),
     path('api/worker/place-search/', views.api_worker_place_search, name='api_worker_place_search'),
     path('api/worker/safe-route/', views.get_safe_route, name='api_worker_safe_route'),
@@ -97,6 +98,7 @@ urlpatterns = [
     path('api/get-risk-zones/', views.get_risk_zones, name='get_risk_zones'),
     path('api/trigger-sos/', views.trigger_sos, name='trigger_sos'),
     path('api/get-cultural-data/', views.get_cultural_data, name='get_cultural_data'),
+    path('api/sos-history/', views.api_sos_history, name='api_sos_history'),
     
     # Profile Management APIs
     path('api/save-profile/', views.save_profile, name='save_profile'),

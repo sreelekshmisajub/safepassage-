@@ -10,12 +10,15 @@ import json
 import math
 import os
 import re
+import socket
 import sys
 from collections import Counter
 from datetime import timedelta
 from pathlib import Path
 from django.http import JsonResponse
-from django.core.mail import send_mail
+from smtplib import SMTPException
+
+from django.core.mail import EmailMessage, get_connection, send_mail
 from django.conf import settings
 from .models import SafePassageUser, UserLocation, RiskZone, EmergencyAlert, IncidentReport, CulturalGuide, TouristProfile, JourneyDetail, EmergencyContact, Shift, SafeHaven, CheckIn, WorkerProfile, CrimeRecord, RiskPrediction
 from .services.risk_engine import calculate_route_risk
@@ -54,6 +57,97 @@ def admin_required(view_func):
             return view_func(request, *args, **kwargs)
         return render(request, 'unauthorized.html')
     return wrapper
+
+
+SMTP_PLACEHOLDER_USERS = {
+    "admin@safepassage-india.org",
+    "yourgmail@gmail.com",
+    "admin@example.com",
+}
+SMTP_PLACEHOLDER_PASSWORDS = {
+    "",
+    "your_app_password",
+    "change_me",
+    "changeme",
+}
+
+
+def _notification_sender_email():
+    return (
+        getattr(settings, "DEFAULT_FROM_EMAIL", "")
+        or getattr(settings, "EMAIL_HOST_USER", "")
+        or "alerts@safepassage.local"
+    )
+
+
+def _notification_delivery_status():
+    backend = getattr(settings, "EMAIL_BACKEND", "") or ""
+    sender = _notification_sender_email()
+    uses_smtp = backend == "django.core.mail.backends.smtp.EmailBackend"
+    issues = []
+
+    if not backend:
+        issues.append("EMAIL_BACKEND is not set.")
+
+    if uses_smtp:
+        if not getattr(settings, "EMAIL_HOST", ""):
+            issues.append("EMAIL_HOST is missing.")
+        if not getattr(settings, "EMAIL_PORT", None):
+            issues.append("EMAIL_PORT is missing.")
+        if not getattr(settings, "EMAIL_HOST_USER", ""):
+            issues.append("EMAIL_HOST_USER is missing.")
+        elif getattr(settings, "EMAIL_HOST_USER", "") in SMTP_PLACEHOLDER_USERS:
+            issues.append("EMAIL_HOST_USER still uses the sample placeholder value.")
+        if getattr(settings, "EMAIL_HOST_PASSWORD", "") in SMTP_PLACEHOLDER_PASSWORDS:
+            issues.append("EMAIL_HOST_PASSWORD is missing or still uses the sample placeholder value.")
+
+    if not sender:
+        issues.append("DEFAULT_FROM_EMAIL or EMAIL_HOST_USER must be configured.")
+
+    security = "SSL" if getattr(settings, "EMAIL_USE_SSL", False) else "TLS" if getattr(settings, "EMAIL_USE_TLS", False) else "None"
+    configured = not issues
+
+    return {
+        "configured": configured,
+        "uses_smtp": uses_smtp,
+        "backend": backend or "Not configured",
+        "backend_label": (backend.rsplit(".", 1)[-1] if backend else "Not configured"),
+        "host": getattr(settings, "EMAIL_HOST", "") or "Not set",
+        "port": getattr(settings, "EMAIL_PORT", "") or "Not set",
+        "security": security,
+        "sender": sender or "Not configured",
+        "status_label": "Configured" if configured else "Needs setup",
+        "status_slug": "success" if configured else "warning",
+        "issues": issues,
+    }
+
+
+def _send_broadcast_notifications(subject, message_body, sender, recipient_list):
+    connection = get_connection(fail_silently=False)
+    delivered = 0
+    failed_recipients = []
+
+    try:
+        connection.open()
+        for recipient in recipient_list:
+            email = EmailMessage(
+                subject=subject,
+                body=message_body,
+                from_email=sender,
+                to=[recipient],
+                connection=connection,
+            )
+            try:
+                delivered += email.send(fail_silently=False)
+            except Exception:
+                failed_recipients.append(recipient)
+    finally:
+        try:
+            connection.close()
+        except Exception:
+            pass
+
+    return delivered, failed_recipients
 
 
 EMBASSY_DIRECTORY = {
@@ -131,6 +225,48 @@ EMERGENCY_PHRASEBOOK = {
         "te": "నాకు అంబులెన్స్ కావాలి.",
         "kn": "ನನಗೆ ಆಂಬುಲೆನ್ಸ್ ಬೇಕು.",
     },
+    "where is the nearest hospital": {
+        "hi": "नजदीकी अस्पताल कहाँ है?",
+        "ml": "ഏറ്റവും അടുത്തുള്ള ആശുപത്രി എവിടെയാണ്?",
+        "ta": "அருகிலுள்ள மருத்துவமனை எங்கே உள்ளது?",
+        "te": "దగ్గరలోని ఆసుಪత్రి ఎక్కడ ఉంది?",
+        "kn": "ಹತ್ತಿರದ ಆಸ್ಪತ್ರೆ ಎಲ್ಲಿದೆ?",
+    },
+    "i am lost": {
+        "hi": "मैं रास्ता भटक गया हूँ।",
+        "ml": "ഞാൻ വഴി തെറ്റിപ്പോയി.",
+        "ta": "நான் வழி தவறிவிட்டேன்.",
+        "te": "నేను దారి తప్పాను.",
+        "kn": "ನಾನು ದಾರಿ ತಪ್ಪಿದ್ದೇನೆ.",
+    },
+    "i need water": {
+        "hi": "मुझे पानी चाहिए।",
+        "ml": "എനിക്ക് വെള്ളം വേണം.",
+        "ta": "எனக்குத் தண்ணீர் வேண்டும்.",
+        "te": "నాకు నీళ్లు కావాలి.",
+        "kn": "ನನಗೆ ನೀರು ಬೇಕು.",
+    },
+    "i need medicine": {
+        "hi": "मुझे दवा चाहिए।",
+        "ml": "എനിക്ക് മരുന്ന് വേണം.",
+        "ta": "எனக்கு மருந்து வேண்டும்.",
+        "te": "నాకు మందులు కావాలి.",
+        "kn": "ನನಗೆ ಔಷಧಿ ಬೇಕು.",
+    },
+    "there is a fire": {
+        "hi": "यहाँ आग लगी है!",
+        "ml": "ഇവിടെ തീ പിടിച്ചിട്ടുണ്ട്!",
+        "ta": "இங்கே தீ பிடித்துள்ளது!",
+        "te": "ಇక్కడ నిప్పు రాజుకుంది!",
+        "kn": "ಇಲ್ಲಿ ಬೆಂಕಿ ಹತ್ತಿಕೊಂಡಿದೆ!",
+    },
+    "stop": {
+        "hi": "रुकिए!",
+        "ml": "നിൽക്കൂ!",
+        "ta": "நில்லுங்கள்!",
+        "te": "ఆగండి!",
+        "kn": "ನಿಲ್ಲಿಸಿ!",
+    },
 }
 
 EMERGENCY_PHRASE_MATCHERS = {
@@ -157,6 +293,39 @@ EMERGENCY_PHRASE_MATCHERS = {
         r"\bneed medical\b",
         r"\bneed a doctor\b",
         r"\bdoctor\b",
+    ],
+    "where is the nearest hospital": [
+        r"\bhospital\b",
+        r"\bnearest hospital\b",
+        r"\bwhere is hospital\b",
+    ],
+    "i am lost": [
+        r"\blost\b",
+        r"\bam lost\b",
+        r"\bi am lost\b",
+        r"\bi'm lost\b",
+        r"\bdont know where i am\b",
+    ],
+    "i need water": [
+        r"\bwater\b",
+        r"\bthirsty\b",
+        r"\bneed water\b",
+    ],
+    "i need medicine": [
+        r"\bmedicine\b",
+        r"\bmeds\b",
+        r"\bpharmacy\b",
+        r"\bchemist\b",
+    ],
+    "there is a fire": [
+        r"\bfire\b",
+        r"\bburning\b",
+        r"\bhelp fire\b",
+    ],
+    "stop": [
+        r"\bstop\b",
+        r"\bstop it\b",
+        r"\bdon't do that\b",
     ],
 }
 
@@ -812,6 +981,67 @@ def _build_cultural_safety_payload(user, lat, lng, language, assist_language=Non
         if resource.get("type") in {"Police Station", "Hospital"}
     ][:4]
 
+    def _tip_text(entry):
+        return " ".join(
+            part
+            for part in [
+                (entry.get("title") or "").strip(),
+                (entry.get("content") or "").strip(),
+            ]
+            if part
+        ).strip()
+
+    def _filter_entries(entries, keywords):
+        filtered = []
+        for entry in entries:
+            haystack = _normalize_lookup_text(_tip_text(entry))
+            if any(keyword in haystack for keyword in keywords):
+                filtered.append(
+                    {
+                        "title": entry.get("title") or "Live guidance",
+                        "content": entry.get("content") or "",
+                        "source": "cultural-guide",
+                    }
+                )
+        return filtered
+
+    all_guidance_entries = [*dos, *donts]
+    local_customs = _filter_entries(
+        all_guidance_entries,
+        ("temple", "mosque", "church", "respect", "custom", "etiquette", "greet", "festival", "queue"),
+    )
+    dress_codes = _filter_entries(
+        all_guidance_entries,
+        ("dress", "modest", "scarf", "cover", "sleeve", "shoulder", "footwear", "shoe", "attire", "clothing"),
+    )
+    behavior_guidelines = _filter_entries(
+        all_guidance_entries,
+        ("public", "transport", "noise", "loud", "argument", "photography", "photo", "touch", "gesture", "behavior", "queue"),
+    )
+    restricted_actions = _filter_entries(
+        donts,
+        ("avoid", "dont", "do not", "restricted", "permit", "prohibited", "after", "night", "photography", "government", "security", "curfew"),
+    )
+    for zone in restricted_zones[:4]:
+        restricted_actions.append(
+            {
+                "title": zone.get("name") or "Sensitive zone",
+                "content": zone.get("description") or "Restricted activity has been recorded near this location.",
+                "source": zone.get("source") or "risk-zone",
+            }
+        )
+
+    cultural_risk_score_meta = {
+        "purpose": "Helps tourists avoid location-specific behavior risks before they turn into scams, conflict, or unsafe movement decisions.",
+        "calculation_factors": [
+            "Nearby risk-zone and incident density around your live location",
+            "Active scam or fraud-related alerts near the tourist corridor",
+            "Sensitive or restricted zones close to the current area",
+            "Matched city crime dataset patterns for the location",
+            "Weather risk when it affects safe public movement",
+        ],
+    }
+
     return {
         "status": "success",
         "country": "India",
@@ -837,6 +1067,13 @@ def _build_cultural_safety_payload(user, lat, lng, language, assist_language=Non
         "scam_alerts": scam_alerts[:5],
         "restricted_zones": restricted_zones[:4],
         "quick_help": quick_help,
+        "location_insights": {
+            "local_customs": local_customs[:4],
+            "dress_codes": dress_codes[:4],
+            "behavior_guidelines": behavior_guidelines[:4],
+            "restricted_actions": restricted_actions[:6],
+        },
+        "cultural_risk_score_meta": cultural_risk_score_meta,
         "emergency": {
             "embassy": embassy_payload,
             "official_lines": OFFICIAL_EMERGENCY_LINES,
@@ -1195,6 +1432,8 @@ def _build_route_option_payload(
             "distance_km": round(total_distance_km, 2),
             "advisories": advisories[:4],
             "data_available": bool(scored_samples),
+            "hotspot_count": len(corridor_hotspots[:3]),
+            "safe_haven_count": len(corridor_resources[:3]),
         },
         "safe_havens": [
             {
@@ -1328,6 +1567,10 @@ def _build_safe_route_payload(user, source_lat, source_lng, dest_lat, dest_lng, 
         "status": "success",
         "strategy": default_route["strategy"],
         "strategy_label": default_route["strategy_label"],
+        "corridor_hotspot_definition": (
+            "Risk hotspots on corridor are stored risk zones within the active travel corridor, "
+            "such as high-crime clusters, scam-prone stretches, poorly lit areas, or accident-prone segments."
+        ),
         "source": {
             "latitude": round(source_lat, 6),
             "longitude": round(source_lng, 6),
@@ -1398,16 +1641,41 @@ def _live_translate_text(text, source_language, target_language):
     if source == target:
         return text, "identity"
 
+    # Try Unofficial Google Translate API first (Fast and reliable for single requests)
+    try:
+        google_query = {
+            "client": "gtx",
+            "sl": source,
+            "tl": target,
+            "dt": "t",
+            "q": text,
+        }
+        google_url = f"https://translate.googleapis.com/translate_a/single?{urlencode(google_query)}"
+        google_request = Request(
+            google_url,
+            headers={
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+            },
+        )
+        with urlopen(google_request, timeout=3) as res:
+            data = json.loads(res.read().decode("utf-8"))
+            if data and data[0] and data[0][0] and data[0][0][0]:
+                translated = ""
+                for segment in data[0]:
+                    if segment[0]:
+                        translated += segment[0]
+                return html.unescape(translated), "live-api"
+    except Exception:
+        pass  # Fallback to MyMemory
+
+    # Fallback to MyMemory Translation Service
     query = {
         "q": text,
         "langpair": f"{source}|{target}",
     }
     contact_email = getattr(settings, "DEFAULT_FROM_EMAIL", "") or getattr(settings, "EMAIL_HOST_USER", "")
-    # If the email is a placeholder, use a realistic-looking fallback for the API to accept
-    if not contact_email or "yourgmail@gmail.com" in contact_email:
-        contact_email = "admin@safepassage-india.org"
-    
-    query["de"] = contact_email
+    if contact_email and "@" in contact_email and "safepassage-india.org" not in contact_email and "yourgmail@gmail.com" not in contact_email:
+        query["de"] = contact_email
 
     request = Request(
         f"https://api.mymemory.translated.net/get?{urlencode(query)}",
@@ -1418,17 +1686,16 @@ def _live_translate_text(text, source_language, target_language):
     )
 
     try:
-        with urlopen(request, timeout=4) as response:
+        with urlopen(request, timeout=3) as response:
             payload = json.loads(response.read().decode("utf-8"))
-    except (URLError, HTTPError, TimeoutError, json.JSONDecodeError, ValueError):
-        return "", "unavailable"
+            response_data = payload.get("responseData") or {}
+            translated_text = html.unescape((response_data.get("translatedText") or "").strip())
+            if translated_text and not any(err in translated_text.upper() for err in ["LIMIT EXCEEDED", "INVALID EMAIL", "INVALID PARAMETER"]):
+                return translated_text, "live-api"
+    except Exception:
+        pass
 
-    response_data = payload.get("responseData") or {}
-    translated_text = html.unescape((response_data.get("translatedText") or "").strip())
-    if not translated_text:
-        return "", "unavailable"
-
-    return translated_text, "live-api"
+    return "", "unavailable"
 
 
 def _translate_phrase(text, language):
@@ -1468,8 +1735,33 @@ def _dispatch_emergency_alert(user, lat, lng, mode):
         mode=mode,
     )
 
-    contacts = EmergencyContact.objects.filter(user=user)
-    notified_contacts = sum(1 for contact in contacts if contact.sms_enabled or contact.whatsapp_enabled)
+    contacts = list(EmergencyContact.objects.filter(user=user).order_by("-is_primary", "name"))
+    contact_deliveries = []
+    sms_contacts = 0
+    whatsapp_contacts = 0
+    email_recipients = []
+    for contact in contacts:
+        delivery_channels = []
+        if contact.sms_enabled:
+            delivery_channels.append("SMS")
+            sms_contacts += 1
+        if contact.whatsapp_enabled:
+            delivery_channels.append("WhatsApp")
+            whatsapp_contacts += 1
+        if contact.email:
+            email_recipients.append(contact.email)
+        if delivery_channels:
+            contact_deliveries.append(
+                {
+                    "name": contact.name,
+                    "phone": contact.phone,
+                    "relationship": contact.get_relationship_display(),
+                    "is_primary": contact.is_primary,
+                    "channels": delivery_channels,
+                }
+            )
+
+    notified_contacts = len(contact_deliveries)
 
     subject = f"SafePassage INDIA: {mode.upper()} EMERGENCY SOS ACTIVATED"
     message = (
@@ -1484,8 +1776,8 @@ def _dispatch_emergency_alert(user, lat, lng, mode):
     send_mail(
         subject=subject,
         message=message,
-        from_email=settings.EMAIL_HOST_USER,
-        recipient_list=["dispatch@safepassage.india", "primary-contact@example.com"],
+        from_email=_notification_sender_email(),
+        recipient_list=["dispatch@safepassage.india", *email_recipients],
         fail_silently=True,
     )
 
@@ -1499,9 +1791,16 @@ def _dispatch_emergency_alert(user, lat, lng, mode):
         "alert_id": alert.id,
         "mode": mode,
         "notified_contacts": notified_contacts,
+        "delivery_channels": {
+            "sms_contacts": sms_contacts,
+            "whatsapp_contacts": whatsapp_contacts,
+            "total_channel_dispatches": sms_contacts + whatsapp_contacts,
+        },
+        "contact_deliveries": contact_deliveries,
         "authorities_notified": True,
         "translated_message": translated_message,
         "translation_mode": translation_mode,
+        "timestamp": alert.timestamp.isoformat(),
     }
 
 def _dashboard_url_for_user(user):
@@ -1534,7 +1833,7 @@ def _safe_route_url_for_user(user):
     if user.role == "worker":
         return "/worker/safe-route/"
     if user.role == "tourist":
-        return "/safe-route/"
+        return "/map/?tab=routes"
     if user.role == "admin" or user.is_superuser:
         return "/admin/risk-monitor/"
     return _dashboard_url_for_user(user)
@@ -1774,10 +2073,12 @@ def user_login(request):
 
     return render(request, "login.html")
 
+
 # 🚶 Logout
 def user_logout(request):
     logout(request)
     return redirect("index")
+
 
 # 🗺️ Tourist Dashboard
 @login_required(login_url='login')
@@ -1794,11 +2095,36 @@ def tourist_dashboard(request):
 
 
 @tourist_required
+def tourist_alerts(request):
+    return render(request, "tourist_alerts.html")
+
+
+@tourist_required
+def tourist_translate(request):
+    quick_phrases = ["Help", "Police", "Hospital", "Emergency", "Danger", "Lost", "Water", "Medicine", "Fire", "Stop"]
+    return render(request, "tourist_translate.html", {"quick_phrases": quick_phrases})
+
+
+# Tourist Emergency
+@tourist_required
+def tourist_emergency(request):
+    return render(
+        request,
+        "tourist_emergency.html",
+        {
+            "emergency_contacts": EmergencyContact.objects.filter(user=request.user).order_by("-is_primary", "name"),
+            "emergency_contacts_count": EmergencyContact.objects.filter(user=request.user).count(),
+        },
+    )
+
+
+@tourist_required
 def tourist_dashboard_hub(request):
     requested_mode = request.GET.get("mode")
     if requested_mode and requested_mode != "tourist":
         return redirect("/dashboard/?mode=tourist")
     return tourist_dashboard(request)
+
 
 # 📊 Tourist Risk Map
 @login_required(login_url='login')
@@ -1808,19 +2134,14 @@ def tourist_risk_map(request):
     
     risk_zones = RiskZone.objects.all()
     return render(request, "tourist_risk_map.html", {
-        "risk_zones": risk_zones
+        "risk_zones": risk_zones,
+        "initial_tab": "routes" if request.GET.get("tab") == "routes" else "live",
     })
 
 
 @tourist_required
 def tourist_safe_route(request):
-    return render(
-        request,
-        "tourist_safe_route.html",
-        {
-            "destination_places": _build_route_destination_catalog()[:8],
-        },
-    )
+    return redirect("/map/?tab=routes")
 
 
 @tourist_required
@@ -1835,27 +2156,7 @@ def tourist_emergency_contacts(request):
         "tourist_emergency_contacts.html",
         {
             "emergency_contacts_count": EmergencyContact.objects.filter(user=request.user).count(),
-        },
-    )
-
-
-@tourist_required
-def tourist_alerts(request):
-    return render(request, "tourist_alerts.html")
-
-
-@tourist_required
-def tourist_translate(request):
-    return render(request, "tourist_translate.html")
-
-# Tourist Emergency
-@tourist_required
-def tourist_emergency(request):
-    return render(
-        request,
-        "tourist_emergency.html",
-        {
-            "emergency_contacts_count": EmergencyContact.objects.filter(user=request.user).count(),
+            "emergency_contacts": EmergencyContact.objects.filter(user=request.user).order_by("-is_primary", "name"),
         },
     )
 
@@ -2132,7 +2433,7 @@ def api_translate(request):
     if response_payload["translation_mode"] == "intent-match":
         response_payload["note"] = "Matched your message to the nearest supported emergency phrase."
     elif response_payload["translation_mode"] == "live-api":
-        response_payload["note"] = "Translated using the live translation service."
+        response_payload["note"] = "Translated using Google Translate services."
     elif response_payload["translation_mode"] == "identity":
         response_payload["note"] = "The selected output language is English, so the original text is shown."
     elif response_payload["translation_mode"] == "unavailable":
@@ -2282,7 +2583,7 @@ def save_journey(request):
         journey.departure_date = departure_date
         journey.current_location = request.POST.get('current_location') or ""
         journey.hotel_address = request.POST.get('hotel_address', '')
-        journey.flight_number = request.POST.get('flight_number', '')
+        journey.flight_number = ''
         journey.travel_insurance = 'travel_insurance' in request.POST
         journey.insurance_provider = request.POST.get('insurance_provider', '')
         journey.insurance_policy_number = request.POST.get('insurance_policy_number', '')
@@ -2631,6 +2932,8 @@ def _build_worker_template_context(user, **extra_context):
         "worker_location_display": _compose_location_label(current_lat, current_lng, include_coordinates=True),
         "current_worker_location": _compose_location_label(current_lat, current_lng),
         "current_worker_location_display": _compose_location_label(current_lat, current_lng, include_coordinates=True),
+        "emergency_contacts": EmergencyContact.objects.filter(user=user).order_by("-is_primary", "name"),
+        "emergency_contacts_count": EmergencyContact.objects.filter(user=user).count(),
     }
     base_context.update(extra_context)
     return base_context
@@ -2851,6 +3154,76 @@ def api_worker_shift_status(request):
     if guard_response:
         return guard_response
     return JsonResponse(_build_worker_shift_payload(request.user))
+
+
+@login_required
+def api_worker_shift_escalation(request):
+    """
+    Returns escalation state for the worker's current shift timing.
+    Escalation levels:
+      none       – within grace period
+      reminder_1 – 10–20 min overdue (first reminder)
+      reminder_2 – 20–30 min overdue (second reminder)
+      sos        – >30 min overdue  (auto-trigger SOS)
+    Checks both shift-start overdue (pending shift) and shift-end overdue (active shift).
+    """
+    guard_response = _worker_api_guard(request)
+    if guard_response:
+        return guard_response
+
+    now = timezone.now()
+    GRACE_MIN = 10      # grace period before first reminder
+    REMINDER2_MIN = 20  # second reminder threshold
+    SOS_MIN = 30        # SOS trigger threshold
+
+    def _level_and_minutes(minutes_overdue):
+        if minutes_overdue < GRACE_MIN:
+            return "none", minutes_overdue
+        if minutes_overdue < REMINDER2_MIN:
+            return "reminder_1", minutes_overdue
+        if minutes_overdue < SOS_MIN:
+            return "reminder_2", minutes_overdue
+        return "sos", minutes_overdue
+
+    # Check for pending shift (scheduled but not started)
+    pending_shift = (
+        Shift.objects.filter(user=request.user, status="pending", actual_start__isnull=True, start_time__lt=now)
+        .order_by("start_time")
+        .first()
+    )
+    if pending_shift:
+        minutes_overdue = int((now - pending_shift.start_time).total_seconds() / 60)
+        level, mins = _level_and_minutes(minutes_overdue)
+        if level != "none":
+            return JsonResponse({
+                "escalation_level": level,
+                "type": "start",
+                "minutes_overdue": mins,
+                "shift_id": pending_shift.id,
+                "scheduled_time": pending_shift.start_time.isoformat(),
+                "message": f"Shift start overdue by {mins} minutes. Please start your shift or respond to confirm safety.",
+            })
+
+    # Check active shift for overdue end
+    active_shift = (
+        Shift.objects.filter(user=request.user, status="active", actual_end__isnull=True, end_time__lt=now)
+        .order_by("-actual_start")
+        .first()
+    )
+    if active_shift:
+        minutes_overdue = int((now - active_shift.end_time).total_seconds() / 60)
+        level, mins = _level_and_minutes(minutes_overdue)
+        if level != "none":
+            return JsonResponse({
+                "escalation_level": level,
+                "type": "end",
+                "minutes_overdue": mins,
+                "shift_id": active_shift.id,
+                "scheduled_time": active_shift.end_time.isoformat(),
+                "message": f"Shift end overdue by {mins} minutes. Please end your shift or respond to confirm safety.",
+            })
+
+    return JsonResponse({"escalation_level": "none", "type": None, "minutes_overdue": 0, "message": ""})
 
 
 @login_required
@@ -3122,6 +3495,36 @@ def trigger_sos(request):
             return JsonResponse({"status": "error", "message": str(e)}, status=400)
     
     return JsonResponse({"status": "invalid method"}, status=405)
+
+@login_required
+def api_sos_history(request):
+    """Return the last 20 SOS alerts triggered by the current user."""
+    guard_response = _tourist_api_guard(request)
+    if guard_response:
+        return guard_response
+    contact_qs = EmergencyContact.objects.filter(user=request.user)
+    sms_contacts = contact_qs.filter(sms_enabled=True).count()
+    whatsapp_contacts = contact_qs.filter(whatsapp_enabled=True).count()
+    alerts = EmergencyAlert.objects.filter(user=request.user).order_by('-timestamp')[:20]
+    return JsonResponse({
+        "alerts": [
+            {
+                "id": a.id,
+                "mode": a.mode,
+                "lat": a.latitude,
+                "lng": a.longitude,
+                "ts": a.timestamp.isoformat(),
+                "status": a.status,
+                "location_label": _compose_location_label(a.latitude, a.longitude, include_coordinates=True),
+                "delivery_channels": {
+                    "sms_contacts": sms_contacts,
+                    "whatsapp_contacts": whatsapp_contacts,
+                },
+                "source": "app",
+            }
+            for a in alerts
+        ]
+    })
 
 @tourist_required
 def tourist_cultural_guide(request):
@@ -3823,6 +4226,7 @@ def _build_admin_notifications_payload():
         },
         "role_counts": role_counts,
         "feed": feed,
+        "delivery": _notification_delivery_status(),
     }
 
 
@@ -4142,12 +4546,46 @@ def admin_notifications(request):
             messages.warning(request, "No active recipients with email addresses were available for this broadcast.")
             return redirect("admin_notifications")
 
-        sender = getattr(settings, "DEFAULT_FROM_EMAIL", "") or getattr(settings, "EMAIL_HOST_USER", "") or "admin@safepassage-india.org"
-        delivered = send_mail(subject, message_body, sender, recipient_list, fail_silently=True)
-        messages.success(
-            request,
-            f"Broadcast attempted for {len(recipient_list)} users. Email backend confirmed {delivered} delivery handoff(s).",
-        )
+        delivery_status = _notification_delivery_status()
+        if not delivery_status["configured"]:
+            messages.error(
+                request,
+                "SMTP notification delivery is not configured correctly yet. "
+                + " ".join(delivery_status["issues"]),
+            )
+            return redirect("admin_notifications")
+
+        sender = delivery_status["sender"]
+        try:
+            delivered, failed_recipients = _send_broadcast_notifications(
+                subject,
+                message_body,
+                sender,
+                recipient_list,
+            )
+        except (SMTPException, OSError, socket.error) as exc:
+            messages.error(
+                request,
+                f"SMTP notification delivery failed before the broadcast could be completed: {exc}",
+            )
+            return redirect("admin_notifications")
+
+        if delivered and failed_recipients:
+            messages.warning(
+                request,
+                f"Broadcast partially delivered: {delivered} of {len(recipient_list)} users received the email. "
+                f"{len(failed_recipients)} recipient(s) failed.",
+            )
+        elif delivered:
+            messages.success(
+                request,
+                f"Broadcast delivered to {delivered} user(s) through {delivery_status['backend_label']}.",
+            )
+        else:
+            messages.error(
+                request,
+                "SMTP accepted the request, but no notification emails were delivered.",
+            )
         return redirect("admin_notifications")
 
     payload = _build_admin_notifications_payload()

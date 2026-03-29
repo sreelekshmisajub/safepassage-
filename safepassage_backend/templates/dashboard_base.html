@@ -205,12 +205,8 @@
             <i class="bi bi-grid-fill"></i> Dashboard
         </a>
         <a href="{% url 'tourist_map_hub' %}"
-            class="sidebar-item {% if request.resolver_match.url_name == 'tourist_map_hub' or request.resolver_match.url_name == 'tourist_risk_map' %}active{% endif %}">
-            <i class="bi bi-geo-alt-fill"></i> Safety Map
-        </a>
-        <a href="{% url 'tourist_safe_route' %}"
-            class="sidebar-item {% if request.resolver_match.url_name == 'tourist_safe_route' %}active{% endif %}">
-            <i class="bi bi-sign-turn-right-fill"></i> Safe Route
+            class="sidebar-item {% if request.resolver_match.url_name == 'tourist_map_hub' or request.resolver_match.url_name == 'tourist_risk_map' or request.resolver_match.url_name == 'tourist_safe_route' %}active{% endif %}">
+            <i class="bi bi-geo-alt-fill"></i> Safety Map & Routes
         </a>
         <a href="{% url 'tourist_cultural_safety' %}"
             class="sidebar-item {% if request.resolver_match.url_name == 'tourist_cultural_safety' or request.resolver_match.url_name == 'cultural_guide' %}active{% endif %}">
@@ -249,10 +245,6 @@
             class="sidebar-item {% if request.resolver_match.url_name == 'worker_shift_management' or request.resolver_match.url_name == 'worker_checkins' or request.resolver_match.url_name == 'worker_checkin' %}active{% endif %}">
             <i class="bi bi-clock-history"></i> Shift Management
         </a>
-        <a href="{% url 'worker_safe_route' %}"
-            class="sidebar-item {% if request.resolver_match.url_name == 'worker_safe_route' or request.resolver_match.url_name == 'worker_route_planner' %}active{% endif %}">
-            <i class="bi bi-geo-fill"></i> Safe Route
-        </a>
         <a href="{% url 'worker_safe_havens' %}"
             class="sidebar-item {% if request.resolver_match.url_name == 'worker_safe_havens' %}active{% endif %}">
             <i class="bi bi-shield-shaded"></i> Safe Havens
@@ -262,8 +254,8 @@
             <i class="bi bi-check-circle-fill"></i> Check-ins
         </a>
         <a href="{% url 'worker_map' %}"
-            class="sidebar-item {% if request.resolver_match.url_name == 'worker_map' %}active{% endif %}">
-            <i class="bi bi-map-fill"></i> Risk Map
+            class="sidebar-item {% if request.resolver_match.url_name == 'worker_map' or request.resolver_match.url_name == 'worker_safe_route' or request.resolver_match.url_name == 'worker_route_planner' %}active{% endif %}">
+            <i class="bi bi-map-fill"></i> Safety Map & Routes
         </a>
         <a href="{% url 'worker_sos' %}"
             class="sidebar-item {% if request.resolver_match.url_name == 'worker_sos' or request.resolver_match.url_name == 'worker_emergency' %}active{% endif %}">
@@ -352,10 +344,10 @@
         <i class="bi bi-grid-fill"></i>
         <span>Home</span>
     </a>
-    <a href="{% url 'worker_safe_route' %}"
-        class="bottom-nav-item {% if request.resolver_match.url_name == 'worker_safe_route' or request.resolver_match.url_name == 'worker_route_planner' %}active{% endif %}">
-        <i class="bi bi-geo-fill"></i>
-        <span>Route</span>
+    <a href="{% url 'worker_map' %}"
+        class="bottom-nav-item {% if request.resolver_match.url_name == 'worker_map' or request.resolver_match.url_name == 'worker_safe_route' or request.resolver_match.url_name == 'worker_route_planner' %}active{% endif %}">
+        <i class="bi bi-map-fill"></i>
+        <span>Map & Routes</span>
     </a>
     <a href="{% url 'worker_sos' %}"
         class="bottom-nav-item {% if request.resolver_match.url_name == 'worker_sos' or request.resolver_match.url_name == 'worker_emergency' %}active{% endif %}">
