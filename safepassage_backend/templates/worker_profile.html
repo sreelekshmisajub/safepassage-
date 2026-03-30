@@ -188,7 +188,7 @@
                 <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
                     <div>
                         <h2 class="fw-bold mb-1">Profile Details</h2>
-                        <p class="text-muted mb-0">Fill the fields that matter for identity, workplace details, and emergency support.</p>
+                        <p class="text-muted mb-0">Fill every required field for identity, workplace details, and emergency support before saving.</p>
                     </div>
                     <button class="btn btn-primary rounded-pill px-4 py-3 fw-bold" type="submit">Save Profile</button>
                 </div>
@@ -200,35 +200,35 @@
                     </div>
                     <div>
                         <label class="field-label" for="lastNameInput">Last name</label>
-                        <input class="profile-input" id="lastNameInput" type="text" name="last_name" value="{{ user.last_name }}">
+                        <input class="profile-input" id="lastNameInput" type="text" name="last_name" value="{{ user.last_name }}" required>
                     </div>
                     <div>
                         <label class="field-label" for="phoneInput">Phone</label>
-                        <input class="profile-input" id="phoneInput" type="text" name="phone" maxlength="10" value="{{ worker.phone|default:user.phone }}">
+                        <input class="profile-input" id="phoneInput" type="text" name="phone" maxlength="10" value="{{ worker.phone|default:user.phone }}" required>
                     </div>
                     <div>
                         <label class="field-label" for="employeeIdInput">Employee ID</label>
-                        <input class="profile-input" id="employeeIdInput" type="text" name="employee_id" value="{{ worker.employee_id }}">
+                        <input class="profile-input" id="employeeIdInput" type="text" name="employee_id" value="{{ worker.employee_id }}" required>
                     </div>
                     <div>
                         <label class="field-label" for="companyInput">Company</label>
-                        <input class="profile-input" id="companyInput" type="text" name="company_name" value="{{ worker.company_name }}">
+                        <input class="profile-input" id="companyInput" type="text" name="company_name" value="{{ worker.company_name }}" required>
                     </div>
                     <div>
                         <label class="field-label" for="designationInput">Designation</label>
-                        <input class="profile-input" id="designationInput" type="text" name="designation" value="{{ worker.designation }}">
+                        <input class="profile-input" id="designationInput" type="text" name="designation" value="{{ worker.designation }}" required>
                     </div>
                     <div>
                         <label class="field-label" for="departmentInput">Department</label>
-                        <input class="profile-input" id="departmentInput" type="text" name="department" value="{{ worker.department }}">
+                        <input class="profile-input" id="departmentInput" type="text" name="department" value="{{ worker.department }}" required>
                     </div>
                     <div>
                         <label class="field-label" for="workLocationInput">Work location</label>
-                        <input class="profile-input" id="workLocationInput" type="text" name="work_location" value="{{ worker.work_location }}">
+                        <input class="profile-input" id="workLocationInput" type="text" name="work_location" value="{{ worker.work_location }}" required>
                     </div>
                     <div>
                         <label class="field-label" for="bloodGroupInput">Blood group</label>
-                        <select class="profile-select" id="bloodGroupInput" name="blood_group">
+                        <select class="profile-select" id="bloodGroupInput" name="blood_group" required>
                             <option value="">Select blood group</option>
                             <option value="A+" {% if worker.blood_group == "A+" %}selected{% endif %}>A+</option>
                             <option value="A-" {% if worker.blood_group == "A-" %}selected{% endif %}>A-</option>
@@ -242,23 +242,23 @@
                     </div>
                     <div>
                         <label class="field-label" for="emergencyNameInput">Emergency contact name</label>
-                        <input class="profile-input" id="emergencyNameInput" type="text" name="emergency_contact_name" value="{{ worker.emergency_contact_name }}">
+                        <input class="profile-input" id="emergencyNameInput" type="text" name="emergency_contact_name" value="{{ worker.emergency_contact_name }}" required>
                     </div>
                     <div>
                         <label class="field-label" for="emergencyPhoneInput">Emergency contact phone</label>
-                        <input class="profile-input" id="emergencyPhoneInput" type="text" name="emergency_contact_phone" maxlength="10" value="{{ worker.emergency_contact_phone }}">
+                        <input class="profile-input" id="emergencyPhoneInput" type="text" name="emergency_contact_phone" maxlength="10" value="{{ worker.emergency_contact_phone }}" required>
                     </div>
                     <div>
                         <label class="field-label" for="shiftStartInput">Usual shift start</label>
-                        <input class="profile-input" id="shiftStartInput" type="time" name="usual_shift_start" value="{% if worker.usual_shift_start %}{{ worker.usual_shift_start|time:'H:i' }}{% endif %}">
+                        <input class="profile-input" id="shiftStartInput" type="time" name="usual_shift_start" value="{% if worker.usual_shift_start %}{{ worker.usual_shift_start|time:'H:i' }}{% endif %}" required>
                     </div>
                     <div>
                         <label class="field-label" for="shiftEndInput">Usual shift end</label>
-                        <input class="profile-input" id="shiftEndInput" type="time" name="usual_shift_end" value="{% if worker.usual_shift_end %}{{ worker.usual_shift_end|time:'H:i' }}{% endif %}">
+                        <input class="profile-input" id="shiftEndInput" type="time" name="usual_shift_end" value="{% if worker.usual_shift_end %}{{ worker.usual_shift_end|time:'H:i' }}{% endif %}" required>
                     </div>
                     <div class="profile-grid-wide">
                         <label class="field-label" for="homeAddressInput">Home address</label>
-                        <textarea class="profile-textarea" id="homeAddressInput" name="home_address">{{ worker.home_address }}</textarea>
+                        <textarea class="profile-textarea" id="homeAddressInput" name="home_address" required>{{ worker.home_address }}</textarea>
                     </div>
                 </div>
             </section>

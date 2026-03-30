@@ -13,7 +13,7 @@ import re
 import socket
 import sys
 from collections import Counter
-from datetime import timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from django.http import JsonResponse
 from smtplib import SMTPException
@@ -744,20 +744,120 @@ def _normalize_lookup_text(value):
     return re.sub(r"[^a-z0-9]+", " ", (value or "").strip().lower()).strip()
 
 
-def _collect_cultural_entries(language, category, limit=4):
+def _build_cultural_context_terms(location_name, alerts, risk_payload, dataset_context):
+    raw_terms = []
+    if location_name:
+        raw_terms.append(location_name)
+    if dataset_context and dataset_context.get("city"):
+        raw_terms.append(dataset_context["city"])
+        raw_terms.extend(dataset_context.get("top_crimes", [])[:3])
+        raw_terms.extend(dataset_context.get("top_domains", [])[:3])
+
+    for alert in alerts[:6]:
+        raw_terms.extend(
+            [
+                alert.get("title") or "",
+                alert.get("description") or "",
+                alert.get("incident_type") or "",
+                alert.get("location_label") or "",
+            ]
+        )
+
+    for hotspot in risk_payload.get("nearby_hotspots", [])[:5]:
+        raw_terms.extend(
+            [
+                hotspot.get("city") or "",
+                hotspot.get("description") or "",
+                hotspot.get("risk_type") or "",
+            ]
+        )
+
+    for resource in risk_payload.get("nearby_resources", [])[:4]:
+        raw_terms.extend(
+            [
+                resource.get("name") or "",
+                resource.get("type") or "",
+                resource.get("address") or "",
+            ]
+        )
+
+    explicit_short_terms = {"bus", "cab", "atm", "taxi", "rail", "metro"}
+    terms = []
+    seen = set()
+    for term in raw_terms:
+        normalized = _normalize_lookup_text(term)
+        if not normalized:
+            continue
+        if normalized not in seen:
+            seen.add(normalized)
+            terms.append(normalized)
+        for token in normalized.split():
+            if len(token) >= 4 or token in explicit_short_terms:
+                if token not in seen:
+                    seen.add(token)
+                    terms.append(token)
+    return terms
+
+
+def _cultural_entry_match_score(entry, context_terms):
+    if not context_terms:
+        return 0
+
+    haystack = _normalize_lookup_text(
+        " ".join(
+            [
+                (entry.title or "").strip(),
+                (entry.content or "").strip(),
+            ]
+        )
+    )
+    if not haystack:
+        return 0
+
+    score = 0
+    for term in context_terms:
+        if not term:
+            continue
+        if haystack == term:
+            score += 6
+        elif haystack.startswith(term):
+            score += 5
+        elif f" {term}" in haystack or term in haystack:
+            score += 3
+    return score
+
+
+def _collect_cultural_entries(language, category, limit=4, context_terms=None):
     normalized_language = _normalize_language_code(language, default="en")
     queryset = list(
-        CulturalGuide.objects.filter(language=normalized_language, category=category)[:limit]
+        CulturalGuide.objects.filter(language=normalized_language, category=category)
     )
     if not queryset and normalized_language != "en":
-        queryset = list(CulturalGuide.objects.filter(language="en", category=category)[:limit])
+        queryset = list(CulturalGuide.objects.filter(language="en", category=category))
+
+    scored_entries = []
+    for index, item in enumerate(queryset):
+        match_score = _cultural_entry_match_score(item, context_terms or [])
+        scored_entries.append((match_score, -index, item))
+
+    if context_terms and any(score > 0 for score, _, _ in scored_entries):
+        scored_entries.sort(key=lambda item: (item[0], item[1]), reverse=True)
+        selected_entries = [item for score, _, item in scored_entries[:limit]]
+        selected_scores = {item.id: score for score, _, item in scored_entries[:limit]}
+    else:
+        selected_entries = queryset[:limit]
+        selected_scores = {item.id: 0 for item in selected_entries}
+
     return [
         {
             "title": item.title.strip() or category.title(),
             "content": item.content.strip(),
             "language": item.language,
+            "source": "cultural-guide",
+            "source_label": "Location-matched guide" if selected_scores.get(item.id, 0) > 0 else "Guide library",
+            "match_score": selected_scores.get(item.id, 0),
         }
-        for item in queryset
+        for item in selected_entries
         if item.content.strip()
     ]
 
@@ -888,10 +988,18 @@ def _build_cultural_safety_payload(user, lat, lng, language, assist_language=Non
     embassy_payload = _default_embassy_payload(type("obj", (), {"user": user})(), lat, lng)
     alerts = _build_incident_alerts(lat, lng, limit=6)
     nearby_resources = risk_payload.get("nearby_resources", [])
+    dataset_context = _city_dataset_context(location_name) or {
+        "available": False,
+        "city": None,
+        "report_count": 0,
+        "top_crimes": [],
+        "top_domains": [],
+    }
+    context_terms = _build_cultural_context_terms(location_name, alerts, risk_payload, dataset_context)
 
-    dos = _collect_cultural_entries(normalized_language, "do")
-    donts = _collect_cultural_entries(normalized_language, "dont")
-    risk_behaviors = _collect_cultural_entries(normalized_language, "scam")
+    dos = _collect_cultural_entries(normalized_language, "do", context_terms=context_terms)
+    donts = _collect_cultural_entries(normalized_language, "dont", context_terms=context_terms)
+    risk_behaviors = _collect_cultural_entries(normalized_language, "scam", context_terms=context_terms)
 
     restricted_keywords = (
         "restricted",
@@ -947,14 +1055,6 @@ def _build_cultural_safety_payload(user, lat, lng, language, assist_language=Non
             }
         )
 
-    dataset_context = _city_dataset_context(location_name) or {
-        "available": False,
-        "city": None,
-        "report_count": 0,
-        "top_crimes": [],
-        "top_domains": [],
-    }
-
     risk_explanation = []
     signal_counts = risk_payload.get("signal_counts", {})
     if signal_counts.get("risk_zones"):
@@ -1001,6 +1101,7 @@ def _build_cultural_safety_payload(user, lat, lng, language, assist_language=Non
                         "title": entry.get("title") or "Live guidance",
                         "content": entry.get("content") or "",
                         "source": "cultural-guide",
+                        "source_label": entry.get("source_label") or "Guide library",
                     }
                 )
         return filtered
@@ -1028,6 +1129,7 @@ def _build_cultural_safety_payload(user, lat, lng, language, assist_language=Non
                 "title": zone.get("name") or "Sensitive zone",
                 "content": zone.get("description") or "Restricted activity has been recorded near this location.",
                 "source": zone.get("source") or "risk-zone",
+                "source_label": "Live zone signal",
             }
         )
 
@@ -1074,6 +1176,15 @@ def _build_cultural_safety_payload(user, lat, lng, language, assist_language=Non
             "restricted_actions": restricted_actions[:6],
         },
         "cultural_risk_score_meta": cultural_risk_score_meta,
+        "live_context": {
+            "location_name": location_name,
+            "matched_context_terms": context_terms[:8],
+            "guide_matches": {
+                "dos": sum(1 for item in dos if item.get("match_score", 0) > 0),
+                "donts": sum(1 for item in donts if item.get("match_score", 0) > 0),
+                "scams": sum(1 for item in risk_behaviors if item.get("match_score", 0) > 0),
+            },
+        },
         "emergency": {
             "embassy": embassy_payload,
             "official_lines": OFFICIAL_EMERGENCY_LINES,
@@ -1166,15 +1277,18 @@ def _local_india_place_matches(query, limit=10):
     if not normalized_query:
         return []
 
-    matches = []
+    scored_matches = []
     seen = set()
 
     for destination in _build_route_destination_catalog():
+        destination_name = destination.get("name", "").strip()
+        destination_kind = destination.get("kind", "").strip()
+        destination_description = destination.get("description", "").strip()
         haystack = " ".join(
             [
-                destination.get("name", ""),
-                destination.get("kind", ""),
-                destination.get("description", ""),
+                destination_name,
+                destination_kind,
+                destination_description,
             ]
         ).lower()
         if normalized_query not in haystack:
@@ -1188,23 +1302,42 @@ def _local_india_place_matches(query, limit=10):
         if key in seen:
             continue
         seen.add(key)
-        matches.append(
-            {
-                "id": destination.get("id") or f"db-{len(matches) + 1}",
-                "name": destination["name"],
-                "kind": destination.get("kind") or "Destination",
-                "description": destination.get("description") or "",
-                "latitude": destination["latitude"],
-                "longitude": destination["longitude"],
-                "source": "safepassage-db",
-            }
+        normalized_name = destination_name.lower()
+        relevance_rank = 100
+        if normalized_name == normalized_query:
+            relevance_rank = 0
+        elif normalized_name.startswith(normalized_query):
+            relevance_rank = 10
+        elif f" {normalized_query}" in normalized_name:
+            relevance_rank = 20
+        elif normalized_query in normalized_name:
+            relevance_rank = 30
+        elif normalized_query in destination_kind.lower():
+            relevance_rank = 45
+        elif normalized_query in destination_description.lower():
+            relevance_rank = 55
+
+        scored_matches.append(
+            (
+                relevance_rank,
+                len(destination_name),
+                {
+                    "id": destination.get("id") or f"db-{len(scored_matches) + 1}",
+                    "name": destination["name"],
+                    "kind": destination_kind or "Destination",
+                    "description": destination_description or "",
+                    "latitude": destination["latitude"],
+                    "longitude": destination["longitude"],
+                    "source": "safepassage-db",
+                },
+            )
         )
-        if len(matches) >= limit:
-            return matches
 
-    return matches
+    scored_matches.sort(key=lambda item: (item[0], item[1], item[2]["name"].lower(), item[2]["kind"].lower()))
+    return [item[2] for item in scored_matches[:limit]]
 
 
+@lru_cache(maxsize=128)
 def _remote_india_place_matches(query, limit=8):
     if not (query or "").strip():
         return []
@@ -1228,7 +1361,7 @@ def _remote_india_place_matches(query, limit=8):
     )
 
     try:
-        with urlopen(request, timeout=2.5) as response:
+        with urlopen(request, timeout=1.2) as response:
             payload = json.loads(response.read().decode("utf-8"))
     except (URLError, HTTPError, TimeoutError, json.JSONDecodeError, ValueError):
         return []
@@ -1259,19 +1392,30 @@ def _remote_india_place_matches(query, limit=8):
     return results
 
 
+def _has_primary_local_place_match(local_results, normalized_query):
+    for result in local_results:
+        normalized_name = (result.get("name") or "").strip().lower()
+        if not normalized_name:
+            continue
+        if normalized_name == normalized_query or normalized_name.startswith(normalized_query):
+            return True
+    return False
+
+
 def _search_india_places(query, limit=10):
     local_results = _local_india_place_matches(query, limit=limit)
     normalized_query = (query or "").strip().lower()
+    has_primary_local_match = _has_primary_local_place_match(local_results, normalized_query)
     should_use_remote = (
         len(normalized_query) >= 3
-        and len(local_results) < min(5, limit)
-        and not any(result["name"].strip().lower() == normalized_query for result in local_results)
+        and (not local_results or not has_primary_local_match)
     )
     remote_results = _remote_india_place_matches(query, limit=limit) if should_use_remote else []
 
     merged = []
     seen = set()
-    for item in remote_results + local_results:
+    ordered_results = local_results + remote_results if has_primary_local_match else remote_results + local_results
+    for item in ordered_results:
         key = (
             item.get("name", "").strip().lower(),
             round(item.get("latitude", 0), 4),
@@ -1307,6 +1451,80 @@ def _dedupe_route_points(route_points):
             continue
         deduped_points.append(rounded_point)
     return deduped_points
+
+
+def _route_profile_order(route_points):
+    total_distance_km = 0
+    for index in range(1, len(route_points)):
+        prev_lat, prev_lng = route_points[index - 1]
+        point_lat, point_lng = route_points[index]
+        total_distance_km += _haversine_km(prev_lat, prev_lng, point_lat, point_lng)
+    if total_distance_km <= 2.5:
+        return ("foot", "driving")
+    return ("driving", "foot")
+
+
+@lru_cache(maxsize=256)
+def _fetch_osrm_route_geometry(route_points_key, profile):
+    if not _remote_service_enabled() or len(route_points_key) < 2:
+        return None
+
+    coordinate_string = ";".join(
+        f"{point_lng:.6f},{point_lat:.6f}"
+        for point_lat, point_lng in route_points_key
+    )
+    request = Request(
+        (
+            f"https://router.project-osrm.org/route/v1/{profile}/{coordinate_string}"
+            "?overview=full&alternatives=false&steps=false&geometries=geojson&continue_straight=false"
+        ),
+        headers={
+            "User-Agent": "SafePassage/1.0 (tourist-safe-route)",
+            "Accept": "application/json",
+        },
+    )
+
+    try:
+        with urlopen(request, timeout=2.4) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+    except (URLError, HTTPError, TimeoutError, json.JSONDecodeError, ValueError):
+        return None
+
+    best_route = (payload.get("routes") or [None])[0]
+    geometry = ((best_route or {}).get("geometry") or {}).get("coordinates") or []
+    if len(geometry) < 2:
+        return None
+
+    live_polyline = []
+    for point_lng, point_lat in geometry:
+        try:
+            live_polyline.append([round(float(point_lat), 6), round(float(point_lng), 6)])
+        except (TypeError, ValueError):
+            continue
+    if len(live_polyline) < 2:
+        return None
+
+    distance_m = (best_route or {}).get("distance")
+    duration_s = (best_route or {}).get("duration")
+    return {
+        "polyline": live_polyline,
+        "profile": profile,
+        "distance_km": round(float(distance_m) / 1000, 2) if distance_m is not None else None,
+        "duration_min": max(1, round(float(duration_s) / 60)) if duration_s is not None else None,
+        "source": "live-road",
+    }
+
+
+def _build_live_route_geometry(route_points):
+    normalized_points = tuple(_dedupe_route_points(route_points))
+    if len(normalized_points) < 2:
+        return None
+
+    for profile in _route_profile_order(normalized_points):
+        live_route = _fetch_osrm_route_geometry(normalized_points, profile)
+        if live_route:
+            return live_route
+    return None
 
 
 def _perpendicular_detour_point(source_lat, source_lng, dest_lat, dest_lng, scale=0.12):
@@ -1416,6 +1634,17 @@ def _build_route_option_payload(
         if advice_text and advice_text not in advisories:
             advisories.append(advice_text)
 
+    waypoint_polyline = [[sample["latitude"], sample["longitude"]] for sample in route_samples]
+    live_route = _build_live_route_geometry(route_points)
+    display_polyline = live_route["polyline"] if live_route else waypoint_polyline
+    display_distance_km = live_route["distance_km"] if live_route and live_route.get("distance_km") is not None else round(total_distance_km, 2)
+
+    if live_route and live_route.get("duration_min") is not None:
+        profile_label = "walking" if live_route["profile"] == "foot" else "road"
+        live_route_note = f"Live {profile_label} route aligned. Approx {live_route['duration_min']} min travel time."
+        if live_route_note not in advisories:
+            advisories.insert(0, live_route_note)
+
     return {
         "id": tier,
         "tier": tier,
@@ -1425,11 +1654,19 @@ def _build_route_option_payload(
         "strategy_label": tier_meta["strategy_label"],
         "color": tier_meta["color"],
         "route": route_samples,
-        "polyline": [[sample["latitude"], sample["longitude"]] for sample in route_samples],
+        "polyline": display_polyline,
+        "waypoint_polyline": waypoint_polyline,
+        "polyline_source": live_route["source"] if live_route else "safety-corridor",
+        "live_route_meta": {
+            "profile": live_route["profile"],
+            "distance_km": live_route["distance_km"],
+            "duration_min": live_route["duration_min"],
+        } if live_route else None,
         "route_summary": {
             "overall_risk_score": overall_risk_score,
             "overall_risk_label": overall_risk_label,
-            "distance_km": round(total_distance_km, 2),
+            "distance_km": display_distance_km,
+            "corridor_distance_km": round(total_distance_km, 2),
             "advisories": advisories[:4],
             "data_available": bool(scored_samples),
             "hotspot_count": len(corridor_hotspots[:3]),
@@ -1735,29 +1972,30 @@ def _dispatch_emergency_alert(user, lat, lng, mode):
         mode=mode,
     )
 
-    contacts = list(EmergencyContact.objects.filter(user=user).order_by("-is_primary", "name"))
+    contacts = _dispatch_contact_rows(user)
     contact_deliveries = []
     sms_contacts = 0
     whatsapp_contacts = 0
     email_recipients = []
     for contact in contacts:
         delivery_channels = []
-        if contact.sms_enabled:
+        if contact.get("sms_enabled"):
             delivery_channels.append("SMS")
             sms_contacts += 1
-        if contact.whatsapp_enabled:
+        if contact.get("whatsapp_enabled"):
             delivery_channels.append("WhatsApp")
             whatsapp_contacts += 1
-        if contact.email:
-            email_recipients.append(contact.email)
+        if contact.get("email"):
+            email_recipients.append(contact["email"])
         if delivery_channels:
             contact_deliveries.append(
                 {
-                    "name": contact.name,
-                    "phone": contact.phone,
-                    "relationship": contact.get_relationship_display(),
-                    "is_primary": contact.is_primary,
+                    "name": contact.get("name") or "Emergency contact",
+                    "phone": contact.get("phone") or "",
+                    "relationship": contact.get("relationship") or "Emergency contact",
+                    "is_primary": bool(contact.get("is_primary")),
                     "channels": delivery_channels,
+                    "source": contact.get("source") or "emergency-contact",
                 }
             )
 
@@ -2756,6 +2994,188 @@ def _serialize_shift(shift):
     }
 
 
+def _normalize_worker_leave_dates(raw_dates):
+    if raw_dates is None:
+        return []
+
+    if isinstance(raw_dates, str):
+        raw_dates = raw_dates.strip()
+        if not raw_dates:
+            raw_dates = []
+        else:
+            try:
+                parsed = json.loads(raw_dates)
+                raw_dates = parsed if isinstance(parsed, list) else [raw_dates]
+            except json.JSONDecodeError:
+                raw_dates = [value.strip() for value in raw_dates.split(",") if value.strip()]
+
+    if not isinstance(raw_dates, (list, tuple, set)):
+        raw_dates = [raw_dates]
+
+    normalized_dates = []
+    for value in raw_dates:
+        if value in (None, ""):
+            continue
+        try:
+            normalized_dates.append(date.fromisoformat(str(value)[:10]).isoformat())
+        except ValueError:
+            continue
+    return sorted(set(normalized_dates))
+
+
+WORKER_SHIFT_AUTO_SOS_MINUTES = 2
+
+
+def _worker_schedule_window(worker_profile, reference_dt=None):
+    if not worker_profile or not worker_profile.usual_shift_start or not worker_profile.usual_shift_end:
+        return None, None
+
+    local_now = timezone.localtime(reference_dt or timezone.now())
+    start_time = worker_profile.usual_shift_start
+    end_time = worker_profile.usual_shift_end
+    overnight = end_time <= start_time
+    start_date = local_now.date()
+
+    if overnight and local_now.time() < end_time:
+        start_date = start_date - timedelta(days=1)
+
+    end_date = start_date if end_time > start_time else start_date + timedelta(days=1)
+    tz = timezone.get_current_timezone()
+    scheduled_start = timezone.make_aware(datetime.combine(start_date, start_time), tz)
+    scheduled_end = timezone.make_aware(datetime.combine(end_date, end_time), tz)
+    return scheduled_start, scheduled_end
+
+
+def _serialize_worker_shift_preferences(worker_profile, reference_dt=None):
+    leave_dates = _normalize_worker_leave_dates(getattr(worker_profile, "leave_dates", []))
+    scheduled_start, scheduled_end = _worker_schedule_window(worker_profile, reference_dt=reference_dt)
+    return {
+        "usual_shift_start": worker_profile.usual_shift_start.strftime("%H:%M") if getattr(worker_profile, "usual_shift_start", None) else "",
+        "usual_shift_end": worker_profile.usual_shift_end.strftime("%H:%M") if getattr(worker_profile, "usual_shift_end", None) else "",
+        "leave_dates": leave_dates,
+        "leave_today": timezone.localdate(reference_dt or timezone.now()).isoformat() in leave_dates,
+        "monitoring_enabled": bool(getattr(worker_profile, "usual_shift_start", None) and getattr(worker_profile, "usual_shift_end", None)),
+        "auto_sos_after_minutes": WORKER_SHIFT_AUTO_SOS_MINUTES,
+        "scheduled_start": scheduled_start.isoformat() if scheduled_start else None,
+        "scheduled_end": scheduled_end.isoformat() if scheduled_end else None,
+    }
+
+
+def _find_worker_shift_for_schedule(user, scheduled_start, scheduled_end):
+    if not scheduled_start or not scheduled_end:
+        return None
+
+    tolerance = timedelta(minutes=1)
+    return (
+        Shift.objects.filter(
+            user=user,
+            start_time__gte=scheduled_start - tolerance,
+            start_time__lte=scheduled_start + tolerance,
+            end_time__gte=scheduled_end - tolerance,
+            end_time__lte=scheduled_end + tolerance,
+        )
+        .order_by("-actual_start", "-start_time")
+        .first()
+    )
+
+
+def _normalized_contact_phone(value):
+    normalized = re.sub(r"[^\d+]", "", str(value or "").strip())
+    return normalized or ""
+
+
+def _dispatch_contact_rows(user):
+    contacts = []
+    seen = set()
+
+    for contact in EmergencyContact.objects.filter(user=user).order_by("-is_primary", "name"):
+        phone = _normalized_contact_phone(contact.phone)
+        email = (contact.email or "").strip().lower()
+        dedupe_key = (phone, email, (contact.name or "").strip().lower())
+        if dedupe_key in seen:
+            continue
+        seen.add(dedupe_key)
+        contacts.append(
+            {
+                "name": contact.name,
+                "phone": contact.phone,
+                "relationship": contact.get_relationship_display(),
+                "is_primary": contact.is_primary,
+                "sms_enabled": contact.sms_enabled,
+                "whatsapp_enabled": contact.whatsapp_enabled,
+                "email": contact.email or "",
+                "source": "emergency-contact",
+            }
+        )
+
+    if user.role == "worker":
+        worker_profile = getattr(user, "worker_profile", None)
+        if worker_profile and worker_profile.emergency_contact_name and worker_profile.emergency_contact_phone:
+            employer_phone = _normalized_contact_phone(worker_profile.emergency_contact_phone)
+            dedupe_key = (
+                employer_phone,
+                "",
+                (worker_profile.emergency_contact_name or "").strip().lower(),
+            )
+            if employer_phone and dedupe_key not in seen:
+                contacts.append(
+                    {
+                        "name": worker_profile.emergency_contact_name,
+                        "phone": worker_profile.emergency_contact_phone,
+                        "relationship": "Employer Contact",
+                        "is_primary": not contacts,
+                        "sms_enabled": True,
+                        "whatsapp_enabled": True,
+                        "email": "",
+                        "source": "worker-profile",
+                    }
+                )
+                seen.add(dedupe_key)
+
+    return contacts
+
+
+def _dispatch_shift_escalation_sos(user, scheduled_time):
+    lat, lng = _resolve_user_coordinates(user)
+    if lat is None or lng is None:
+        return {
+            "auto_sos_dispatched": False,
+            "auto_sos_already_sent": False,
+            "client_dispatch_required": True,
+            "auto_sos_message": "Saved GPS location is unavailable, so SafePassage needs the open worker page to finish the SOS dispatch.",
+            "delivery_channels": {"sms_contacts": 0, "whatsapp_contacts": 0, "total_channel_dispatches": 0},
+        }
+
+    existing_alert = (
+        EmergencyAlert.objects.filter(
+            user=user,
+            mode="silent",
+            timestamp__gte=scheduled_time - timedelta(minutes=WORKER_SHIFT_AUTO_SOS_MINUTES),
+        )
+        .order_by("-timestamp")
+        .first()
+    )
+    if existing_alert:
+        return {
+            "auto_sos_dispatched": False,
+            "auto_sos_already_sent": True,
+            "client_dispatch_required": False,
+            "auto_sos_message": "An automatic SOS has already been sent for this missed shift update.",
+            "alert_id": existing_alert.id,
+            "delivery_channels": {"sms_contacts": 0, "whatsapp_contacts": 0, "total_channel_dispatches": 0},
+        }
+
+    dispatch_payload = _dispatch_emergency_alert(user, lat, lng, "silent")
+    return {
+        "auto_sos_dispatched": True,
+        "auto_sos_already_sent": False,
+        "client_dispatch_required": False,
+        "auto_sos_message": f"Automatic SOS dispatched to emergency and employer contacts because the worker did not update the scheduled shift status within {WORKER_SHIFT_AUTO_SOS_MINUTES} minutes.",
+        "alert_id": dispatch_payload.get("alert_id"),
+        "delivery_channels": dispatch_payload.get("delivery_channels", {"sms_contacts": 0, "whatsapp_contacts": 0, "total_channel_dispatches": 0}),
+    }
+
+
 def _next_checkin_due_minutes(active_shift, last_checkin, interval_minutes=30):
     if not active_shift:
         return None
@@ -2895,6 +3315,7 @@ def _build_worker_dashboard_payload(user, lat, lng):
 
 
 def _build_worker_shift_payload(user):
+    worker_profile = _get_or_create_worker_profile(user)
     active_shift = Shift.objects.filter(user=user, status="active").order_by("-actual_start", "-start_time").first()
     active_shift_checkin = CheckIn.objects.filter(shift=active_shift).order_by("-timestamp").first() if active_shift else None
     history = list(Shift.objects.filter(user=user).order_by("-start_time")[:10])
@@ -2911,6 +3332,7 @@ def _build_worker_shift_payload(user):
         "next_checkin_due_minutes": _next_checkin_due_minutes(active_shift, active_shift_checkin),
         "current_location": _compose_location_label(current_lat, current_lng),
         "current_location_display": _compose_location_label(current_lat, current_lng, include_coordinates=True),
+        "schedule_preferences": _serialize_worker_shift_preferences(worker_profile),
     }
 
 
@@ -2923,8 +3345,9 @@ def _resolve_worker_coordinates(request, source):
 
 def _build_worker_template_context(user, **extra_context):
     current_lat, current_lng = _resolve_user_coordinates(user)
+    worker_profile = _get_or_create_worker_profile(user)
     base_context = {
-        "worker": _get_or_create_worker_profile(user),
+        "worker": worker_profile,
         "worker_last_lat": current_lat,
         "worker_last_lng": current_lng,
         "has_worker_fallback_location": current_lat is not None and current_lng is not None,
@@ -2934,6 +3357,7 @@ def _build_worker_template_context(user, **extra_context):
         "current_worker_location_display": _compose_location_label(current_lat, current_lng, include_coordinates=True),
         "emergency_contacts": EmergencyContact.objects.filter(user=user).order_by("-is_primary", "name"),
         "emergency_contacts_count": EmergencyContact.objects.filter(user=user).count(),
+        "worker_leave_dates": _normalize_worker_leave_dates(getattr(worker_profile, "leave_dates", [])),
     }
     base_context.update(extra_context)
     return base_context
@@ -3025,29 +3449,56 @@ def worker_profile(request):
         usual_shift_start = (request.POST.get("usual_shift_start") or "").strip()
         usual_shift_end = (request.POST.get("usual_shift_end") or "").strip()
 
+        required_fields = {
+            "First name": first_name,
+            "Last name": last_name,
+            "Phone": phone,
+            "Employee ID": employee_id,
+            "Company": company_name,
+            "Designation": designation,
+            "Department": department,
+            "Work location": work_location,
+            "Home address": home_address,
+            "Blood group": blood_group,
+            "Emergency contact name": emergency_contact_name,
+            "Emergency contact phone": emergency_contact_phone,
+            "Usual shift start": usual_shift_start,
+            "Usual shift end": usual_shift_end,
+        }
+        missing_fields = [label for label, value in required_fields.items() if not value]
+        if missing_fields:
+            messages.error(request, f"Complete all required worker profile fields: {', '.join(missing_fields)}.")
+            return redirect("worker_profile")
+
         if not re.match(r"^[a-zA-Z\s]{2,}$", first_name):
             messages.error(request, "First name must contain only alphabets and be at least 2 characters.")
             return redirect("worker_profile")
 
-        if last_name and not re.match(r"^[a-zA-Z\s]{2,}$", last_name):
+        if not re.match(r"^[a-zA-Z\s]{2,}$", last_name):
             messages.error(request, "Last name must contain only alphabets and be at least 2 characters.")
             return redirect("worker_profile")
 
-        if phone and not re.match(r"^\d{10}$", phone):
+        if not re.match(r"^\d{10}$", phone):
             messages.error(request, "Phone number must be a valid 10-digit mobile number.")
             return redirect("worker_profile")
 
-        if emergency_contact_phone and not re.match(r"^\d{10}$", emergency_contact_phone):
+        if not re.match(r"^[a-zA-Z\s]{2,}$", emergency_contact_name):
+            messages.error(request, "Emergency contact name must contain only alphabets and be at least 2 characters.")
+            return redirect("worker_profile")
+
+        if not re.match(r"^\d{10}$", emergency_contact_phone):
             messages.error(request, "Emergency contact phone must be a valid 10-digit mobile number.")
+            return redirect("worker_profile")
+
+        if blood_group not in {"A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"}:
+            messages.error(request, "Select a valid blood group.")
             return redirect("worker_profile")
 
         parsed_shift_start = None
         parsed_shift_end = None
         try:
-            if usual_shift_start:
-                parsed_shift_start = timezone.datetime.strptime(usual_shift_start, "%H:%M").time()
-            if usual_shift_end:
-                parsed_shift_end = timezone.datetime.strptime(usual_shift_end, "%H:%M").time()
+            parsed_shift_start = timezone.datetime.strptime(usual_shift_start, "%H:%M").time()
+            parsed_shift_end = timezone.datetime.strptime(usual_shift_end, "%H:%M").time()
         except ValueError:
             messages.error(request, "Shift timing must use the HH:MM format.")
             return redirect("worker_profile")
@@ -3079,6 +3530,50 @@ def worker_profile(request):
     return render(request, "worker_profile.html", _build_worker_template_context(request.user))
 
 # --- Worker API Endpoints ---
+
+@login_required
+def api_worker_sos_target(request):
+    guard_response = _worker_api_guard(request)
+    if guard_response:
+        return guard_response
+
+    if request.method != "POST":
+        return JsonResponse({"status": "error", "message": "Invalid method."}, status=405)
+
+    payload = _load_request_payload(request)
+    contact_name = (payload.get("name") or "").strip()
+    contact_phone = (payload.get("phone") or "").strip()
+
+    if not re.match(r"^[a-zA-Z\s]{2,}$", contact_name):
+        return JsonResponse(
+            {"status": "error", "message": "Contact name must contain only alphabets and be at least 2 characters."},
+            status=400,
+        )
+
+    if not re.match(r"^\d{10}$", contact_phone):
+        return JsonResponse(
+            {"status": "error", "message": "Phone number must be a valid 10-digit mobile number."},
+            status=400,
+        )
+
+    worker_profile = _get_or_create_worker_profile(request.user)
+    worker_profile.emergency_contact_name = contact_name
+    worker_profile.emergency_contact_phone = contact_phone
+    worker_profile.save(update_fields=["emergency_contact_name", "emergency_contact_phone"])
+
+    return JsonResponse(
+        {
+            "status": "success",
+            "message": "Worker SOS target updated successfully.",
+            "contact": {
+                "name": worker_profile.emergency_contact_name,
+                "phone": worker_profile.emergency_contact_phone,
+                "relationship": "Employer Contact",
+                "channels": ["SMS", "WhatsApp"],
+                "source": "worker-profile",
+            },
+        }
+    )
 
 @login_required
 def api_worker_dashboard_data(request):
@@ -3156,8 +3651,49 @@ def api_worker_shift_status(request):
     return JsonResponse(_build_worker_shift_payload(request.user))
 
 
+@csrf_exempt
+@worker_required
+def api_worker_shift_preferences(request):
+    if request.method != "POST":
+        return JsonResponse({"status": "error", "message": "Invalid method."}, status=405)
+
+    payload = _load_request_payload(request)
+    start_value = (payload.get("usual_shift_start") or "").strip()
+    end_value = (payload.get("usual_shift_end") or "").strip()
+    leave_dates = _normalize_worker_leave_dates(payload.get("leave_dates") or [])
+
+    if not start_value or not end_value:
+        return JsonResponse(
+            {"status": "error", "message": "Usual check-in and check-out timings are required."},
+            status=400,
+        )
+
+    try:
+        parsed_start = datetime.strptime(start_value, "%H:%M").time()
+        parsed_end = datetime.strptime(end_value, "%H:%M").time()
+    except ValueError:
+        return JsonResponse(
+            {"status": "error", "message": "Shift timings must use the HH:MM format."},
+            status=400,
+        )
+
+    worker_profile = _get_or_create_worker_profile(request.user)
+    worker_profile.usual_shift_start = parsed_start
+    worker_profile.usual_shift_end = parsed_end
+    worker_profile.leave_dates = leave_dates
+    worker_profile.save(update_fields=["usual_shift_start", "usual_shift_end", "leave_dates"])
+
+    return JsonResponse(
+        {
+            "status": "success",
+            "message": "Usual shift timings and leave days updated successfully.",
+            "schedule_preferences": _serialize_worker_shift_preferences(worker_profile),
+        }
+    )
+
+
 @login_required
-def api_worker_shift_escalation(request):
+def _api_worker_shift_escalation_legacy(request):
     """
     Returns escalation state for the worker's current shift timing.
     Escalation levels:
@@ -3227,6 +3763,112 @@ def api_worker_shift_escalation(request):
 
 
 @login_required
+def api_worker_shift_escalation(request):
+    guard_response = _worker_api_guard(request)
+    if guard_response:
+        return guard_response
+
+    now = timezone.now()
+    worker_profile = _get_or_create_worker_profile(request.user)
+    schedule_preferences = _serialize_worker_shift_preferences(worker_profile, reference_dt=now)
+    auto_sos_after_minutes = WORKER_SHIFT_AUTO_SOS_MINUTES
+
+    if not schedule_preferences["monitoring_enabled"]:
+        return JsonResponse(
+            {
+                "escalation_level": "none",
+                "type": None,
+                "minutes_overdue": 0,
+                "message": "Set your usual check-in and check-out timings to enable automatic shift SOS monitoring.",
+                "schedule_preferences": schedule_preferences,
+                "auto_sos_after_minutes": auto_sos_after_minutes,
+                "client_dispatch_required": False,
+                "auto_sos_dispatched": False,
+            }
+        )
+
+    scheduled_start, scheduled_end = _worker_schedule_window(worker_profile, reference_dt=now)
+    if not scheduled_start or not scheduled_end:
+        return JsonResponse(
+            {
+                "escalation_level": "none",
+                "type": None,
+                "minutes_overdue": 0,
+                "message": "",
+                "schedule_preferences": schedule_preferences,
+                "auto_sos_after_minutes": auto_sos_after_minutes,
+                "client_dispatch_required": False,
+                "auto_sos_dispatched": False,
+            }
+        )
+
+    scheduled_leave_day = scheduled_start.date().isoformat() in schedule_preferences["leave_dates"]
+    active_shift = (
+        Shift.objects.filter(user=request.user, status="active", actual_end__isnull=True)
+        .order_by("-actual_start", "-start_time")
+        .first()
+    )
+    scheduled_shift = _find_worker_shift_for_schedule(request.user, scheduled_start, scheduled_end)
+
+    if active_shift and active_shift.end_time and now >= active_shift.end_time + timedelta(minutes=auto_sos_after_minutes):
+        minutes_overdue = max(int((now - active_shift.end_time).total_seconds() // 60), auto_sos_after_minutes)
+        response_payload = {
+            "escalation_level": "sos",
+            "type": "end",
+            "minutes_overdue": minutes_overdue,
+            "shift_id": active_shift.id,
+            "scheduled_time": active_shift.end_time.isoformat(),
+            "message": f"Shift check-out is overdue by {minutes_overdue} minutes. SafePassage auto-SOS activates {auto_sos_after_minutes} minutes after the scheduled end time if check-out is missed.",
+            "schedule_preferences": schedule_preferences,
+            "auto_sos_after_minutes": auto_sos_after_minutes,
+        }
+        response_payload.update(_dispatch_shift_escalation_sos(request.user, active_shift.end_time))
+        return JsonResponse(response_payload)
+
+    if scheduled_leave_day and not active_shift:
+        return JsonResponse(
+            {
+                "escalation_level": "leave",
+                "type": "leave",
+                "minutes_overdue": 0,
+                "message": f"{scheduled_start.date().isoformat()} is marked as a leave day. Automatic shift SOS monitoring is paused for this schedule.",
+                "schedule_preferences": schedule_preferences,
+                "auto_sos_after_minutes": auto_sos_after_minutes,
+                "client_dispatch_required": False,
+                "auto_sos_dispatched": False,
+            }
+        )
+
+    if not scheduled_shift and now >= scheduled_start + timedelta(minutes=auto_sos_after_minutes):
+        minutes_overdue = max(int((now - scheduled_start).total_seconds() // 60), auto_sos_after_minutes)
+        response_payload = {
+            "escalation_level": "sos",
+            "type": "start",
+            "minutes_overdue": minutes_overdue,
+            "shift_id": None,
+            "scheduled_time": scheduled_start.isoformat(),
+            "message": f"Shift check-in is overdue by {minutes_overdue} minutes. SafePassage auto-SOS activates {auto_sos_after_minutes} minutes after the scheduled start time if check-in is missed.",
+            "schedule_preferences": schedule_preferences,
+            "auto_sos_after_minutes": auto_sos_after_minutes,
+        }
+        response_payload.update(_dispatch_shift_escalation_sos(request.user, scheduled_start))
+        return JsonResponse(response_payload)
+
+    return JsonResponse(
+        {
+            "escalation_level": "none",
+            "type": None,
+            "minutes_overdue": 0,
+            "message": "",
+            "schedule_preferences": schedule_preferences,
+            "auto_sos_after_minutes": auto_sos_after_minutes,
+            "client_dispatch_required": False,
+            "auto_sos_dispatched": False,
+        }
+    )
+
+
+@login_required
 def api_worker_place_search(request):
     guard_response = _worker_api_guard(request)
     if guard_response:
@@ -3255,13 +3897,14 @@ def start_shift(request):
     worker_profile = _get_or_create_worker_profile(request.user)
     company_name = (payload.get("company_name") or worker_profile.company_name or "").strip()
     now = timezone.now()
+    scheduled_start, scheduled_end = _worker_schedule_window(worker_profile, reference_dt=now)
 
     Shift.objects.filter(user=request.user, status="active").update(status="completed", actual_end=now)
 
     shift = Shift.objects.create(
         user=request.user,
-        start_time=now,
-        end_time=now + timedelta(hours=8),
+        start_time=scheduled_start or now,
+        end_time=scheduled_end or (now + timedelta(hours=8)),
         status="active",
         actual_start=now,
         company_name=company_name,
@@ -3313,7 +3956,7 @@ def submit_checkin(request):
 
     payload = _load_request_payload(request)
     status = (payload.get("status") or "ok").lower()
-    if status not in {"ok", "missed", "assistance"}:
+    if status not in {"ok", "missed", "assistance", "checkout"}:
         status = "ok"
 
     active_shift = Shift.objects.filter(user=request.user, status="active").order_by("-actual_start", "-start_time").first()
@@ -3333,11 +3976,16 @@ def submit_checkin(request):
         location_lat=lat,
         location_lng=lng,
     )
+    if status == "checkout":
+        active_shift.status = "completed"
+        active_shift.actual_end = timezone.now()
+        active_shift.save(update_fields=["status", "actual_end"])
+    next_checkin_due = None if status == "checkout" else _next_checkin_due_minutes(active_shift, checkin)
     return JsonResponse(
         {
             "status": "success",
             "checkin": _serialize_checkin(checkin),
-            "next_checkin_due_minutes": _next_checkin_due_minutes(active_shift, checkin),
+            "next_checkin_due_minutes": next_checkin_due,
         }
     )
 

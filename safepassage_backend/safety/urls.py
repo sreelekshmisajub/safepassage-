@@ -45,6 +45,7 @@ urlpatterns = [
     path('api/worker/start-shift/', views.start_shift, name='start_shift'),
     path('api/worker/end-shift/', views.end_shift, name='end_shift'),
     path('api/worker/shift-status/', views.api_worker_shift_status, name='api_worker_shift_status'),
+    path('api/worker/shift-preferences/', views.api_worker_shift_preferences, name='api_worker_shift_preferences'),
     path('api/worker/shift-escalation/', views.api_worker_shift_escalation, name='api_worker_shift_escalation'),
     path('api/worker/submit-checkin/', views.submit_checkin, name='submit_checkin'),
     path('api/worker/place-search/', views.api_worker_place_search, name='api_worker_place_search'),
@@ -52,6 +53,7 @@ urlpatterns = [
     path('api/worker/get-safe-route/', views.get_safe_route, name='get_safe_route'),
     path('api/worker/safe-havens/', views.api_worker_safe_havens, name='api_worker_safe_havens'),
     path('api/worker/alerts/', views.api_worker_alerts, name='api_worker_alerts'),
+    path('api/worker/sos-target/', views.api_worker_sos_target, name='api_worker_sos_target'),
     path('employer/dashboard/', views.employer_dashboard, name='employer_dashboard'),
     
     # Admin Dashboard

@@ -41,8 +41,54 @@
         padding: 22px;
         text-align: left;
     }
+    .sos-target-form {
+        display: grid;
+        gap: 14px;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        margin-top: 16px;
+    }
+    .sos-target-field label {
+        color: #64748b;
+        display: block;
+        font-size: 0.78rem;
+        font-weight: 700;
+        letter-spacing: 0.03em;
+        margin-bottom: 6px;
+        text-transform: uppercase;
+    }
+    .sos-target-field input {
+        border: 1px solid rgba(148, 163, 184, 0.22);
+        border-radius: 14px;
+        padding: 12px 14px;
+        width: 100%;
+    }
+    .sos-target-meta {
+        align-items: center;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 12px;
+    }
+    .sos-target-chip {
+        background: rgba(37, 99, 235, 0.08);
+        border: 1px solid rgba(37, 99, 235, 0.16);
+        border-radius: 999px;
+        color: #1d4ed8;
+        display: inline-flex;
+        font-size: 0.74rem;
+        font-weight: 700;
+        padding: 4px 10px;
+    }
+    .sos-target-status {
+        color: #64748b;
+        font-size: 0.86rem;
+        margin-top: 12px;
+    }
     @media (max-width: 991.98px) {
         .worker-sos-grid {
+            grid-template-columns: 1fr;
+        }
+        .sos-target-form {
             grid-template-columns: 1fr;
         }
     }
@@ -63,6 +109,32 @@
             <span class="text-muted" id="workerSosStatus">No worker emergency alert has been sent in this session.</span>
         </div>
         <div class="worker-sos-grid">
+            <div class="info-card">
+                <h5 class="fw-bold mb-2">SOS Phone Target</h5>
+                <p class="text-muted mb-0">Set the employer or emergency phone number that should be included in the worker SOS dispatch list.</p>
+                <form id="workerSosTargetForm" class="sos-target-form">
+                    <div class="sos-target-field">
+                        <label for="workerSosTargetName">Contact name</label>
+                        <input type="text" id="workerSosTargetName" value="{{ worker.emergency_contact_name|default:'' }}" placeholder="Supervisor or employer name" autocomplete="name">
+                    </div>
+                    <div class="sos-target-field">
+                        <label for="workerSosTargetPhone">Phone number</label>
+                        <input type="tel" id="workerSosTargetPhone" value="{{ worker.emergency_contact_phone|default:'' }}" placeholder="10-digit mobile number" inputmode="numeric" autocomplete="tel">
+                    </div>
+                </form>
+                <div class="sos-target-meta">
+                    <span class="sos-target-chip">SMS target</span>
+                    <span class="sos-target-chip">WhatsApp target</span>
+                    <button class="btn btn-danger rounded-pill px-4 py-2 fw-bold ms-auto" type="button" id="workerSaveSosTargetButton">Save SOS Target</button>
+                </div>
+                <div class="sos-target-status" id="workerSosTargetStatus">
+                    {% if worker.emergency_contact_name and worker.emergency_contact_phone %}
+                    Current worker SOS target: {{ worker.emergency_contact_name }} at {{ worker.emergency_contact_phone }}.
+                    {% else %}
+                    No direct worker SOS phone target is saved yet.
+                    {% endif %}
+                </div>
+            </div>
             <div class="info-card">
                 <h5 class="fw-bold mb-3">Dispatch Status</h5>
                 <div class="text-muted" id="workerDispatchMeta">{% if current_worker_location %}Current live area: {{ current_worker_location }}. The system will send the alert through the real emergency endpoint.{% else %}Live location is required before dispatch. The system will send the alert through the real emergency endpoint.{% endif %}</div>
@@ -110,6 +182,10 @@
     let workerVoiceActive = false;
     let workerAlarmState = null;
     let workerAlarmTimer = null;
+    const workerSavedTarget = {
+        name: '{{ worker.emergency_contact_name|default:""|escapejs }}',
+        phone: '{{ worker.emergency_contact_phone|default:""|escapejs }}',
+    };
 
     function stopWorkerAlarm() {
         if (workerAlarmTimer) {
@@ -286,19 +362,70 @@
         });
     }
 
+    function workerUpdateTargetStatus(name, phone) {
+        const statusNode = document.getElementById('workerSosTargetStatus');
+        if (name && phone) {
+            statusNode.textContent = `Current worker SOS target: ${name} at ${phone}.`;
+        } else {
+            statusNode.textContent = 'No direct worker SOS phone target is saved yet.';
+        }
+    }
+
+    function workerSaveSosTarget() {
+        const name = document.getElementById('workerSosTargetName').value.trim();
+        const phone = document.getElementById('workerSosTargetPhone').value.trim();
+        const statusNode = document.getElementById('workerSosTargetStatus');
+
+        if (!/^[a-zA-Z\s]{2,}$/.test(name)) {
+            statusNode.textContent = 'Enter a valid contact name using at least 2 alphabetic characters.';
+            return;
+        }
+        if (!/^\d{10}$/.test(phone)) {
+            statusNode.textContent = 'Enter a valid 10-digit mobile number.';
+            return;
+        }
+
+        statusNode.textContent = 'Saving worker SOS target...';
+        fetch('/api/worker/sos-target/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({ name, phone })
+        }).then((response) => response.json())
+            .then((payload) => {
+                if (payload.status !== 'success') {
+                    statusNode.textContent = payload.message || 'Unable to save the worker SOS target.';
+                    return;
+                }
+                workerSavedTarget.name = payload.contact ? payload.contact.name : name;
+                workerSavedTarget.phone = payload.contact ? payload.contact.phone : phone;
+                workerUpdateTargetStatus(workerSavedTarget.name, workerSavedTarget.phone);
+                document.getElementById('workerDispatchMeta').textContent = `Worker SOS will include ${workerSavedTarget.name} at ${workerSavedTarget.phone} in the dispatch list, together with the real emergency endpoint.`;
+            })
+            .catch(() => {
+                statusNode.textContent = 'Unable to save the worker SOS target right now.';
+            });
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('workerSosButton').addEventListener('click', workerSendSos);
         document.getElementById('workerVoiceToggle').addEventListener('click', () => {
             workerVoiceActive = !workerVoiceActive;
             document.getElementById('workerVoiceToggle').textContent = workerVoiceActive ? 'Voice SOS: On' : 'Voice SOS: Off';
         });
+        document.getElementById('workerSaveSosTargetButton').addEventListener('click', workerSaveSosTarget);
+        workerUpdateTargetStatus(workerSavedTarget.name, workerSavedTarget.phone);
         resolveCurrentLocation().then((coords) => {
             if (!coords) return;
             fetch(`/api/worker/risk/?lat=${coords.lat}&lng=${coords.lng}`)
                 .then((response) => response.json())
                 .then((payload) => {
                     if (payload.location) {
-                        document.getElementById('workerDispatchMeta').textContent = `Current live area: ${payload.location}. The system will send the alert through the real emergency endpoint.`;
+                        document.getElementById('workerDispatchMeta').textContent = workerSavedTarget.name && workerSavedTarget.phone
+                            ? `Current live area: ${payload.location}. Worker SOS will notify ${workerSavedTarget.name} at ${workerSavedTarget.phone} together with the real emergency endpoint.`
+                            : `Current live area: ${payload.location}. The system will send the alert through the real emergency endpoint.`;
                     }
                 })
                 .catch(() => {});

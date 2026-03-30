@@ -15,7 +15,6 @@
                 <option value="">All roles</option>
                 <option value="tourist" {% if users_payload.filters.role == "tourist" %}selected{% endif %}>Tourist</option>
                 <option value="worker" {% if users_payload.filters.role == "worker" %}selected{% endif %}>Night Worker</option>
-                <option value="employer" {% if users_payload.filters.role == "employer" %}selected{% endif %}>Employer</option>
                 <option value="admin" {% if users_payload.filters.role == "admin" %}selected{% endif %}>Admin</option>
             </select>
         </div>

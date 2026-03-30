@@ -1,6 +1,34 @@
 {% extends "admin_control/module_base.html" %}
 
 {% block admin_content %}
+<section class="panel-card mb-4">
+    <div class="panel-header">
+        <div>
+            <h2 class="panel-title">Filter SOS Queue</h2>
+            <p class="panel-subtitle">Focus on active, in-progress, or resolved emergency alerts.</p>
+        </div>
+    </div>
+    <form method="get" class="filter-form">
+        <div class="admin-field">
+            <label for="sosStatusFilter">Status</label>
+            <select id="sosStatusFilter" name="status">
+                <option value="">All statuses</option>
+                <option value="active" {% if sos_payload.status_filter == "active" %}selected{% endif %}>Active</option>
+                <option value="in-progress" {% if sos_payload.status_filter == "in-progress" %}selected{% endif %}>In Progress</option>
+                <option value="resolved" {% if sos_payload.status_filter == "resolved" %}selected{% endif %}>Resolved</option>
+            </select>
+        </div>
+        <div class="admin-field">
+            <label>&nbsp;</label>
+            <button class="btn btn-primary rounded-pill w-100" type="submit">Apply Filter</button>
+        </div>
+        <div class="admin-field">
+            <label>&nbsp;</label>
+            <a class="btn btn-outline-secondary rounded-pill w-100" href="{% url 'admin_sos_alerts' %}">Clear</a>
+        </div>
+    </form>
+</section>
+
 <section class="summary-grid">
     <article class="summary-card">
         <div class="summary-label">Total Alerts</div>

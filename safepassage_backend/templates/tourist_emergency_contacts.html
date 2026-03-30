@@ -18,78 +18,174 @@
         border-radius: 20px;
         padding: 18px;
     }
-    @media (max-width: 767.98px) { .contact-grid { grid-template-columns: 1fr; } }
+    .contact-stack { display: flex; flex-direction: column; gap: 18px; }
+    .contact-badge {
+        align-items: center;
+        background: rgba(248, 250, 252, 0.92);
+        border-radius: 999px;
+        color: #0f172a;
+        display: inline-flex;
+        font-size: 0.92rem;
+        font-weight: 800;
+        height: 38px;
+        justify-content: center;
+        min-width: 38px;
+        padding: 0 12px;
+    }
+    .personal-contact-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+    .personal-contact-card {
+        background: rgba(248, 250, 252, 0.92);
+        border: 1px solid rgba(148, 163, 184, 0.18);
+        border-radius: 20px;
+        padding: 18px;
+    }
+    .personal-contact-empty {
+        align-items: center;
+        background: rgba(255, 255, 255, 0.56);
+        border: 1px dashed rgba(148, 163, 184, 0.45);
+        border-radius: 26px;
+        color: #475569;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        justify-content: center;
+        min-height: 220px;
+        padding: 28px;
+        text-align: center;
+    }
+    .personal-contact-empty i {
+        color: #64748b;
+        font-size: 1.8rem;
+    }
+    .channel-badge {
+        border-radius: 999px;
+        display: inline-flex;
+        font-size: 0.66rem;
+        font-weight: 700;
+        padding: 4px 8px;
+    }
+    .channel-sms { background: rgba(14, 165, 233, 0.14); color: #0369a1; }
+    .channel-whatsapp { background: rgba(34, 197, 94, 0.14); color: #15803d; }
+    .channel-email { background: rgba(245, 158, 11, 0.16); color: #b45309; }
+    .channel-none { background: rgba(148, 163, 184, 0.16); color: #475569; }
+    .primary-pill {
+        background: rgba(37, 99, 235, 0.12);
+        border-radius: 999px;
+        color: #1d4ed8;
+        font-size: 0.64rem;
+        font-weight: 800;
+        padding: 4px 8px;
+    }
+    .contact-name-row {
+        align-items: flex-start;
+        display: flex;
+        gap: 10px;
+        justify-content: space-between;
+    }
+    .contact-channels {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-top: 10px;
+    }
+    @media (max-width: 767.98px) {
+        .contact-grid,
+        .personal-contact-grid {
+            grid-template-columns: 1fr;
+        }
+    }
 </style>
 {% endblock %}
 
 {% block dashboard_content %}
 <div class="container-fluid py-2">
-    <div class="row mb-4">
-        <div class="col-lg-8">
-            <h2 class="fw-bold mb-1">Emergency Contacts</h2>
-            <p class="text-muted mb-0">Embassy support, official emergency numbers, and nearby verified response points from your live position.</p>
+    <div class="contact-stack">
+        <div class="row mb-4">
+            <div class="col-lg-8">
+                <h2 class="fw-bold mb-1">Emergency Contacts</h2>
+                <p class="text-muted mb-0">Embassy support, official emergency numbers, nearby verified response points, and your personal emergency contacts.</p>
+            </div>
         </div>
-    </div>
-    <div class="row g-4">
-        <div class="col-xl-5">
-            <div class="contact-shell">
-                <div class="small text-muted">Embassy support</div>
-                <h4 class="fw-bold mb-1" id="contactEmbassyName">Waiting for location...</h4>
-                <p class="small text-muted mb-2" id="contactEmbassyAddress">Embassy address will load after GPS sync.</p>
-                <p class="small text-muted mb-3" id="contactEmbassyAlert">Zone-specific embassy guidance will appear here.</p>
-                <a href="#" class="btn btn-danger rounded-pill fw-bold disabled" id="contactEmbassyLink">Call Embassy</a>
-                <hr class="my-4">
-                <p class="small text-muted mb-1">Emergency contacts on your profile</p>
-                <div class="fw-bold">{{ emergency_contacts_count|default:0 }} saved contacts</div>
-                <div class="mt-3 d-flex flex-column gap-2">
-                    {% for contact in emergency_contacts %}
-                    <div class="contact-card">
-                        <div class="fw-bold mb-1">{{ contact.name }}{% if contact.is_primary %} <span class="badge bg-primary ms-2">Primary</span>{% endif %}</div>
-                        <div class="small text-muted mb-1">{{ contact.get_relationship_display }} | {{ contact.phone }}</div>
-                        <div class="small text-muted">
-                            {% if contact.sms_enabled %}<span class="badge bg-info text-dark me-1">SMS</span>{% endif %}
-                            {% if contact.whatsapp_enabled %}<span class="badge bg-success me-1">WhatsApp</span>{% endif %}
-                            {% if contact.email %}<span class="badge bg-warning text-dark me-1">Email</span>{% endif %}
-                            {% if not contact.sms_enabled and not contact.whatsapp_enabled and not contact.email %}No alert channel selected{% endif %}
+        <div class="row g-4">
+            <div class="col-xl-5">
+                <div class="contact-shell">
+                    <div class="small text-muted">Embassy support</div>
+                    <h4 class="fw-bold mb-1" id="contactEmbassyName">Waiting for location...</h4>
+                    <p class="small text-muted mb-2" id="contactEmbassyAddress">Embassy address will load after GPS sync.</p>
+                    <p class="small text-muted mb-3" id="contactEmbassyAlert">Zone-specific embassy guidance will appear here.</p>
+                    <a href="#" class="btn btn-danger rounded-pill fw-bold disabled" id="contactEmbassyLink">Call Embassy</a>
+                    <div class="small text-muted mt-4">Personal emergency contacts are listed below in a dedicated section.</div>
+                </div>
+            </div>
+            <div class="col-xl-7">
+                <div class="contact-shell">
+                    <h5 class="fw-bold mb-3">Official response options</h5>
+                    <div class="contact-grid mb-4">
+                        <div class="contact-card">
+                            <div class="fw-bold mb-1">Police</div>
+                            <div class="small text-muted mb-3">National emergency police dispatch</div>
+                            <a href="tel:112" class="btn btn-outline-primary rounded-pill">Call 112</a>
+                        </div>
+                        <div class="contact-card">
+                            <div class="fw-bold mb-1">Ambulance</div>
+                            <div class="small text-muted mb-3">National ambulance support</div>
+                            <a href="tel:108" class="btn btn-outline-danger rounded-pill">Call 108</a>
+                        </div>
+                        <div class="contact-card">
+                            <div class="fw-bold mb-1">Women Helpline</div>
+                            <div class="small text-muted mb-3">Emergency support line</div>
+                            <a href="tel:181" class="btn btn-outline-secondary rounded-pill">Call 181</a>
+                        </div>
+                        <div class="contact-card">
+                            <div class="fw-bold mb-1">Tourist protection</div>
+                            <div class="small text-muted mb-3">Use SOS for live GPS escalation</div>
+                            <a href="{% url 'tourist_sos' %}" class="btn btn-outline-dark rounded-pill">Open SOS</a>
                         </div>
                     </div>
-                    {% empty %}
-                    <div class="contact-card text-muted small">No emergency contacts are configured yet. Add contacts in your tourist profile to enable SMS, WhatsApp, and Email alert routing.</div>
-                    {% endfor %}
+                    <h5 class="fw-bold mb-3">Nearby verified resources</h5>
+                    <div class="contact-grid" id="nearbyContactResources">
+                        <div class="contact-card text-muted small">Nearby police stations, hospitals, and safe havens will load from your live location.</div>
+                    </div>
                 </div>
             </div>
         </div>
-        <div class="col-xl-7">
-            <div class="contact-shell">
-                <h5 class="fw-bold mb-3">Official response options</h5>
-                <div class="contact-grid mb-4">
-                    <div class="contact-card">
-                        <div class="fw-bold mb-1">Police</div>
-                        <div class="small text-muted mb-3">National emergency police dispatch</div>
-                        <a href="tel:112" class="btn btn-outline-primary rounded-pill">Call 112</a>
-                    </div>
-                    <div class="contact-card">
-                        <div class="fw-bold mb-1">Ambulance</div>
-                        <div class="small text-muted mb-3">National ambulance support</div>
-                        <a href="tel:108" class="btn btn-outline-danger rounded-pill">Call 108</a>
-                    </div>
-                    <div class="contact-card">
-                        <div class="fw-bold mb-1">Women Helpline</div>
-                        <div class="small text-muted mb-3">Emergency support line</div>
-                        <a href="tel:181" class="btn btn-outline-secondary rounded-pill">Call 181</a>
-                    </div>
-                    <div class="contact-card">
-                        <div class="fw-bold mb-1">Tourist protection</div>
-                        <div class="small text-muted mb-3">Use SOS for live GPS escalation</div>
-                        <a href="{% url 'tourist_sos' %}" class="btn btn-outline-dark rounded-pill">Open SOS</a>
-                    </div>
-                </div>
-                <h5 class="fw-bold mb-3">Nearby verified resources</h5>
-                <div class="contact-grid" id="nearbyContactResources">
-                    <div class="contact-card text-muted small">Nearby police stations, hospitals, and safe havens will load from your live location.</div>
-                </div>
+
+        <section class="contact-shell">
+            <div class="d-flex justify-content-between align-items-center gap-3 mb-4">
+                <h4 class="fw-bold mb-0"><i class="bi bi-people-fill text-primary me-2"></i>My Emergency Contacts</h4>
+                <span class="contact-badge">{{ emergency_contacts_count|default:0 }}</span>
             </div>
-        </div>
+            {% if emergency_contacts %}
+            <div class="personal-contact-grid">
+                {% for contact in emergency_contacts %}
+                <article class="personal-contact-card">
+                    <div class="contact-name-row mb-2">
+                        <div class="fw-bold text-dark">{{ contact.name }}</div>
+                        {% if contact.is_primary %}
+                        <span class="primary-pill">PRIMARY</span>
+                        {% endif %}
+                    </div>
+                    <div class="small text-muted mb-1">{{ contact.get_relationship_display }}</div>
+                    <div class="small text-muted"><a href="tel:{{ contact.phone }}" class="text-decoration-none">{{ contact.phone }}</a></div>
+                    <div class="contact-channels">
+                        {% if contact.sms_enabled %}<span class="channel-badge channel-sms">SMS</span>{% endif %}
+                        {% if contact.whatsapp_enabled %}<span class="channel-badge channel-whatsapp">WhatsApp</span>{% endif %}
+                        {% if contact.email %}<span class="channel-badge channel-email">Email</span>{% endif %}
+                        {% if not contact.sms_enabled and not contact.whatsapp_enabled and not contact.email %}
+                        <span class="channel-badge channel-none">No alert channel selected</span>
+                        {% endif %}
+                    </div>
+                </article>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="personal-contact-empty">
+                <i class="bi bi-person-plus"></i>
+                <div class="fs-5">No personal emergency contacts saved yet.</div>
+                <a href="{% url 'tourist_profile_hub' %}" class="btn btn-primary rounded-pill px-4">Add Contacts</a>
+            </div>
+            {% endif %}
+        </section>
     </div>
 </div>
 {% endblock %}

@@ -24,30 +24,49 @@
     </article>
 </section>
 
-<section class="summary-grid">
-    <article class="summary-card">
-        <div class="summary-label">Open Incidents</div>
-        <div class="summary-value">{{ dashboard.summary.open_incidents }}</div>
-        <div class="summary-subtext">Reports still under review or pending resolution.</div>
-    </article>
-    <article class="summary-card">
-        <div class="summary-label">Safe Havens</div>
-        <div class="summary-value">{{ dashboard.summary.safe_havens }}</div>
-        <div class="summary-subtext">Verified police, hospital, business, and public safety stops.</div>
-    </article>
-    <article class="summary-card">
-        <div class="summary-label">Active Shifts</div>
-        <div class="summary-value">{{ dashboard.summary.active_shifts }}</div>
-        <div class="summary-subtext">Night worker shift sessions currently active.</div>
-    </article>
-    <article class="summary-card">
-        <div class="summary-label">AI Inputs</div>
-        <div class="summary-value">{{ dashboard.summary.risk_predictions }}</div>
-        <div class="summary-subtext">{{ dashboard.summary.crime_records }} crime records are feeding the broader safety context.</div>
-    </article>
-</section>
-
 <section class="panel-grid two-col">
+    <article class="panel-card">
+        <div class="panel-header">
+            <div>
+                <h2 class="panel-title">Operations Snapshot</h2>
+                <p class="panel-subtitle">Core operational counts used most often during admin monitoring.</p>
+            </div>
+        </div>
+        <div class="table-responsive">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Metric</th>
+                        <th>Live Value</th>
+                        <th>Context</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Open Incidents</td>
+                        <td><span class="status-pill status-warning">{{ dashboard.summary.open_incidents }}</span></td>
+                        <td>Reports still being reviewed or awaiting closure.</td>
+                    </tr>
+                    <tr>
+                        <td>Safe Havens</td>
+                        <td><span class="status-pill status-success">{{ dashboard.summary.safe_havens }}</span></td>
+                        <td>Verified police, hospital, public, and business support points.</td>
+                    </tr>
+                    <tr>
+                        <td>Active Shifts</td>
+                        <td><span class="status-pill status-tracked">{{ dashboard.summary.active_shifts }}</span></td>
+                        <td>Night worker shift sessions currently live.</td>
+                    </tr>
+                    <tr>
+                        <td>AI Inputs</td>
+                        <td><span class="status-pill status-info">{{ dashboard.summary.risk_predictions }}</span></td>
+                        <td>{{ dashboard.summary.crime_records }} crime records are feeding the current safety context.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </article>
+
     <article class="panel-card">
         <div class="panel-header">
             <div>

@@ -66,6 +66,26 @@
         padding: 18px;
     }
     .voice-trigger { background: linear-gradient(155deg, #0f172a 0%, #1e293b 100%); color: white; }
+    .fake-call-setup-card {
+        margin-top: 16px;
+        background: rgba(255, 255, 255, 0.72);
+        border: 1px solid rgba(59, 130, 246, 0.14);
+    }
+    .fake-call-field-label {
+        color: #64748b;
+        display: block;
+        font-size: 0.82rem;
+        font-weight: 700;
+        margin-bottom: 8px;
+    }
+    .fake-call-setup-card .form-control,
+    .fake-call-setup-card .form-select {
+        border-radius: 999px;
+        min-height: 46px;
+    }
+    .fake-call-setup-card .btn {
+        min-height: 48px;
+    }
     /* Fake call overlay */
     .fake-call-overlay {
         display: none;
@@ -203,6 +223,36 @@
                     <i class="bi bi-telephone-inbound me-1"></i>Fake Call
                 </button>
             </div>
+
+            <div class="sos-card fake-call-setup-card mt-4">
+                <h5 class="fw-bold mb-3"><i class="bi bi-telephone-inbound-fill text-primary me-2"></i>Fake Incoming Call Setup</h5>
+                <p class="text-muted mb-4">Trigger a fake call on your screen to discreetly exit an uncomfortable situation.</p>
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <label class="fake-call-field-label" for="fakeCallerNameInput">Caller Name</label>
+                        <input type="text" id="fakeCallerNameInput" class="form-control rounded-pill" value="Mom" placeholder="e.g. Mom">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="fake-call-field-label" for="fakeCallerNumberInput">Number (display)</label>
+                        <input type="text" id="fakeCallerNumberInput" class="form-control rounded-pill" value="+91 98765 43210" placeholder="Any number">
+                    </div>
+                </div>
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <label class="fake-call-field-label" for="fakeCallDelay">Delay (seconds)</label>
+                        <select id="fakeCallDelay" class="form-select rounded-pill">
+                            <option value="0">Immediately</option>
+                            <option value="5" selected>5 seconds</option>
+                            <option value="10">10 seconds</option>
+                            <option value="30">30 seconds</option>
+                        </select>
+                    </div>
+                </div>
+                <button class="btn btn-outline-primary rounded-pill w-100 fw-bold" type="button" id="scheduleFakeCallBtn">
+                    <i class="bi bi-telephone-inbound me-2"></i>Schedule Fake Call
+                </button>
+                <div class="small text-muted mt-3" id="fakeCallStatus">Not scheduled.</div>
+            </div>
         </section>
 
         <section class="d-flex flex-column gap-4">
@@ -245,74 +295,6 @@
                 </div>
             </div>
 
-            <div class="sos-card">
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h5 class="fw-bold mb-0"><i class="bi bi-people-fill text-primary me-2"></i>My Emergency Contacts</h5>
-                    <span class="badge bg-light text-dark rounded-pill">{{ emergency_contacts_count|default:0 }}</span>
-                </div>
-                <div class="contact-grid">
-                    {% for contact in emergency_contacts %}
-                    <div class="contact-box">
-                        <div class="d-flex justify-content-between align-items-start mb-1">
-                            <div class="fw-bold text-truncate" style="max-width: 140px;">{{ contact.name }}</div>
-                            {% if contact.is_primary %}
-                            <span class="badge bg-primary" style="font-size: 0.6rem; padding: 2px 6px;">PRIMARY</span>
-                            {% endif %}
-                        </div>
-                        <div class="small text-muted mb-2 text-truncate">{{ contact.get_relationship_display }} | <a href="tel:{{ contact.phone }}" class="text-decoration-none">{{ contact.phone }}</a></div>
-                        <div class="d-flex gap-1 flex-wrap">
-                            {% if contact.sms_enabled %}
-                            <span class="badge bg-info text-dark" style="font-size: 0.6rem; padding: 2px 6px;">SMS</span>
-                            {% endif %}
-                            {% if contact.whatsapp_enabled %}
-                            <span class="badge bg-success" style="font-size: 0.6rem; padding: 2px 6px;">WHATSAPP</span>
-                            {% endif %}
-                            {% if contact.email %}
-                            <span class="badge bg-warning text-dark" style="font-size: 0.6rem; padding: 2px 6px;">EMAIL</span>
-                            {% endif %}
-                        </div>
-                    </div>
-                    {% empty %}
-                    <div class="contact-box border-dashed text-center py-4" style="grid-column: span 2; border: 1px dashed #cbd5e1; background: transparent;">
-                        <i class="bi bi-person-plus text-muted mb-2 d-block" style="font-size: 1.5rem;"></i>
-                        <p class="small text-muted mb-2">No personal emergency contacts saved yet.</p>
-                        <a href="{% url 'tourist_profile_hub' %}" class="btn btn-primary btn-sm rounded-pill">Add Contacts</a>
-                    </div>
-                    {% endfor %}
-                </div>
-            </div>
-
-            <!-- Fake Call Setup -->
-            <div class="sos-card">
-                <h5 class="fw-bold mb-3"><i class="bi bi-telephone-inbound-fill text-primary me-2"></i>Fake Incoming Call Setup</h5>
-                <p class="small text-muted mb-3">Trigger a fake call on your screen to discreetly exit an uncomfortable situation.</p>
-                <div class="row g-2 mb-3">
-                    <div class="col-6">
-                        <label class="small text-muted mb-1 d-block">Caller Name</label>
-                        <input type="text" id="fakeCallerNameInput" class="form-control form-control-sm rounded-pill" value="Mom" placeholder="e.g. Mom">
-                    </div>
-                    <div class="col-6">
-                        <label class="small text-muted mb-1 d-block">Number (display)</label>
-                        <input type="text" id="fakeCallerNumberInput" class="form-control form-control-sm rounded-pill" value="+91 98765 43210" placeholder="Any number">
-                    </div>
-                </div>
-                <div class="row g-2 mb-3">
-                    <div class="col-6">
-                        <label class="small text-muted mb-1 d-block">Delay (seconds)</label>
-                        <select id="fakeCallDelay" class="form-select form-select-sm rounded-pill">
-                            <option value="0">Immediately</option>
-                            <option value="5" selected>5 seconds</option>
-                            <option value="10">10 seconds</option>
-                            <option value="30">30 seconds</option>
-                        </select>
-                    </div>
-                </div>
-                <button class="btn btn-outline-primary rounded-pill w-100 fw-bold btn-sm" type="button" id="scheduleFakeCallBtn">
-                    <i class="bi bi-telephone-inbound me-2"></i>Schedule Fake Call
-                </button>
-                <div class="small text-muted mt-2" id="fakeCallStatus">Not scheduled.</div>
-            </div>
-
             <!-- SOS Alert History -->
             <div class="sos-card">
                 <div class="d-flex justify-content-between align-items-center mb-3">
@@ -339,6 +321,10 @@
         soundEnabled: true,
         fakeCallTimer: null,
         voiceAutoRestart: false,
+        voiceRestartTimer: null,
+        voiceCooldownUntil: 0,
+        voiceBuffer: '',
+        pendingVoiceDispatch: false,
     };
 
     function setText(id, value) { const n = document.getElementById(id); if (n) n.textContent = value; }
@@ -367,6 +353,79 @@
         if (label) return label;
         if (lat != null && lng != null) return formatCoord(lat, lng);
         return fallback || 'Live location unavailable';
+    }
+
+    function getVoicePrompt() {
+        return 'Listening for: SafePassage Help';
+    }
+
+    function normalizeVoiceTranscript(value) {
+        return (value || '')
+            .toLowerCase()
+            .replace(/[^a-z\s]/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+    }
+
+    function heardSafePassageTrigger(value) {
+        const normalized = normalizeVoiceTranscript(value);
+        if (!normalized) return false;
+
+        const compact = normalized.replace(/\s+/g, '');
+        if (compact.includes('safepassagehelp')) return true;
+
+        const words = normalized.split(' ');
+        const hasHelp = words.includes('help');
+        const hasSafePassage =
+            normalized.includes('safe passage') ||
+            (words.includes('safe') && words.includes('passage')) ||
+            words.includes('safepassage');
+
+        return hasHelp && hasSafePassage;
+    }
+
+    function scheduleVoiceRestart(delayMs = 900) {
+        clearTimeout(emergencyState.voiceRestartTimer);
+        if (!emergencyState.voiceAutoRestart || !emergencyState.recognition) return;
+
+        emergencyState.voiceRestartTimer = setTimeout(() => {
+            if (!emergencyState.voiceAutoRestart || emergencyState.listening) return;
+            try {
+                emergencyState.recognition.start();
+            } catch (e) {
+                setText('voiceStatusBadge', 'STANDBY');
+                setText('voiceTranscript', 'Voice trigger paused. Tap Start Voice Trigger to resume listening.');
+            }
+        }, delayMs);
+    }
+
+    function handleVoiceTriggerDetected() {
+        emergencyState.voiceCooldownUntil = Date.now() + 6000;
+        emergencyState.pendingVoiceDispatch = emergencyState.lat == null || emergencyState.lng == null;
+        emergencyState.voiceBuffer = '';
+
+        setText('voiceStatusBadge', emergencyState.pendingVoiceDispatch ? 'ARMED' : 'TRIGGERED');
+        setText(
+            'voiceTranscript',
+            emergencyState.pendingVoiceDispatch
+                ? 'Trigger phrase heard. Waiting for GPS lock to dispatch.'
+                : 'Trigger phrase heard. Dispatching silent SOS.'
+        );
+
+        if (emergencyState.pendingVoiceDispatch) {
+            setDispatchState(
+                'ARMED',
+                'risk-medium',
+                'Voice trigger detected. Waiting for GPS lock.',
+                'SafePassage will send a silent SOS automatically as soon as your live location is available.'
+            );
+        } else {
+            sendEmergency('silent', 'voice trigger');
+        }
+
+        if (emergencyState.recognition) {
+            try { emergencyState.recognition.stop(); } catch (e) {}
+        }
     }
 
     function syncLocation(lat, lng) {
@@ -593,50 +652,69 @@
 
         function createRecognition() {
             const r = new VoiceRecognition();
-            r.continuous = true; r.interimResults = true; r.lang = 'en-IN';
+            r.continuous = true;
+            r.interimResults = true;
+            r.maxAlternatives = 3;
+            r.lang = (navigator.language && navigator.language.toLowerCase().startsWith('en')) ? navigator.language : 'en-US';
 
             r.onstart = () => {
                 emergencyState.listening = true;
                 button.textContent = 'Stop Voice Trigger';
                 setText('voiceStatusBadge', 'LISTENING');
-                setText('voiceTranscript', 'Listening for: SafePassage Help');
+                setText('voiceTranscript', getVoicePrompt());
             };
 
             r.onend = () => {
                 emergencyState.listening = false;
                 button.textContent = 'Start Voice Trigger';
-                setText('voiceStatusBadge', 'STANDBY');
-                // Auto-restart if it ended unexpectedly and flag is set
-                if (emergencyState.voiceAutoRestart) {
-                    setTimeout(() => {
-                        try { r.start(); } catch (e) {}
-                    }, 500);
+                if (emergencyState.pendingVoiceDispatch) {
+                    setText('voiceStatusBadge', 'ARMED');
+                    setText('voiceTranscript', 'Trigger phrase heard. Waiting for GPS lock to dispatch.');
+                } else if (emergencyState.voiceAutoRestart) {
+                    setText('voiceStatusBadge', 'RESTARTING');
+                    setText('voiceTranscript', 'Voice trigger paused briefly. Resuming listening...');
+                    scheduleVoiceRestart();
+                } else {
+                    setText('voiceStatusBadge', 'STANDBY');
+                    setText('voiceTranscript', 'Voice trigger paused. Tap Start Voice Trigger to resume listening.');
                 }
             };
 
             r.onerror = event => {
-                if (event.error === 'not-allowed') {
-                    setText('voiceTranscript', 'Microphone access denied.');
+                if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+                    setText('voiceStatusBadge', 'BLOCKED');
+                    setText('voiceTranscript', 'Microphone access denied. Allow mic access and start the voice trigger again.');
+                    emergencyState.voiceAutoRestart = false;
+                } else if (event.error === 'no-speech') {
+                    setText('voiceStatusBadge', 'LISTENING');
+                    setText('voiceTranscript', 'No speech detected. Keep saying "SafePassage Help".');
+                } else if (event.error === 'audio-capture') {
+                    setText('voiceStatusBadge', 'MIC ERROR');
+                    setText('voiceTranscript', 'No microphone was detected. Connect a mic and try again.');
                     emergencyState.voiceAutoRestart = false;
                 } else {
+                    setText('voiceStatusBadge', 'RETRYING');
                     setText('voiceTranscript', `Mic error (${event.error}). Auto-restarting…`);
                 }
             };
 
             r.onresult = event => {
-                const transcript = Array.from(event.results).map(res => res[0].transcript).join(' ').trim();
-                setText('voiceTranscript', transcript || 'Listening for: SafePassage Help');
-                const normalized = transcript.toLowerCase();
-                if (normalized.includes('safepassage help') || normalized.includes('safe passage help')) {
-                    emergencyState.voiceAutoRestart = false;
-                    r.stop();
-                    setText('voiceStatusBadge', 'TRIGGERED');
-                    sendEmergency('silent', 'voice trigger');
-                    // Restart after 3s
-                    setTimeout(() => {
-                        emergencyState.voiceAutoRestart = true;
-                        try { r.start(); } catch (e) {}
-                    }, 3000);
+                const fragments = [];
+                for (let i = event.resultIndex; i < event.results.length; i += 1) {
+                    const result = event.results[i];
+                    if (result && result[0] && result[0].transcript) fragments.push(result[0].transcript);
+                }
+                const latestTranscript = fragments.join(' ').trim();
+                const rollingTranscript = [emergencyState.voiceBuffer, latestTranscript].filter(Boolean).join(' ').trim();
+                const normalizedRolling = normalizeVoiceTranscript(rollingTranscript);
+
+                emergencyState.voiceBuffer = normalizedRolling.split(' ').slice(-6).join(' ');
+                setText('voiceTranscript', latestTranscript || getVoicePrompt());
+
+                if (Date.now() < emergencyState.voiceCooldownUntil) return;
+
+                if (heardSafePassageTrigger(latestTranscript) || heardSafePassageTrigger(emergencyState.voiceBuffer)) {
+                    handleVoiceTriggerDetected();
                 }
             };
             return r;
@@ -647,10 +725,21 @@
         button.addEventListener('click', () => {
             if (emergencyState.listening) {
                 emergencyState.voiceAutoRestart = false;
+                emergencyState.pendingVoiceDispatch = false;
+                emergencyState.voiceBuffer = '';
+                clearTimeout(emergencyState.voiceRestartTimer);
                 emergencyState.recognition.stop();
             } else {
                 emergencyState.voiceAutoRestart = true;
-                emergencyState.recognition.start();
+                emergencyState.voiceBuffer = '';
+                setText('voiceStatusBadge', 'STARTING');
+                setText('voiceTranscript', 'Starting microphone...');
+                try {
+                    emergencyState.recognition.start();
+                } catch (e) {
+                    setText('voiceStatusBadge', 'STANDBY');
+                    setText('voiceTranscript', 'Voice trigger is already starting. Please wait a moment.');
+                }
             }
         });
     }
@@ -722,8 +811,20 @@
             setText('gpsStatusBadge', `GPS locked (${Math.round(position.coords.accuracy || 0)} m)`);
             refreshEmergencyContext(emergencyState.lat, emergencyState.lng);
             syncLocation(emergencyState.lat, emergencyState.lng);
+            if (emergencyState.pendingVoiceDispatch) {
+                emergencyState.pendingVoiceDispatch = false;
+                setText('voiceStatusBadge', 'TRIGGERED');
+                setText('voiceTranscript', 'GPS locked. Dispatching the voice-triggered SOS now.');
+                sendEmergency('silent', 'voice trigger');
+                scheduleVoiceRestart(2500);
+            }
         }, () => {
             setText('gpsStatusBadge', 'GPS denied');
+            if (emergencyState.pendingVoiceDispatch) {
+                emergencyState.pendingVoiceDispatch = false;
+                setText('voiceStatusBadge', 'WAITING');
+                setText('voiceTranscript', 'Trigger phrase heard, but location permission is blocked.');
+            }
             setDispatchState('WAIT', 'risk-medium', 'Location permission required.', 'Allow GPS access so SafePassage can send a real emergency location.');
         }, { enableHighAccuracy: true, maximumAge: 10000, timeout: 20000 });
     });

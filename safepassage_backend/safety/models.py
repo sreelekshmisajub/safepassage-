@@ -194,6 +194,7 @@ class WorkerProfile(models.Model):
     blood_group = models.CharField(max_length=10, blank=True, default='')
     usual_shift_start = models.TimeField(null=True, blank=True)
     usual_shift_end = models.TimeField(null=True, blank=True)
+    leave_dates = models.JSONField(default=list, blank=True)
 
     def __str__(self):
         return self.user.username

@@ -21,7 +21,7 @@
     .hero-grid {
         display: grid;
         gap: 18px;
-        grid-template-columns: minmax(0, 1.5fr) minmax(290px, 0.9fr);
+        grid-template-columns: 1fr;
         align-items: stretch;
     }
     .worker-eyebrow {
@@ -436,24 +436,6 @@
                     <p class="worker-subtitle">A cleaner live safety workspace for shift tracking, night-risk visibility, check-ins, emergency response, and safe-route decisions during local travel.</p>
                 </div>
 
-                <div class="hero-panel">
-                    <div>
-                        <div class="hero-panel-label">Quick Actions</div>
-                        <div class="hero-panel-title">Move faster through the worker safety flow</div>
-                        <p class="hero-panel-note">Use the same worker APIs and live tracking, but from a more compact control panel that keeps the important actions easy to reach.</p>
-                    </div>
-
-                    <div class="action-grid">
-                        <button class="btn btn-success action-button" type="button" id="workerStartShiftButton">Start Shift</button>
-                        <a href="{% url 'worker_safe_route' %}" class="btn btn-primary action-button">Safe Route</a>
-                        <a href="{% url 'worker_sos' %}" class="btn btn-danger action-button">SOS</a>
-                    </div>
-
-                    <div class="hero-points">
-                        <div class="hero-point"><i class="bi bi-shield-check"></i><span>Live GPS and saved worker tracking stay available for recovery states.</span></div>
-                        <div class="hero-point"><i class="bi bi-broadcast-pin"></i><span>Risk, alerts, and nearby havens still refresh from the existing worker endpoints.</span></div>
-                    </div>
-                </div>
             </div>
 
             <div class="metric-grid">
@@ -478,30 +460,6 @@
                     </div>
                     <div class="status-badge shift-idle" id="workerShiftBadge">Inactive</div>
                     <p class="metric-note mt-3" id="workerShiftMeta">Shift tracking will begin after activation.</p>
-                </div>
-                <div class="metric-card">
-                    <div class="metric-header">
-                        <span class="metric-icon checkin"><i class="bi bi-check2-circle"></i></span>
-                        <div>
-                            <div class="metric-label">Next Check-In</div>
-                            <div class="metric-value" id="workerCheckinDue">--</div>
-                        </div>
-                    </div>
-                    <p class="metric-note" id="workerCheckinMeta">No active shift check-in schedule yet.</p>
-                    <div class="metric-actions">
-                        <button class="btn btn-outline-primary w-100" type="button" id="workerCheckinButton">Check In</button>
-                        <button class="btn btn-outline-dark w-100" type="button" id="workerCheckoutButton">Check Out</button>
-                    </div>
-                </div>
-                <div class="metric-card">
-                    <div class="metric-header">
-                        <span class="metric-icon haven"><i class="bi bi-shield-shaded"></i></span>
-                        <div>
-                            <div class="metric-label">Nearby Safe Havens</div>
-                            <div class="metric-value" id="workerHavenCount">0</div>
-                        </div>
-                    </div>
-                    <p class="metric-note" id="workerHavenMeta">Waiting for live nearby haven lookup.</p>
                 </div>
             </div>
         </section>

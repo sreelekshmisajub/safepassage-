@@ -4,153 +4,739 @@
 
 {% block dashboard_css %}
 <style>
-    .scam-shell {
-        background: rgba(255, 255, 255, 0.84);
-        border: 1px solid rgba(255, 255, 255, 0.78);
-        border-radius: 24px;
-        box-shadow: 0 10px 34px rgba(15, 23, 42, 0.08);
-        padding: 24px;
+    .scam-page { display: flex; flex-direction: column; gap: 20px; }
+    .scam-hero {
+        background: linear-gradient(135deg, rgba(15, 23, 42, 0.98) 0%, rgba(30, 64, 175, 0.92) 100%);
+        border-radius: 28px;
+        box-shadow: 0 18px 48px rgba(15, 23, 42, 0.16);
+        color: #f8fafc;
+        padding: 26px;
     }
-    .scam-stack { display: flex; flex-direction: column; gap: 14px; }
-    .scam-card {
-        background: rgba(255, 250, 235, 0.82);
-        border: 1px solid rgba(245, 158, 11, 0.2);
-        border-radius: 18px;
+    .scam-kicker {
+        color: rgba(226, 232, 240, 0.82);
+        font-size: 0.78rem;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        margin-bottom: 10px;
+        text-transform: uppercase;
+    }
+    .scam-title { font-size: 2.1rem; font-weight: 800; line-height: 1.05; margin-bottom: 10px; }
+    .scam-subtitle { color: rgba(226, 232, 240, 0.84); margin-bottom: 0; max-width: 760px; }
+    .hero-meta { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+    .hero-pill {
+        align-items: center;
+        background: rgba(255, 255, 255, 0.12);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 999px;
+        color: #e2e8f0;
+        display: inline-flex;
+        font-size: 0.82rem;
+        font-weight: 700;
+        padding: 9px 14px;
+    }
+    .search-panel {
+        background: rgba(255, 255, 255, 0.12);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 22px;
+        margin-top: 20px;
         padding: 16px;
     }
-    .severity-pill {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        padding: 7px 12px;
-        border-radius: 999px;
-        font-size: 0.72rem;
+    .search-label {
+        color: rgba(226, 232, 240, 0.9);
+        display: block;
+        font-size: 0.8rem;
         font-weight: 800;
-        background: rgba(245, 158, 11, 0.16);
-        color: #b45309;
+        letter-spacing: 0.06em;
+        margin-bottom: 10px;
+        text-transform: uppercase;
+    }
+    .search-row { display: grid; gap: 12px; grid-template-columns: minmax(0, 1fr) auto auto; }
+    .search-row .form-control {
+        background: rgba(255, 255, 255, 0.96);
+        border: 1px solid rgba(255, 255, 255, 0.24);
+        border-radius: 16px;
+        min-height: 50px;
+    }
+    .search-row .btn { border-radius: 16px; font-weight: 700; min-width: 132px; }
+    .search-results { display: flex; flex-direction: column; gap: 10px; margin-top: 14px; max-height: 250px; overflow-y: auto; }
+    .search-result {
+        background: rgba(248, 250, 252, 0.98);
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        border-radius: 18px;
+        color: #0f172a;
+        cursor: pointer;
+        padding: 14px 16px;
+        text-align: left;
+        transition: border-color 0.15s ease, transform 0.15s ease, background 0.15s ease;
+        width: 100%;
+    }
+    .search-result:hover, .search-result.active {
+        background: rgba(219, 234, 254, 0.96);
+        border-color: rgba(59, 130, 246, 0.42);
+        transform: translateY(-1px);
+    }
+    .search-result-title { display: block; font-size: 0.96rem; font-weight: 800; margin-bottom: 4px; }
+    .search-result-meta { color: #64748b; display: block; font-size: 0.82rem; }
+    .summary-grid { display: grid; gap: 16px; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .summary-card, .panel-card {
+        background: rgba(255, 255, 255, 0.94);
+        border: 1px solid rgba(148, 163, 184, 0.16);
+        border-radius: 24px;
+        box-shadow: 0 14px 36px rgba(15, 23, 42, 0.08);
+    }
+    .summary-card { padding: 18px; }
+    .summary-label {
+        color: #64748b;
+        font-size: 0.75rem;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        margin-bottom: 10px;
+        text-transform: uppercase;
+    }
+    .summary-value { color: #0f172a; font-size: 1.55rem; font-weight: 800; line-height: 1.05; margin-bottom: 10px; }
+    .summary-note, .summary-micro { color: #475569; font-size: 0.9rem; margin: 0; }
+    .summary-micro { color: #64748b; font-size: 0.8rem; margin-top: 8px; }
+    .risk-badge {
+        border-radius: 999px;
+        display: inline-flex;
+        font-size: 0.78rem;
+        font-weight: 800;
+        letter-spacing: 0.05em;
+        padding: 8px 14px;
+        text-transform: uppercase;
+    }
+    .risk-low { background: rgba(34, 197, 94, 0.14); color: #166534; }
+    .risk-medium { background: rgba(245, 158, 11, 0.18); color: #b45309; }
+    .risk-high { background: rgba(239, 68, 68, 0.14); color: #b91c1c; }
+    .risk-unavailable { background: rgba(148, 163, 184, 0.18); color: #475569; }
+    .content-grid { display: grid; gap: 18px; grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.95fr); }
+    .column-stack { display: flex; flex-direction: column; gap: 18px; }
+    .panel-head { align-items: flex-start; display: flex; gap: 12px; justify-content: space-between; padding: 20px 22px 0; }
+    .panel-title { color: #0f172a; font-size: 1.05rem; font-weight: 800; margin: 0; }
+    .panel-subtitle { color: #64748b; font-size: 0.86rem; margin: 6px 22px 0; }
+    .panel-body { padding: 18px 22px 22px; }
+    .stack-list { display: flex; flex-direction: column; gap: 12px; }
+    .stack-item {
+        background: rgba(248, 250, 252, 0.96);
+        border: 1px solid rgba(148, 163, 184, 0.16);
+        border-radius: 18px;
+        padding: 15px;
+    }
+    .stack-item strong { color: #0f172a; display: block; font-size: 0.96rem; margin-bottom: 6px; }
+    .stack-item p { color: #475569; font-size: 0.92rem; margin: 0; }
+    .meta-row { color: #64748b; display: flex; flex-wrap: wrap; font-size: 0.8rem; gap: 10px; margin-top: 10px; }
+    .meta-pill {
+        align-items: center;
+        background: rgba(37, 99, 235, 0.08);
+        border-radius: 999px;
+        color: #1d4ed8;
+        display: inline-flex;
+        font-size: 0.72rem;
+        font-weight: 700;
+        padding: 6px 10px;
+    }
+    .empty-state {
+        background: rgba(248, 250, 252, 0.92);
+        border: 1px dashed rgba(148, 163, 184, 0.4);
+        border-radius: 18px;
+        color: #64748b;
+        padding: 15px;
+    }
+    @media (max-width: 1199.98px) {
+        .summary-grid, .content-grid, .search-row { grid-template-columns: 1fr; }
+        .search-row .btn { width: 100%; }
+    }
+    @media (max-width: 767.98px) {
+        .scam-hero { padding: 22px; }
+        .scam-title { font-size: 1.8rem; }
+        .panel-head, .panel-body { padding-left: 18px; padding-right: 18px; }
+        .panel-subtitle { margin-left: 18px; margin-right: 18px; }
     }
 </style>
 {% endblock %}
 
 {% block dashboard_content %}
 <div class="container-fluid py-2">
-    <div class="row mb-4">
-        <div class="col-lg-8">
-            <h2 class="fw-bold mb-1">Scam Alerts</h2>
-            <p class="text-muted mb-0">Location-specific scam hotspots and suspicious behavior patterns detected near your current position.</p>
-        </div>
-    </div>
-    <div class="row g-4">
-        <div class="col-xl-4">
-            <div class="scam-shell">
-                <div class="small text-muted">Current live zone</div>
-                <h4 class="fw-bold mb-2" id="scamZoneLabel">Waiting for GPS lock...</h4>
-                <p class="small text-muted mb-0" id="scamZoneAdvice">Scam intelligence will load after live location sync.</p>
+    <div class="scam-page">
+        <section class="scam-hero">
+            <div class="scam-kicker">Tourist Mode</div>
+            <h1 class="scam-title">Live Scam Alerts</h1>
+            <p class="scam-subtitle">
+                Track scam hotspots, fraud-related incident reports, and location-matched protection guidance for your live position
+                or any searched place in India.
+            </p>
+            <div class="hero-meta">
+                <span class="hero-pill" id="scamStatusPill">Waiting for location sync</span>
+                <span class="hero-pill" id="scamLastSync">No live sync yet</span>
+                <span class="hero-pill" id="scamLocationMode">Using live GPS</span>
             </div>
-        </div>
-        <div class="col-xl-8">
-            <div class="scam-shell">
-                <h5 class="fw-bold mb-3">Scam watch feed</h5>
-                <div class="scam-stack" id="scamFeed">
-                    <div class="scam-card text-muted small">No scam data yet. GPS sync will populate nearby hotspot intelligence.</div>
+            <div class="search-panel">
+                <label class="search-label" for="scamPlaceInput">Search a place in India</label>
+                <div class="search-row">
+                    <input
+                        type="text"
+                        class="form-control"
+                        id="scamPlaceInput"
+                        placeholder="Search city, landmark, district, or transport hub"
+                        autocomplete="off"
+                    >
+                    <button type="button" class="btn btn-light" id="scamPlaceSearchBtn">Search</button>
+                    <button type="button" class="btn btn-outline-light" id="scamUseLiveLocationBtn">Use My Live Location</button>
+                </div>
+                <div class="search-results" id="scamPlaceResults">
+                    <div class="empty-state">Search a place or allow GPS to load location-based scam alerts.</div>
                 </div>
             </div>
-        </div>
+        </section>
+
+        <section class="summary-grid">
+            <article class="summary-card">
+                <div class="summary-label">Current Area</div>
+                <div class="summary-value" id="scamZoneLabel">Waiting for location...</div>
+                <p class="summary-note" id="scamZoneAdvice">Live scam guidance will appear after location sync.</p>
+                <div class="summary-micro" id="scamCoordinates">Coordinates pending</div>
+            </article>
+            <article class="summary-card">
+                <div class="summary-label">Scam Exposure</div>
+                <div class="d-flex align-items-center gap-2 flex-wrap mb-2">
+                    <div class="summary-value mb-0" id="scamRiskScore">--</div>
+                    <span class="risk-badge risk-unavailable" id="scamRiskBadge">UNAVAILABLE</span>
+                </div>
+                <p class="summary-note" id="scamRiskNote">Risk score will update from live tourist signals.</p>
+            </article>
+            <article class="summary-card">
+                <div class="summary-label">Active Scam Signals</div>
+                <div class="summary-value" id="scamSignalCount">0</div>
+                <p class="summary-note" id="scamSignalNote">No live scam-linked reports or hotspots have loaded yet.</p>
+            </article>
+            <article class="summary-card">
+                <div class="summary-label">Nearby Support</div>
+                <div class="summary-value" id="scamSupportCount">0</div>
+                <p class="summary-note" id="scamSupportNote">Police and hospital support points will appear after sync.</p>
+            </article>
+        </section>
+
+        <section class="content-grid">
+            <div class="column-stack">
+                <article class="panel-card">
+                    <div class="panel-head">
+                        <div>
+                            <h2 class="panel-title">Scam Watch Feed</h2>
+                            <p class="panel-subtitle">Live fraud-related reports and alerts detected near the selected tourist area.</p>
+                        </div>
+                        <span class="risk-badge risk-unavailable" id="scamWatchBadge">LOCATING</span>
+                    </div>
+                    <div class="panel-body">
+                        <div class="stack-list" id="scamFeed">
+                            <div class="empty-state">No live scam feed yet. GPS or place search will populate nearby scam intelligence.</div>
+                        </div>
+                    </div>
+                </article>
+
+                <article class="panel-card">
+                    <div class="panel-head">
+                        <div>
+                            <h2 class="panel-title">Hotspot Corridor</h2>
+                            <p class="panel-subtitle">
+                                Hotspots are nearby risk-zone records linked to scam, fraud, fake-guide, pickpocket, or overcharge patterns.
+                            </p>
+                        </div>
+                    </div>
+                    <div class="panel-body">
+                        <div class="stack-list" id="scamHotspotFeed">
+                            <div class="empty-state">No scam hotspot corridor has been recorded near this area yet.</div>
+                        </div>
+                    </div>
+                </article>
+            </div>
+
+            <div class="column-stack">
+                <article class="panel-card">
+                    <div class="panel-head">
+                        <div>
+                            <h2 class="panel-title">Common Scam Patterns</h2>
+                            <p class="panel-subtitle">Location-matched scam warnings drawn from the live cultural intelligence payload.</p>
+                        </div>
+                    </div>
+                    <div class="panel-body">
+                        <div class="stack-list" id="scamPatternFeed">
+                            <div class="empty-state">Pattern guidance will appear after scam intelligence is loaded for this area.</div>
+                        </div>
+                    </div>
+                </article>
+
+                <article class="panel-card">
+                    <div class="panel-head">
+                        <div>
+                            <h2 class="panel-title">Protection Guidance</h2>
+                            <p class="panel-subtitle">Practical steps based on live tourist safety advice and cultural guidance for this place.</p>
+                        </div>
+                    </div>
+                    <div class="panel-body">
+                        <div class="stack-list" id="scamProtectionFeed">
+                            <div class="empty-state">Protection guidance will load after live location or place search sync.</div>
+                        </div>
+                    </div>
+                </article>
+
+                <article class="panel-card">
+                    <div class="panel-head">
+                        <div>
+                            <h2 class="panel-title">Nearby Support Points</h2>
+                            <p class="panel-subtitle">Verified police and hospital stops that can help if a scam situation escalates.</p>
+                        </div>
+                    </div>
+                    <div class="panel-body">
+                        <div class="stack-list" id="scamSupportFeed">
+                            <div class="empty-state">No nearby support points have loaded yet.</div>
+                        </div>
+                    </div>
+                </article>
+            </div>
+        </section>
     </div>
 </div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
-    function escapeHtml(value) {
-        const div = document.createElement('div');
-        div.textContent = value == null ? '' : String(value);
-        return div.innerHTML;
-    }
+    const scamState = {
+        location: null,
+        gpsLocation: null,
+        locationMode: 'gps',
+        searchToken: 0,
+        searchTimer: null,
+        searchResults: [],
+    };
 
-    function setText(id, value) {
+    function scamSetText(id, value) {
         const node = document.getElementById(id);
         if (node) node.textContent = value;
     }
 
-    function fetchJson(url) {
-        return fetch(url).then((response) => {
+    function scamEscapeHtml(value) {
+        return String(value == null ? '' : value)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    function scamFetchJson(url) {
+        return fetch(url, {
+            headers: { 'Accept': 'application/json' },
+            credentials: 'same-origin',
+        }).then((response) => {
             if (!response.ok) throw new Error(`Request failed: ${response.status}`);
             return response.json();
         });
     }
 
-    function formatCoordinateLabel(lat, lng) {
-        return `Lat ${lat.toFixed(5)}, Lng ${lng.toFixed(5)}`;
+    function scamRiskClass(label) {
+        const normalized = String(label || '').toUpperCase();
+        if (normalized === 'LOW') return 'risk-low';
+        if (normalized === 'MEDIUM') return 'risk-medium';
+        if (normalized === 'HIGH') return 'risk-high';
+        return 'risk-unavailable';
     }
 
-    function formatLocationLabel(label, lat, lng, fallback) {
-        if (label) return label;
-        if (lat != null && lng != null) return formatCoordinateLabel(lat, lng);
-        return fallback || 'Live location unavailable';
+    function scamNormalizeQuery(value) {
+        return String(value || '').trim().toLowerCase();
     }
 
-    function refreshScams(lat, lng) {
-        const params = new URLSearchParams({ lat: lat.toFixed(6), lng: lng.toFixed(6) });
-        Promise.all([
-            fetchJson(`/api/incidents/?${params.toString()}`),
-            fetchJson(`/api/predict-risk/?${params.toString()}`),
-        ]).then(([incidents, risk]) => {
-            setText('scamZoneLabel', formatLocationLabel(risk.location, lat, lng, 'Live location unavailable'));
-            setText('scamZoneAdvice', risk.advice || 'No scam guidance available.');
+    function scamFormatCoordinates(lat, lng) {
+        if (lat == null || lng == null) return 'Coordinates unavailable';
+        return `Lat ${Number(lat).toFixed(5)}, Lng ${Number(lng).toFixed(5)}`;
+    }
 
-            const scamAlerts = [];
-            (risk.nearby_hotspots || []).forEach((hotspot) => {
-                if ((hotspot.risk_type || '').toLowerCase().includes('scam')) {
-                    scamAlerts.push({
-                        title: hotspot.city || hotspot.risk_type,
-                        description: hotspot.description,
-                        score: hotspot.risk_score,
-                    });
-                }
-            });
-            (incidents.alerts || []).forEach((alert) => {
-                const indicator = `${alert.incident_type || ''} ${alert.title || ''} ${alert.description || ''}`.toLowerCase();
-                if (indicator.includes('scam')) {
-                    scamAlerts.push({
-                        title: alert.title || 'Scam alert',
-                        description: alert.description || '',
-                        score: alert.severity || 'UNAVAILABLE',
-                    });
-                }
-            });
+    function scamFormatDistance(value) {
+        if (value == null || value === '') return 'Distance unavailable';
+        return `${Number(value).toFixed(1)} km away`;
+    }
 
-            const container = document.getElementById('scamFeed');
-            if (!scamAlerts.length) {
-                container.innerHTML = '<div class="scam-card text-muted small">No scam-specific hotspots are stored near your current position right now.</div>';
-                return;
-            }
+    function scamKeywordsMatch(parts) {
+        const text = parts.join(' ').toLowerCase();
+        return ['scam', 'fraud', 'fake', 'guide', 'pickpocket', 'overcharg', 'taxi', 'theft'].some((keyword) => text.includes(keyword));
+    }
 
-            container.innerHTML = scamAlerts.map((item) => `
-                <div class="scam-card">
-                    <div class="d-flex justify-content-between align-items-start gap-3 mb-2">
-                        <div class="fw-bold">${escapeHtml(item.title || 'Scam hotspot')}</div>
-                        <span class="severity-pill">${escapeHtml(item.score)}</span>
+    function scamFormatSyncLabel() {
+        return `Last sync: ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+    }
+
+    function scamSetStatus(message) {
+        scamSetText('scamStatusPill', message);
+        scamSetText('scamLastSync', scamFormatSyncLabel());
+    }
+
+    function scamRenderList(containerId, items, builder, emptyMessage) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+        if (!Array.isArray(items) || !items.length) {
+            container.innerHTML = `<div class="empty-state">${scamEscapeHtml(emptyMessage)}</div>`;
+            return;
+        }
+        container.innerHTML = items.map(builder).join('');
+    }
+
+    function scamRenderSearchResults(results, message) {
+        const container = document.getElementById('scamPlaceResults');
+        if (!container) return;
+        if (message) {
+            container.innerHTML = `<div class="empty-state">${scamEscapeHtml(message)}</div>`;
+            return;
+        }
+        if (!Array.isArray(results) || !results.length) {
+            container.innerHTML = '<div class="empty-state">No India place matches were found for this search yet.</div>';
+            return;
+        }
+        container.innerHTML = results.map((item, index) => `
+            <button type="button" class="search-result${index === 0 ? ' active' : ''}" data-place-index="${index}">
+                <span class="search-result-title">${scamEscapeHtml(item.name || 'Selected place')}</span>
+                <span class="search-result-meta">${scamEscapeHtml(item.description || item.kind || 'India location')}</span>
+            </button>
+        `).join('');
+    }
+
+    function scamRenderFeed(items) {
+        scamRenderList(
+            'scamFeed',
+            items,
+            (item) => `
+                <article class="stack-item">
+                    <div class="d-flex justify-content-between align-items-start gap-3">
+                        <strong>${scamEscapeHtml(item.title || 'Scam alert')}</strong>
+                        <span class="risk-badge ${scamRiskClass(item.severity)}">${scamEscapeHtml(item.severity || 'UNAVAILABLE')}</span>
                     </div>
-                    <div class="small text-muted">${escapeHtml(item.description || '')}</div>
-                </div>
-            `).join('');
+                    <p>${scamEscapeHtml(item.description || 'Scam-related alert recorded near this area.')}</p>
+                    <div class="meta-row">
+                        <span>${scamEscapeHtml(scamFormatDistance(item.distance_km))}</span>
+                        <span>${scamEscapeHtml(item.source_label || item.source || 'live-alert')}</span>
+                        ${item.location_label ? `<span>${scamEscapeHtml(item.location_label)}</span>` : ''}
+                    </div>
+                </article>
+            `,
+            'No live scam feed is stored for this area right now.'
+        );
+    }
+
+    function scamRenderHotspots(items) {
+        scamRenderList(
+            'scamHotspotFeed',
+            items,
+            (item) => `
+                <article class="stack-item">
+                    <div class="d-flex justify-content-between align-items-start gap-3">
+                        <strong>${scamEscapeHtml(item.city || item.risk_type || 'Scam hotspot')}</strong>
+                        <span class="risk-badge ${scamRiskClass(item.risk_label || item.severity)}">${scamEscapeHtml(item.risk_label || item.severity || 'UNAVAILABLE')}</span>
+                    </div>
+                    <p>${scamEscapeHtml(item.description || 'Scam hotspot recorded near this area.')}</p>
+                    <div class="meta-row">
+                        <span>${scamEscapeHtml(scamFormatDistance(item.distance_km))}</span>
+                        <span>${scamEscapeHtml(item.risk_type || 'risk-zone')}</span>
+                    </div>
+                </article>
+            `,
+            'No scam hotspot corridor has been recorded near this area yet.'
+        );
+    }
+
+    function scamRenderPatterns(items) {
+        scamRenderList(
+            'scamPatternFeed',
+            items,
+            (item) => `
+                <article class="stack-item">
+                    <strong>${scamEscapeHtml(item.title || 'Scam pattern')}</strong>
+                    <p>${scamEscapeHtml(item.content || '')}</p>
+                    <div class="meta-row"><span class="meta-pill">${scamEscapeHtml(item.source_label || item.source || 'Guide library')}</span></div>
+                </article>
+            `,
+            'No scam-pattern guidance is stored for this place yet.'
+        );
+    }
+
+    function scamRenderProtection(culture, risk) {
+        const guidance = [];
+        if (risk && risk.advice) guidance.push({ title: 'Live safety advice', content: risk.advice, source_label: 'Risk engine' });
+        (culture && Array.isArray(culture.donts) ? culture.donts : []).slice(0, 2).forEach((item) => guidance.push(item));
+        (culture && Array.isArray(culture.dos) ? culture.dos : []).slice(0, 2).forEach((item) => guidance.push(item));
+        scamRenderList(
+            'scamProtectionFeed',
+            guidance,
+            (item) => `
+                <article class="stack-item">
+                    <strong>${scamEscapeHtml(item.title || 'Tourist guidance')}</strong>
+                    <p>${scamEscapeHtml(item.content || '')}</p>
+                    <div class="meta-row"><span class="meta-pill">${scamEscapeHtml(item.source_label || item.source || 'Live guidance')}</span></div>
+                </article>
+            `,
+            'No live protection guidance is available for this area right now.'
+        );
+    }
+
+    function scamRenderSupport(resources) {
+        scamRenderList(
+            'scamSupportFeed',
+            resources,
+            (item) => `
+                <article class="stack-item">
+                    <strong>${scamEscapeHtml(item.name || 'Support point')}</strong>
+                    <p>${scamEscapeHtml(item.address || 'Address unavailable')}</p>
+                    <div class="meta-row">
+                        <span>${scamEscapeHtml(item.type || 'resource')}</span>
+                        <span>${scamEscapeHtml(scamFormatDistance(item.distance_km))}</span>
+                        <span>${scamEscapeHtml(item.phone || 'No phone listed')}</span>
+                    </div>
+                </article>
+            `,
+            'No nearby police or hospital support points were found for this place.'
+        );
+    }
+
+    function scamBuildSignals(culture, incidents, risk) {
+        const cultureAlerts = Array.isArray(culture && culture.scam_alerts) ? culture.scam_alerts : [];
+        const incidentAlerts = Array.isArray(incidents && incidents.alerts)
+            ? incidents.alerts.filter((item) => scamKeywordsMatch([item.incident_type || '', item.title || '', item.description || '']))
+            : [];
+        const merged = [];
+        const seen = new Set();
+
+        cultureAlerts.forEach((item) => {
+            const key = `${item.id || item.title || 'culture'}-${Number(item.distance_km || 0).toFixed(2)}`;
+            if (seen.has(key)) return;
+            seen.add(key);
+            merged.push({ ...item, source_label: item.source === 'user-report' ? 'User report' : 'Live alert' });
+        });
+
+        incidentAlerts.forEach((item) => {
+            const key = `${item.id || item.title || 'incident'}-${Number(item.distance_km || 0).toFixed(2)}`;
+            if (seen.has(key)) return;
+            seen.add(key);
+            merged.push({ ...item, source_label: item.source === 'risk-zone' ? 'Risk-zone signal' : 'User report' });
+        });
+
+        const hotspots = Array.isArray(risk && risk.nearby_hotspots)
+            ? risk.nearby_hotspots.filter((item) => scamKeywordsMatch([item.risk_type || '', item.description || '', item.city || '']) || String(item.risk_type || '').toLowerCase().includes('scam'))
+            : [];
+
+        return { merged, hotspots };
+    }
+
+    function scamUpdateSummary(culture, risk, signals, supportResources) {
+        const riskLabel = String((culture && culture.risk_label) || (risk && risk.risk_label) || 'UNAVAILABLE').toUpperCase();
+        const riskScore = (culture && culture.risk_score) != null ? culture.risk_score : risk && risk.risk_score;
+        const riskBadge = document.getElementById('scamRiskBadge');
+        const watchBadge = document.getElementById('scamWatchBadge');
+
+        scamSetText('scamZoneLabel', (culture && culture.location) || (risk && risk.location) || 'Live location unavailable');
+        scamSetText('scamZoneAdvice', (culture && culture.risk_advice) || (risk && risk.advice) || 'No live scam guidance available.');
+        scamSetText('scamCoordinates', scamFormatCoordinates(scamState.location && scamState.location.lat, scamState.location && scamState.location.lng));
+        scamSetText('scamRiskScore', riskScore != null ? `${riskScore}%` : '--');
+        scamSetText('scamRiskNote', signals.hotspots.length
+            ? `${signals.hotspots.length} scam-linked hotspot records are influencing this tourist area.`
+            : 'No scam hotspot records are currently stored for this area.');
+        scamSetText('scamSignalCount', `${signals.merged.length}`);
+        scamSetText('scamSignalNote', signals.merged.length
+            ? `${signals.merged.length} live reports or alerts are currently flagged as scam-linked nearby.`
+            : 'No live scam-linked reports or alerts are active nearby right now.');
+        scamSetText('scamSupportCount', `${supportResources.length}`);
+        scamSetText('scamSupportNote', supportResources.length
+            ? `${supportResources.length} nearby police or hospital stops are available if you need in-person support.`
+            : 'No nearby police or hospital support points are stored for this place right now.');
+        scamSetText('scamLocationMode', scamState.locationMode === 'search' ? 'Viewing searched place' : 'Using live GPS');
+
+        if (riskBadge) {
+            riskBadge.textContent = riskLabel;
+            riskBadge.className = `risk-badge ${scamRiskClass(riskLabel)}`;
+        }
+        if (watchBadge) {
+            watchBadge.textContent = riskLabel;
+            watchBadge.className = `risk-badge ${scamRiskClass(riskLabel)}`;
+        }
+    }
+
+    function scamRefresh(lat, lng) {
+        const params = new URLSearchParams({ lat: Number(lat).toFixed(6), lng: Number(lng).toFixed(6) });
+        scamSetStatus('Syncing live scam feed');
+        Promise.all([
+            scamFetchJson(`/cultural-data/?${params.toString()}`),
+            scamFetchJson(`/api/predict-risk/?${params.toString()}`),
+            scamFetchJson(`/api/incidents/?${params.toString()}`),
+        ]).then(([culture, risk, incidents]) => {
+            const signals = scamBuildSignals(culture, incidents, risk);
+            const supportResources = Array.isArray(risk && risk.nearby_resources)
+                ? risk.nearby_resources.filter((item) => ['Police Station', 'Hospital'].includes(item.type))
+                : [];
+            scamUpdateSummary(culture, risk, signals, supportResources);
+            scamRenderFeed(signals.merged);
+            scamRenderHotspots(signals.hotspots);
+            scamRenderPatterns(Array.isArray(culture && culture.risk_behaviors) ? culture.risk_behaviors : []);
+            scamRenderProtection(culture, risk);
+            scamRenderSupport(supportResources);
+            scamSetStatus(signals.merged.length ? 'Live scam alerts active' : 'No scam alerts active nearby');
         }).catch(() => {
-            setText('scamZoneAdvice', 'Scam feed refresh failed. We’ll retry on the next location update.');
+            scamSetText('scamZoneAdvice', 'Live scam data could not be loaded. Try again or switch to a searched place.');
+            scamRenderFeed([]);
+            scamRenderHotspots([]);
+            scamRenderPatterns([]);
+            scamRenderProtection(null, null);
+            scamRenderSupport([]);
+            scamSetStatus('Scam feed unavailable');
         });
     }
 
-    document.addEventListener('DOMContentLoaded', () => {
-        if (!navigator.geolocation) {
-            setText('scamZoneLabel', 'Browser geolocation is unavailable.');
+    function scamActivateLocation(location, mode) {
+        scamState.location = {
+            lat: Number(location.lat),
+            lng: Number(location.lng),
+            accuracy: location.accuracy || null,
+            label: location.label || null,
+        };
+        scamState.locationMode = mode || 'gps';
+        scamRefresh(scamState.location.lat, scamState.location.lng);
+    }
+
+    function scamSelectPlace(place) {
+        const input = document.getElementById('scamPlaceInput');
+        if (input) input.value = place.name || place.description || '';
+        scamRenderSearchResults([], `${place.name || 'Selected place'} loaded. Live scam alerts are refreshing for this location.`);
+        scamActivateLocation({ lat: place.latitude, lng: place.longitude, label: place.description || place.name }, 'search');
+    }
+
+    function scamRunPlaceSearch(forceSelection) {
+        const input = document.getElementById('scamPlaceInput');
+        const query = scamNormalizeQuery(input ? input.value : '');
+        if (query.length < 2) {
+            scamRenderSearchResults([], 'Enter at least two characters to search for a place in India.');
             return;
         }
 
-        navigator.geolocation.watchPosition((position) => {
-            refreshScams(position.coords.latitude, position.coords.longitude);
-        }, () => {
-            setText('scamZoneLabel', 'Location permission required for scam alerts.');
-        }, { enableHighAccuracy: true, maximumAge: 15000, timeout: 20000 });
+        const token = ++scamState.searchToken;
+        scamRenderSearchResults([], 'Searching India places...');
+        scamFetchJson(`/api/place-search/?q=${encodeURIComponent(query)}`).then((payload) => {
+            if (token !== scamState.searchToken) return;
+            const results = Array.isArray(payload.results) ? payload.results : [];
+            scamState.searchResults = results;
+            scamRenderSearchResults(results);
+            if (forceSelection && results.length) {
+                const exactMatch = results.find((item) => scamNormalizeQuery(item.name) === query) || results[0];
+                scamSelectPlace(exactMatch);
+            }
+        }).catch(() => {
+            if (token !== scamState.searchToken) return;
+            scamRenderSearchResults([], 'Place search is unavailable right now. Try again or use live GPS.');
+        });
+    }
+
+    function scamResolveLiveLocation() {
+        if (typeof window.resolveCurrentLocation === 'function') {
+            return window.resolveCurrentLocation().then((location) => location ? {
+                lat: location.lat,
+                lng: location.lng,
+                accuracy: location.accuracy || null,
+                label: location.label || null,
+            } : null);
+        }
+
+        return new Promise((resolve) => {
+            if (!navigator.geolocation) return resolve(null);
+            navigator.geolocation.getCurrentPosition(
+                (position) => resolve({
+                    lat: position.coords.latitude,
+                    lng: position.coords.longitude,
+                    accuracy: position.coords.accuracy || null,
+                }),
+                () => resolve(null),
+                { enableHighAccuracy: true, maximumAge: 15000, timeout: 20000 }
+            );
+        });
+    }
+
+    function scamStartLiveWatch() {
+        if (!navigator.geolocation) {
+            scamSetStatus('Browser location unavailable');
+            return;
+        }
+        navigator.geolocation.watchPosition(
+            (position) => {
+                if (typeof window.updateTrackedLocation === 'function') window.updateTrackedLocation(position);
+                scamState.gpsLocation = {
+                    lat: position.coords.latitude,
+                    lng: position.coords.longitude,
+                    accuracy: position.coords.accuracy || null,
+                };
+                if (scamState.locationMode === 'gps') scamActivateLocation(scamState.gpsLocation, 'gps');
+            },
+            () => {
+                if (!scamState.location) {
+                    scamSetStatus('Location permission required');
+                    scamSetText('scamZoneLabel', 'Location permission required for live scam alerts.');
+                }
+            },
+            { enableHighAccuracy: true, maximumAge: 15000, timeout: 20000 }
+        );
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const searchInput = document.getElementById('scamPlaceInput');
+        const searchButton = document.getElementById('scamPlaceSearchBtn');
+        const liveButton = document.getElementById('scamUseLiveLocationBtn');
+        const searchResults = document.getElementById('scamPlaceResults');
+
+        if (searchInput) {
+            searchInput.addEventListener('input', () => {
+                clearTimeout(scamState.searchTimer);
+                if (scamNormalizeQuery(searchInput.value).length < 2) {
+                    scamRenderSearchResults([], 'Search a place or allow GPS to load location-based scam alerts.');
+                    return;
+                }
+                scamState.searchTimer = setTimeout(() => scamRunPlaceSearch(false), 250);
+            });
+            searchInput.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    scamRunPlaceSearch(true);
+                }
+            });
+        }
+
+        if (searchButton) searchButton.addEventListener('click', () => scamRunPlaceSearch(true));
+        if (liveButton) {
+            liveButton.addEventListener('click', () => {
+                scamState.locationMode = 'gps';
+                if (scamState.gpsLocation) return scamActivateLocation(scamState.gpsLocation, 'gps');
+                scamResolveLiveLocation().then((location) => {
+                    if (!location) {
+                        scamSetStatus('Live GPS unavailable');
+                        scamSetText('scamZoneLabel', 'Allow location access or search a place to load scam alerts.');
+                        return;
+                    }
+                    scamState.gpsLocation = location;
+                    scamActivateLocation(location, 'gps');
+                });
+            });
+        }
+        if (searchResults) {
+            searchResults.addEventListener('click', (event) => {
+                const button = event.target.closest('[data-place-index]');
+                if (!button) return;
+                const place = scamState.searchResults[Number(button.getAttribute('data-place-index'))];
+                if (place) scamSelectPlace(place);
+            });
+        }
+
+        scamResolveLiveLocation().then((location) => {
+            if (location) {
+                scamState.gpsLocation = location;
+                if (scamState.locationMode === 'gps') scamActivateLocation(location, 'gps');
+            } else {
+                scamSetStatus('Search a place or allow GPS');
+                scamSetText('scamZoneLabel', 'Search a place in India to load live scam alerts.');
+            }
+        });
+
+        scamStartLiveWatch();
     });
 </script>
 {% endblock %}

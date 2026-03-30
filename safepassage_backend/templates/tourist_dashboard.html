@@ -31,7 +31,7 @@
     .hero-grid {
         display: grid;
         gap: 18px;
-        grid-template-columns: minmax(0, 1.45fr) minmax(320px, 0.95fr);
+        grid-template-columns: minmax(0, 1fr);
         align-items: stretch;
     }
     .hero-eyebrow {
@@ -362,37 +362,6 @@
                 <p class="hero-coordinate mb-0" id="coordinateLabel">Waiting for browser geolocation permission.</p>
             </div>
 
-            <div class="hero-side">
-                <div>
-                    <div class="hero-side-label">Quick Access</div>
-                    <div class="hero-side-title">Move through the tourist safety flow faster</div>
-                    <p class="hero-side-note">The same live dashboard data, but with a tighter control area for routes, map access, SOS, and profile shortcuts.</p>
-                </div>
-
-                <div class="profile-actions">
-                    <a href="{% url 'tourist_profile_hub' %}" class="btn btn-light shadow-sm border-0">
-                        <i class="bi bi-person me-2"></i>{{ user.first_name|default:"Traveler" }}
-                    </a>
-                    <a href="{% url 'logout' %}" class="btn btn-outline-danger">Logout</a>
-                </div>
-
-                <div class="hero-actions-grid">
-                    <a href="{% url 'tourist_map_hub' %}?tab=routes" class="btn btn-primary">
-                        <i class="bi bi-sign-turn-right-fill me-2"></i>Map & Routes
-                    </a>
-                    <a href="{% url 'tourist_sos' %}" class="btn btn-danger">
-                        <i class="bi bi-exclamation-octagon-fill me-2"></i>SOS
-                    </a>
-                    <a href="{% url 'tourist_map_hub' %}?tab=live" class="btn btn-outline-primary">
-                        <i class="bi bi-geo-alt-fill me-2"></i>Live Safety Map
-                    </a>
-                </div>
-
-                <div class="hero-footnote">
-                    <i class="bi bi-broadcast-pin"></i>
-                    <span>All cards below stay connected to the same live tourist APIs and GPS-driven updates.</span>
-                </div>
-            </div>
         </div>
     </section>
 
@@ -441,7 +410,7 @@
                 <div class="list-stack" id="resourceList">
                     <div class="empty-state">Verified safe havens near your current location will appear here.</div>
                 </div>
-                <a href="{% url 'tourist_map_hub' %}" class="btn btn-outline-primary w-100 resource-cta">Open Live Risk Map</a>
+                <a href="{% url 'tourist_map_hub' %}" class="btn btn-outline-primary w-100 resource-cta">Open Live Safety Map</a>
             </div>
         </div>
 
@@ -462,14 +431,6 @@
         </div>
     </div>
 
-    <div class="section-intro">
-        <div>
-            <span class="section-kicker">Live Terrain</span>
-            <h2 class="section-title">Map, culture, and movement context</h2>
-        </div>
-        <span class="small text-muted">Current position, nearby hotspots, cultural cues, and weather stay in sync here.</span>
-    </div>
-
     <div class="row g-3 mb-4">
         <div class="col-xxl-9 col-xl-8">
             <div class="card-risk map-card mb-4">
@@ -479,50 +440,6 @@
                     <p class="small text-muted mb-3" id="mapLocationStatus">Waiting for current coordinates.</p>
                     <div class="small text-muted">Legend: Green = safer corridor, Yellow = caution, Red = hotspot, Blue = safe resource</div>
                     <div class="small text-muted mt-2" id="mapResourceCount">Resources: 0 nearby</div>
-                </div>
-            </div>
-
-            <div class="row g-4">
-                <div class="col-lg-7">
-                    <div class="card-risk h-100">
-                        <div class="d-flex justify-content-between align-items-center mb-3">
-                            <h4 class="fw-800 mb-0"><i class="bi bi-stars text-info me-2"></i>Cultural Intelligence</h4>
-                            <span class="small text-muted" id="cultureLocationLabel">Live zone pending</span>
-                        </div>
-                        <div class="culture-grid">
-                            <div class="culture-col">
-                                <h6 class="fw-800 text-success">Do</h6>
-                                <ul id="cultureDoList"><li>Location-based guidance will appear here.</li></ul>
-                            </div>
-                            <div class="culture-col">
-                                <h6 class="fw-800 text-danger">Avoid</h6>
-                                <ul id="cultureDontList"><li>Safety cautions will appear here.</li></ul>
-                            </div>
-                            <div class="culture-col">
-                                <h6 class="fw-800 text-warning">Watch for</h6>
-                                <ul id="cultureRiskList"><li>Scam and risk behavior alerts will appear here.</li></ul>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="col-lg-5">
-                    <div class="card-risk h-100">
-                        <h4 class="fw-800 mb-3"><i class="bi bi-cloud-sun-fill text-warning me-2"></i>Weather and Route Conditions</h4>
-                        <div class="d-flex justify-content-between align-items-center mb-3">
-                            <div>
-                                <h2 class="fw-800 mb-0" id="weatherTemp">--</h2>
-                                <p class="text-muted mb-0">
-                                    <span id="weatherCondition">Waiting for local condition</span>
-                                    <span class="ms-2" id="weatherRiskBadge"></span>
-                                </p>
-                            </div>
-                            <i class="bi bi-brightness-high-fill display-4 text-warning"></i>
-                        </div>
-                        <div class="p-3 bg-primary bg-opacity-5 rounded-4 border border-primary border-opacity-10">
-                            <p class="small mb-0 text-dark" id="weatherAdvice">Weather-aware movement guidance will load from your current coordinates.</p>
-                        </div>
-                    </div>
                 </div>
             </div>
         </div>
@@ -538,44 +455,6 @@
                 </div>
             </div>
 
-            <div class="card-risk translator mb-4">
-                <h5 class="fw-800 mb-1">Language Assistant</h5>
-                <p class="x-small opacity-75 mb-3">Translate a single word or full emergency phrase instantly, then speak it aloud.</p>
-                <div class="mb-3">
-                    <label for="translateInput" class="x-small text-uppercase opacity-75 mb-2 d-block">Phrase</label>
-                    <textarea id="translateInput" class="translator-field" rows="3" placeholder="Type the phrase you want translated"></textarea>
-                </div>
-                <div class="mb-3">
-                    <label for="translateLanguage" class="x-small text-uppercase opacity-75 mb-2 d-block">Target language</label>
-                    <select id="translateLanguage" class="translator-select">
-                        <option value="hi">Hindi</option>
-                        <option value="ml">Malayalam</option>
-                        <option value="ta">Tamil</option>
-                        <option value="te">Telugu</option>
-                        <option value="kn">Kannada</option>
-                    </select>
-                </div>
-                <div class="translate-actions mb-3">
-                    <button class="btn btn-primary rounded-pill fw-800" type="button" id="translateButton"><i class="bi bi-stars me-2"></i>Translate</button>
-                    <button class="btn btn-outline-light rounded-pill fw-800" type="button" id="speakButton"><i class="bi bi-volume-up me-2"></i>Speak</button>
-                </div>
-                <div class="translator-output">
-                    <p class="x-small text-uppercase opacity-75 mb-2">Output</p>
-                    <p class="fw-800 mb-2 text-info" id="translationOutput">Translator is waiting for your phrase.</p>
-                    <p class="x-small opacity-75 mb-0" id="translationNote">Type a phrase, then choose Translate.</p>
-                </div>
-            </div>
-
-            <div class="card-risk">
-                <div class="readiness-box">
-                    <div class="readiness-icon"><i class="bi bi-shield-check"></i></div>
-                    <div>
-                        <h6 class="fw-800 text-info mb-1">Emergency Readiness</h6>
-                        <p class="x-small text-muted mb-1" id="readinessStatus">Waiting for live GPS lock.</p>
-                        <p class="x-small text-muted mb-0">Emergency contacts on file: <span class="fw-800">{{ emergency_contacts_count|default:0 }}</span></p>
-                    </div>
-                </div>
-            </div>
         </div>
     </div>
 </div>
@@ -747,24 +626,6 @@
         setHtml('liveAlertsList', '<div class="empty-state">No active incidents or hotspot alerts are stored near your position.</div>');
     }
 
-    function renderCulture(data, lat, lng) {
-        setText('cultureLocationLabel', formatLocationLabel(data.location, lat, lng, 'Live zone unavailable'));
-        setHtml('cultureDoList', (data.dos || []).map((item) => `<li>${escapeHtml(item)}</li>`).join('') || '<li>No local guidance available.</li>');
-        setHtml('cultureDontList', (data.donts || []).map((item) => `<li>${escapeHtml(item)}</li>`).join('') || '<li>No local cautions available.</li>');
-        setHtml('cultureRiskList', (data.risk_behaviors || []).map((item) => `<li>${escapeHtml(item)}</li>`).join('') || '<li>No scam watch items available.</li>');
-    }
-
-    function renderWeather(data) {
-        const hasWeather = data && data.available;
-        setText('weatherTemp', hasWeather && data.temperature_c != null ? `${data.temperature_c} C` : '--');
-        setText('weatherCondition', hasWeather ? (data.condition || 'Condition unavailable') : 'Live weather unavailable');
-        setText('weatherAdvice', data.advice || 'Weather-aware movement advice unavailable.');
-        const badge = document.getElementById('weatherRiskBadge');
-        const label = hasWeather ? formatRiskLabel(data.risk_label) : 'UNAVAILABLE';
-        badge.textContent = label;
-        badge.className = `severity-pill ${riskClass(label)}`;
-    }
-
     function renderEmbassy(data) {
         setText('embassyName', data.embassy_name || 'Embassy unavailable');
         setText('embassyAddress', data.address || 'Address unavailable');
@@ -893,8 +754,6 @@
             setText('weatherSignalChip', `Weather signal: ${formatSignalValue(risk.breakdown.weather_signal)}`);
             renderResources(risk.nearby_resources || []);
             renderAlerts(incidents.alerts || [], risk);
-            renderCulture(culture, lat, lng);
-            renderWeather(weather);
             renderEmbassy(embassy);
             renderMap(risk, lat, lng);
             syncLocation(lat, lng);
@@ -941,8 +800,10 @@
 
     document.addEventListener('DOMContentLoaded', () => {
         initMap();
-        document.getElementById('translateButton').addEventListener('click', refreshTranslation);
-        document.getElementById('speakButton').addEventListener('click', speakTranslation);
+        const translateButton = document.getElementById('translateButton');
+        const speakButton = document.getElementById('speakButton');
+        if (translateButton) translateButton.addEventListener('click', refreshTranslation);
+        if (speakButton) speakButton.addEventListener('click', speakTranslation);
         startTracking();
     });
 </script>

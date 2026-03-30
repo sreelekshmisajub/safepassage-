@@ -66,7 +66,6 @@
                     <option value="all">All active users</option>
                     <option value="tourist">Tourists only</option>
                     <option value="worker">Night workers only</option>
-                    <option value="employer">Employers only</option>
                     <option value="admin">Admins only</option>
                 </select>
             </div>
@@ -104,7 +103,6 @@
                     <tr><td>All</td><td>{{ notifications_payload.role_counts.all }}</td></tr>
                     <tr><td>Tourist</td><td>{{ notifications_payload.role_counts.tourist }}</td></tr>
                     <tr><td>Night Worker</td><td>{{ notifications_payload.role_counts.worker }}</td></tr>
-                    <tr><td>Employer</td><td>{{ notifications_payload.role_counts.employer }}</td></tr>
                     <tr><td>Admin</td><td>{{ notifications_payload.role_counts.admin }}</td></tr>
                 </tbody>
             </table>

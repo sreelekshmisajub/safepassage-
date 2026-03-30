@@ -220,12 +220,9 @@
             <div class="dest-results" id="routeDestResults">
                 <div class="dest-result text-muted">Type a place to search.</div>
             </div>
-            <div class="d-grid gap-1 mt-2">
+            <div class="d-grid mt-2">
                 <button class="btn btn-primary rounded-pill fw-bold btn-sm" type="button" id="buildRouteBtn">
                     <i class="bi bi-arrow-right-circle-fill me-1"></i>Build Safe Route
-                </button>
-                <button class="btn btn-outline-secondary rounded-pill btn-sm" type="button" id="centerMapBtn">
-                    <i class="bi bi-crosshair me-1"></i>Use My Tracked Location
                 </button>
             </div>
         </div>
@@ -272,6 +269,11 @@
         routeOptions: [],
         activeRouteId: null,
         searchTimer: null,
+        routeBuildToken: 0,
+        searchRequestToken: 0,
+        searchResults: [],
+        searchResultsQuery: '',
+        placeSearchCache: {},
     };
 
     /* ── utilities ── */
@@ -294,6 +296,148 @@
     }
     function fmtCoord(lat, lng) { return `Lat ${Number(lat).toFixed(5)}, Lng ${Number(lng).toFixed(5)}`; }
     function hotspotLevel(score) { return score >= 75 ? 'HIGH' : score >= 45 ? 'MEDIUM' : 'LOW'; }
+    function normalizedSearchQuery(value) { return String(value || '').trim().toLowerCase(); }
+    function routeResultsContainer() { return document.getElementById('routeDestResults'); }
+    function renderDestinationSearchMessage(message) {
+        routeResultsContainer().innerHTML = `<div class="dest-result text-muted">${escapeHtml(message)}</div>`;
+    }
+    function normalizeRouteGeometry(points) {
+        if (!Array.isArray(points)) return [];
+        const normalized = [];
+        points.forEach(point => {
+            let lat = null;
+            let lng = null;
+
+            if (Array.isArray(point) && point.length >= 2) {
+                lat = Number(point[0]);
+                lng = Number(point[1]);
+            } else if (point && point.latitude != null && point.longitude != null) {
+                lat = Number(point.latitude);
+                lng = Number(point.longitude);
+            }
+
+            if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+
+            const roundedLat = Number(lat.toFixed(6));
+            const roundedLng = Number(lng.toFixed(6));
+            const previous = normalized[normalized.length - 1];
+            if (previous && previous[0] === roundedLat && previous[1] === roundedLng) return;
+            normalized.push([roundedLat, roundedLng]);
+        });
+        return normalized;
+    }
+    function buildRouteWaypointPairs(option) {
+        if (Array.isArray(option.waypoint_polyline) && option.waypoint_polyline.length) {
+            return normalizeRouteGeometry(option.waypoint_polyline);
+        }
+        if (Array.isArray(option.route) && option.route.length) {
+            return normalizeRouteGeometry(option.route.map(point => [point.latitude, point.longitude]));
+        }
+        return normalizeRouteGeometry(option.polyline || []);
+    }
+    function buildOsrmRouteUrl(profile, waypoints) {
+        const coordinateString = waypoints
+            .map(([lat, lng]) => `${Number(lng).toFixed(6)},${Number(lat).toFixed(6)}`)
+            .join(';');
+        return `https://router.project-osrm.org/route/v1/${profile}/${coordinateString}?overview=full&alternatives=false&steps=false&geometries=geojson&continue_straight=false`;
+    }
+    async function fetchJsonWithTimeout(url, timeoutMs = 2200) {
+        const controller = new AbortController();
+        const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
+        try {
+            const response = await fetch(url, {
+                headers: { Accept: 'application/json' },
+                signal: controller.signal,
+            });
+            if (!response.ok) throw new Error(response.status);
+            return await response.json();
+        } finally {
+            window.clearTimeout(timeoutId);
+        }
+    }
+    function liveRouteProfileLabel(profile) {
+        return profile === 'foot' ? 'walking' : 'road';
+    }
+    function ensureLiveRouteMeta(option) {
+        if (!option || option.liveRouteMeta || !option.live_route_meta) return;
+        option.liveRouteMeta = {
+            profile: option.live_route_meta.profile,
+            distanceKm: option.live_route_meta.distance_km,
+            durationMin: option.live_route_meta.duration_min,
+        };
+    }
+    async function fetchRoadRouteGeometry(option) {
+        ensureLiveRouteMeta(option);
+        if ((option.polyline_source === 'live-road' || option.liveRouteMeta) && Array.isArray(option.polyline) && option.polyline.length >= 2) {
+            option.livePolyline = normalizeRouteGeometry(option.polyline);
+            return option.livePolyline;
+        }
+        if (Array.isArray(option.livePolyline) && option.livePolyline.length >= 2) {
+            return option.livePolyline;
+        }
+
+        const waypoints = buildRouteWaypointPairs(option);
+        if (waypoints.length < 2) {
+            option.livePolyline = normalizeRouteGeometry(option.polyline || waypoints);
+            option.liveRouteMeta = null;
+            return option.livePolyline;
+        }
+
+        const approxDistanceKm = Number((option.route_summary || {}).distance_km || 0);
+        const profiles = approxDistanceKm && approxDistanceKm <= 2.5
+            ? ['foot', 'driving']
+            : ['driving', 'foot'];
+
+        for (const profile of profiles) {
+            try {
+                const payload = await fetchJsonWithTimeout(buildOsrmRouteUrl(profile, waypoints));
+                const bestRoute = Array.isArray(payload.routes) && payload.routes.length ? payload.routes[0] : null;
+                const coordinates = bestRoute && bestRoute.geometry && Array.isArray(bestRoute.geometry.coordinates)
+                    ? bestRoute.geometry.coordinates
+                    : [];
+                if (coordinates.length < 2) continue;
+
+                option.livePolyline = normalizeRouteGeometry(
+                    coordinates.map(([lng, lat]) => [lat, lng])
+                );
+                option.liveRouteMeta = {
+                    profile,
+                    distanceKm: Number(((bestRoute.distance || 0) / 1000).toFixed(2)),
+                    durationMin: Math.max(1, Math.round((bestRoute.duration || 0) / 60)),
+                };
+                return option.livePolyline;
+            } catch (error) {
+                // Fall through to the next profile or the existing safety corridor.
+            }
+        }
+
+        option.livePolyline = normalizeRouteGeometry(option.polyline || waypoints);
+        option.liveRouteMeta = null;
+        return option.livePolyline;
+    }
+    function routeFallbackGeometry(option) {
+        return normalizeRouteGeometry(option.polyline || buildRouteWaypointPairs(option));
+    }
+    function formatDisplayedRouteDistance(summary, option) {
+        if (option && option.liveRouteMeta && Number.isFinite(option.liveRouteMeta.distanceKm)) {
+            return `Road distance: ${option.liveRouteMeta.distanceKm} km`;
+        }
+        if (summary.distance_km != null) {
+            return `Safety corridor distance: ${summary.distance_km} km`;
+        }
+        return 'Distance: --';
+    }
+    function buildDisplayedRouteAdvice(summary, option) {
+        const advisories = Array.isArray(summary.advisories) ? [...summary.advisories] : [];
+        if (option && option.liveRouteMeta) {
+            advisories.unshift(
+                `Live ${liveRouteProfileLabel(option.liveRouteMeta.profile)} route locked. Approx ${option.liveRouteMeta.durationMin} min travel time.`
+            );
+        } else {
+            advisories.unshift('Showing the SafePassage safety corridor while the live road route is being aligned.');
+        }
+        return advisories.filter(Boolean).slice(0, 4).join(' ');
+    }
 
     /* ── tab switching ── */
     function switchTab(tab) {
@@ -389,51 +533,122 @@
 
     /* ── route planner ── */
     function clearRoutePolylines() {
-        Object.values(ws.routePolylines).forEach(p => ws.map.removeLayer(p));
+        Object.values(ws.routePolylines).forEach(routeLayer => {
+            if (routeLayer.halo) ws.map.removeLayer(routeLayer.halo);
+            if (routeLayer.line) ws.map.removeLayer(routeLayer.line);
+        });
         ws.routePolylines = {};
     }
 
     function pinDestination(lat, lng, label) {
         const lbl = label || `Pinned (${lat.toFixed(4)}, ${lng.toFixed(4)})`;
         ws._dest = { placeId: '', lat, lng, label: lbl };
+        ws.searchRequestToken += 1;
+        ws.searchResults = [{
+            id: '',
+            name: lbl,
+            latitude: lat,
+            longitude: lng,
+            kind: 'Pinned destination',
+        }];
+        ws.searchResultsQuery = normalizedSearchQuery(lbl);
         document.getElementById('routeDestInput').value = lbl;
         if (!ws.destMarker) ws.destMarker = L.marker([lat, lng]).addTo(ws.map);
         else ws.destMarker.setLatLng([lat, lng]);
         ws.destMarker.bindPopup(`<strong>${escapeHtml(lbl)}</strong>`);
+        routeResultsContainer().innerHTML = `
+            <button type="button" class="dest-result active">
+                <div class="fw-bold">${escapeHtml(lbl)}</div>
+                <div class="text-muted" style="font-size:0.71rem;">Pinned destination</div>
+            </button>
+        `;
     }
 
-    function drawAllRoutes() {
+    function ensureRoutePolyline(option, geometry) {
+        const normalizedGeometry = normalizeRouteGeometry(geometry);
+        if (normalizedGeometry.length < 2) return null;
+
+        const existing = ws.routePolylines[option.id];
+        if (existing) {
+            if (existing.halo) ws.map.removeLayer(existing.halo);
+            if (existing.line) ws.map.removeLayer(existing.line);
+        }
+
+        const isActive = option.id === ws.activeRouteId;
+        const halo = L.polyline(normalizedGeometry, {
+            color: 'rgba(255,255,255,0.92)',
+            weight: isActive ? 11 : 9,
+            opacity: isActive ? 0.96 : 0.82,
+            lineCap: 'round',
+            lineJoin: 'round',
+        }).addTo(ws.map);
+        const line = L.polyline(normalizedGeometry, {
+            color: option.color || '#2563eb',
+            weight: isActive ? 6 : 4,
+            opacity: isActive ? 0.96 : 0.42,
+            dashArray: isActive ? null : '10, 7',
+            lineCap: 'round',
+            lineJoin: 'round',
+            smoothFactor: 1.2,
+        }).addTo(ws.map);
+        line.bindTooltip(
+            `<strong>${escapeHtml(option.title || option.id)}</strong><br>` +
+            `${(option.route_summary || {}).overall_risk_label || '--'} · ` +
+            `${(option.route_summary || {}).distance_km != null ? ((option.route_summary || {}).distance_km + ' km') : '--'}`,
+            { sticky: true }
+        );
+        halo.on('click', () => selectRoute(option.id));
+        line.on('click', () => selectRoute(option.id));
+        ws.routePolylines[option.id] = { halo, line, geometry: normalizedGeometry };
+        return ws.routePolylines[option.id];
+    }
+
+    function drawAllRoutes(buildToken) {
         ws.routeOptions.forEach(opt => {
-            if (!opt.polyline || !opt.polyline.length) return;
-            const isActive = opt.id === ws.activeRouteId;
-            const poly = L.polyline(opt.polyline, {
-                color: opt.color || '#2563eb',
-                weight: isActive ? 6 : 4,
-                opacity: isActive ? 0.92 : 0.3,
-                dashArray: isActive ? null : '8, 6',
-            }).addTo(ws.map);
-            poly.bindTooltip(
-                `<strong>${opt.title}</strong><br>` +
-                `${(opt.route_summary||{}).overall_risk_label||'--'} · ` +
-                `${(opt.route_summary||{}).distance_km != null ? (opt.route_summary.distance_km+' km') : '--'}`,
-                { sticky: true }
-            );
-            poly.on('click', () => selectRoute(opt.id));
-            ws.routePolylines[opt.id] = poly;
+            const fallbackGeometry = routeFallbackGeometry(opt);
+            ensureRoutePolyline(opt, fallbackGeometry);
+            fetchRoadRouteGeometry(opt).then(geometry => {
+                if (buildToken !== ws.routeBuildToken) return;
+                if (!geometry || geometry.length < 2) return;
+                const fallbackSignature = JSON.stringify(fallbackGeometry);
+                const liveSignature = JSON.stringify(geometry);
+                if (liveSignature !== fallbackSignature) {
+                    ensureRoutePolyline(opt, geometry);
+                    updateRouteStyles();
+                    if (opt.id === ws.activeRouteId) {
+                        updateRouteDetails(opt);
+                    }
+                }
+            }).catch(() => {
+                // Keep the safety corridor if live road geometry is unavailable.
+            });
         });
-        const activePoly = ws.routePolylines[ws.activeRouteId];
-        if (activePoly) ws.map.fitBounds(activePoly.getBounds(), { padding: [40, 40] });
+        updateRouteStyles();
     }
 
     function updateRouteStyles() {
         ws.routeOptions.forEach(opt => {
-            const poly = ws.routePolylines[opt.id];
-            if (!poly) return;
+            const routeLayer = ws.routePolylines[opt.id];
+            if (!routeLayer || !routeLayer.line || !routeLayer.halo) return;
             const isActive = opt.id === ws.activeRouteId;
-            poly.setStyle({ weight: isActive ? 6 : 4, opacity: isActive ? 0.92 : 0.3, dashArray: isActive ? null : '8, 6' });
+            routeLayer.halo.setStyle({
+                weight: isActive ? 11 : 9,
+                opacity: isActive ? 0.96 : 0.82,
+            });
+            routeLayer.line.setStyle({
+                weight: isActive ? 6 : 4,
+                opacity: isActive ? 0.96 : 0.42,
+                dashArray: isActive ? null : '10, 7',
+            });
+            if (isActive) {
+                routeLayer.halo.bringToBack();
+                routeLayer.line.bringToFront();
+            }
         });
-        const activePoly = ws.routePolylines[ws.activeRouteId];
-        if (activePoly) ws.map.fitBounds(activePoly.getBounds(), { padding: [40, 40] });
+        const activeLayer = ws.routePolylines[ws.activeRouteId];
+        if (activeLayer && activeLayer.geometry && activeLayer.geometry.length >= 2) {
+            ws.map.fitBounds(L.latLngBounds(activeLayer.geometry), { padding: [40, 40] });
+        }
     }
 
     function renderTierGrid() {
@@ -454,31 +669,28 @@
     }
 
     function updateRouteDetails(opt) {
+        ensureLiveRouteMeta(opt);
         const summary = opt.route_summary || {};
         setText('routeDestLabel', ws._dest ? ws._dest.label : 'Destination');
         setRiskBadge('routeOverallBadge', summary.overall_risk_label || 'UNAVAILABLE');
-        setText('routeDistLabel', `Distance: ${summary.distance_km != null ? summary.distance_km + ' km' : '--'} · ${opt.strategy_label || opt.strategy || '--'}`);
-        const advisories = summary.advisories || [];
-        setText('routeAdviceLabel', advisories.join(' ') || 'Route computed.');
+        setText('routeDistLabel', `${formatDisplayedRouteDistance(summary, opt)} · ${opt.strategy_label || opt.strategy || '--'}`);
+        setText('routeAdviceLabel', buildDisplayedRouteAdvice(summary, opt));
         document.getElementById('routeSummaryCard').style.display = '';
 
-        // Hotspots on corridor
         const hotspots = opt.risk_hotspots || [];
-        if (hotspots.length) {
-            document.getElementById('routeHotspotCard').style.display = '';
-            document.getElementById('routeHotspotList').innerHTML = hotspots.map(h => {
-                const rl = hotspotLevel(h.risk_score);
-                return `<div class="list-item">
-                    <div class="d-flex justify-content-between gap-2">
-                        <div>
-                            <div class="fw-bold small">${escapeHtml(h.risk_type)}</div>
-                            <div class="small text-muted">${escapeHtml(h.description||'')}</div>
-                        </div>
-                        <span class="risk-pill ${riskClass(rl)}">${h.risk_score}%</span>
+        document.getElementById('routeHotspotCard').style.display = '';
+        document.getElementById('routeHotspotList').innerHTML = hotspots.length ? hotspots.map(h => {
+            const rl = hotspotLevel(h.risk_score);
+            return `<div class="list-item">
+                <div class="d-flex justify-content-between gap-2">
+                    <div>
+                        <div class="fw-bold small">${escapeHtml(h.risk_type)}</div>
+                        <div class="small text-muted">${escapeHtml(h.description || '')}</div>
                     </div>
-                </div>`;
-            }).join('');
-        }
+                    <span class="risk-pill ${riskClass(rl)}">${h.risk_score}%</span>
+                </div>
+            </div>`;
+        }).join('') : '<div class="list-item text-muted small">No stored hotspots are mapped on this selected route.</div>';
     }
 
     function selectRoute(routeId) {
@@ -492,9 +704,41 @@
         }
     }
 
-    function buildRoute() {
+    async function resolveDestinationFromInput() {
+        if (ws._dest) return ws._dest;
+        const query = document.getElementById('routeDestInput').value.trim();
+        if (query.length < 2) return null;
+        const normalizedQuery = normalizedSearchQuery(query);
+        const cachedMatch = ws.searchResults.find(result => normalizedSearchQuery(result.name) === normalizedQuery) || ws.searchResults[0];
+        if (cachedMatch && ws.searchResultsQuery === normalizedQuery) {
+            pinDestination(Number(cachedMatch.latitude), Number(cachedMatch.longitude), cachedMatch.name || query);
+            ws._dest.placeId = cachedMatch.id || '';
+            return ws._dest;
+        }
+        const payload = await fetchJson(`/api/worker/place-search/?q=${encodeURIComponent(query)}`);
+        const results = payload.results || [];
+        if (!results.length) return null;
+        pinDestination(Number(results[0].latitude), Number(results[0].longitude), results[0].name || query);
+        ws._dest.placeId = results[0].id || '';
+        return ws._dest;
+    }
+
+    async function buildRoute() {
         if (!ws.routeSource) { setText('routeAdviceLabel', 'Live GPS source still loading.'); return; }
-        if (!ws._dest) { setText('routeAdviceLabel', 'Search or tap the map to set a destination.'); return; }
+        if (!ws._dest) {
+            try {
+                const resolvedDestination = await resolveDestinationFromInput();
+                if (!resolvedDestination) {
+                    setText('routeAdviceLabel', 'Search or tap the map to set a destination.');
+                    return;
+                }
+            } catch (error) {
+                setText('routeAdviceLabel', 'Destination search is unavailable right now.');
+                return;
+            }
+        }
+
+        const buildToken = ++ws.routeBuildToken;
         clearRoutePolylines();
         const params = new URLSearchParams({
             source_lat: ws.routeSource.lat, source_lng: ws.routeSource.lng,
@@ -511,35 +755,75 @@
                 }
                 ws.activeRouteId = payload.default_route_tier || ws.routeOptions[0].id;
                 renderTierGrid();
-                drawAllRoutes();
+                drawAllRoutes(buildToken);
                 const active = ws.routeOptions.find(o => o.id === ws.activeRouteId) || ws.routeOptions[0];
                 updateRouteDetails(active);
             })
             .catch(() => setText('routeAdviceLabel', 'Route generation failed. Check destination and retry.'));
     }
 
+    function renderDestinationResults(results, requestToken, query) {
+        if (requestToken !== ws.searchRequestToken) return;
+
+        ws.searchResults = results;
+        ws.searchResultsQuery = normalizedSearchQuery(query);
+
+        if (!results.length) {
+            renderDestinationSearchMessage('No matching places found.');
+            return;
+        }
+
+        const activeDestinationName = ws._dest ? normalizedSearchQuery(ws._dest.label) : '';
+        routeResultsContainer().innerHTML = results.map(item => {
+            const itemName = item.name || 'Destination';
+            const isActive = activeDestinationName && normalizedSearchQuery(itemName) === activeDestinationName;
+            return `
+                <button type="button" class="dest-result ${isActive ? 'active' : ''}"
+                    data-lat="${item.latitude}" data-lng="${item.longitude}"
+                    data-name="${escapeHtml(itemName)}" data-id="${escapeHtml(item.id || '')}">
+                    <div class="fw-bold">${escapeHtml(itemName)}</div>
+                    <div class="text-muted" style="font-size:0.71rem;">${escapeHtml(item.kind || 'Destination')}</div>
+                </button>
+            `;
+        }).join('');
+
+        routeResultsContainer().querySelectorAll('.dest-result').forEach(btn => {
+            btn.addEventListener('click', () => {
+                pinDestination(Number(btn.dataset.lat), Number(btn.dataset.lng), btn.dataset.name);
+                ws._dest.placeId = btn.dataset.id || '';
+            });
+        });
+    }
+
     function searchDestinations(q) {
-        if (q.trim().length < 2) return;
-        fetchJson(`/api/worker/place-search/?q=${encodeURIComponent(q.trim())}`)
+        const query = q.trim();
+        if (query.length < 2) {
+            ws.searchResults = [];
+            ws.searchResultsQuery = '';
+            renderDestinationSearchMessage('Type a place to search.');
+            return;
+        }
+
+        const normalizedQuery = normalizedSearchQuery(query);
+        const requestToken = ++ws.searchRequestToken;
+        const cachedResults = ws.placeSearchCache[normalizedQuery];
+        if (cachedResults) {
+            renderDestinationResults(cachedResults, requestToken, query);
+            return;
+        }
+
+        renderDestinationSearchMessage('Searching places...');
+        fetchJson(`/api/worker/place-search/?q=${encodeURIComponent(query)}`)
             .then(payload => {
+                if (requestToken !== ws.searchRequestToken) return;
                 const results = payload.results || [];
-                const c = document.getElementById('routeDestResults');
-                if (!results.length) { c.innerHTML = '<div class="dest-result text-muted">No matching places found.</div>'; return; }
-                c.innerHTML = results.map(item => `
-                    <button type="button" class="dest-result"
-                        data-lat="${item.latitude}" data-lng="${item.longitude}"
-                        data-name="${escapeHtml(item.name)}" data-id="${escapeHtml(item.id||'')}">
-                        <div class="fw-bold">${escapeHtml(item.name)}</div>
-                        <div class="text-muted" style="font-size:0.71rem;">${escapeHtml(item.kind||'Destination')}</div>
-                    </button>
-                `).join('');
-                c.querySelectorAll('.dest-result').forEach(btn => {
-                    btn.addEventListener('click', () => {
-                        pinDestination(Number(btn.dataset.lat), Number(btn.dataset.lng), btn.dataset.name);
-                        ws._dest.placeId = btn.dataset.id || '';
-                    });
-                });
-            }).catch(() => {});
+                ws.placeSearchCache[normalizedQuery] = results;
+                renderDestinationResults(results, requestToken, query);
+            })
+            .catch(() => {
+                if (requestToken !== ws.searchRequestToken) return;
+                renderDestinationSearchMessage('Place search is unavailable right now.');
+            });
     }
 
     /* ── GPS tracking ── */
@@ -549,6 +833,7 @@
             const lat = pos.coords.latitude, lng = pos.coords.longitude;
             ws.routeSource = { lat, lng };
             setText('routeSourceStatus', `Live source: ${lat.toFixed(4)}, ${lng.toFixed(4)}`);
+            const shouldRecenter = !ws.userMarker || ws.activeTab === 'risk';
 
             if (!ws.userMarker) {
                 ws.userMarker = L.circleMarker([lat, lng], {
@@ -557,7 +842,7 @@
             } else {
                 ws.userMarker.setLatLng([lat, lng]);
             }
-            ws.map.setView([lat, lng], 14);
+            if (shouldRecenter) ws.map.setView([lat, lng], 14);
             if (ws.activeTab === 'risk') analyzePoint(lat, lng, 'current');
         }, () => setText('riskZoneLabel', 'Location permission required.'),
         { enableHighAccuracy: true, maximumAge: 15000, timeout: 20000 });
@@ -569,14 +854,14 @@
 
         const destInput = document.getElementById('routeDestInput');
         destInput.addEventListener('input', () => {
+            if (ws._dest && destInput.value.trim() !== ws._dest.label) {
+                ws._dest = null;
+            }
             clearTimeout(ws.searchTimer);
             ws.searchTimer = setTimeout(() => searchDestinations(destInput.value), 300);
         });
         destInput.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); buildRoute(); } });
         document.getElementById('buildRouteBtn').addEventListener('click', buildRoute);
-        document.getElementById('centerMapBtn').addEventListener('click', () => {
-            if (ws.routeSource) ws.map.setView([ws.routeSource.lat, ws.routeSource.lng], 14);
-        });
     });
 </script>
 {% endblock %}

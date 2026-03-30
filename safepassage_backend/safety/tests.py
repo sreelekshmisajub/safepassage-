@@ -6,7 +6,7 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
-from .models import CheckIn, CulturalGuide, EmergencyAlert, EmergencyContact, IncidentReport, RiskZone, SafeHaven, SafePassageUser, Shift, UserLocation
+from .models import CheckIn, CulturalGuide, EmergencyAlert, EmergencyContact, IncidentReport, RiskZone, SafeHaven, SafePassageUser, Shift, UserLocation, WorkerProfile
 
 
 class LandingPageTests(TestCase):
@@ -348,7 +348,8 @@ class TouristApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Cultural Safety Guide")
         self.assertContains(response, "/cultural-data/")
-        self.assertContains(response, "Quick Help Translation")
+        self.assertContains(response, "Scam Awareness")
+        self.assertContains(response, "Search a place in India")
 
     def test_cultural_data_endpoint_returns_aggregated_live_payload(self):
         response = self.client.get(reverse("cultural_data"), {"lat": 9.9312, "lng": 76.2673})
@@ -367,6 +368,15 @@ class TouristApiTests(TestCase):
         self.assertIn("official_lines", payload["emergency"])
         self.assertIn("location_insights", payload)
         self.assertIn("cultural_risk_score_meta", payload)
+
+    def test_scam_alerts_page_renders_live_location_search(self):
+        response = self.client.get(reverse("tourist_scam_alerts"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Live Scam Alerts")
+        self.assertContains(response, "Search a place in India")
+        self.assertContains(response, "/api/place-search/")
+        self.assertContains(response, "Scam Watch Feed")
 
     def test_sos_page_renders_live_dispatch_controls(self):
         response = self.client.get(reverse("tourist_sos"))
@@ -404,6 +414,12 @@ class WorkerModuleTests(TestCase):
             is_open_24_7=True,
         )
         UserLocation.objects.create(user=self.user, latitude=9.9674, longitude=76.2454)
+        WorkerProfile.objects.create(
+            user=self.user,
+            employee_id="NW-1001",
+            company_name="SafePassage Night Ops",
+            phone="9876543210",
+        )
         IncidentReport.objects.create(
             user=self.user,
             incident_type="harassment",
@@ -442,8 +458,34 @@ class WorkerModuleTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Search a place in India")
-        self.assertContains(response, "Use My Tracked Location")
+        self.assertContains(response, "Build Safe Route")
+        self.assertNotContains(response, "Use My Tracked Location")
         self.assertContains(response, "/api/worker/place-search/")
+
+    def test_worker_sos_page_renders_phone_target_form(self):
+        response = self.client.get(reverse("worker_sos"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "SOS Phone Target")
+        self.assertContains(response, "Save SOS Target")
+        self.assertContains(response, "/api/worker/sos-target/")
+
+    def test_worker_sos_target_endpoint_updates_worker_profile_phone(self):
+        response = self.client.post(
+            reverse("api_worker_sos_target"),
+            data=json.dumps({"name": "Night Supervisor", "phone": "9123456789"}),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["status"], "success")
+        self.assertEqual(payload["contact"]["phone"], "9123456789")
+        self.assertEqual(payload["contact"]["name"], "Night Supervisor")
+
+        worker_profile = WorkerProfile.objects.get(user=self.user)
+        self.assertEqual(worker_profile.emergency_contact_name, "Night Supervisor")
+        self.assertEqual(worker_profile.emergency_contact_phone, "9123456789")
 
     def test_worker_dashboard_page_exposes_saved_location_fallback_script(self):
         response = self.client.get(reverse("worker_dashboard"))
@@ -490,6 +532,112 @@ class WorkerModuleTests(TestCase):
         )
         self.assertEqual(checkin_response.status_code, 200)
         self.assertTrue(CheckIn.objects.filter(user=self.user, status="ok").exists())
+
+    def test_worker_shift_preferences_endpoint_saves_timings_and_leave_dates(self):
+        today = timezone.localdate().isoformat()
+        response = self.client.post(
+            reverse("api_worker_shift_preferences"),
+            data=json.dumps(
+                {
+                    "usual_shift_start": "20:00",
+                    "usual_shift_end": "05:00",
+                    "leave_dates": [today],
+                }
+            ),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["status"], "success")
+        self.user.worker_profile.refresh_from_db()
+        self.assertEqual(self.user.worker_profile.usual_shift_start.strftime("%H:%M"), "20:00")
+        self.assertEqual(self.user.worker_profile.usual_shift_end.strftime("%H:%M"), "05:00")
+        self.assertEqual(self.user.worker_profile.leave_dates, [today])
+        self.assertTrue(payload["schedule_preferences"]["leave_today"])
+
+    def test_worker_shift_escalation_auto_dispatches_after_two_minute_missed_checkin(self):
+        local_now = timezone.localtime()
+        worker_profile = self.user.worker_profile
+        worker_profile.usual_shift_start = (local_now - timedelta(minutes=3)).time().replace(second=0, microsecond=0)
+        worker_profile.usual_shift_end = (local_now + timedelta(hours=7, minutes=57)).time().replace(second=0, microsecond=0)
+        worker_profile.leave_dates = []
+        worker_profile.emergency_contact_name = "Night Supervisor"
+        worker_profile.emergency_contact_phone = "9123456789"
+        worker_profile.save(update_fields=["usual_shift_start", "usual_shift_end", "leave_dates", "emergency_contact_name", "emergency_contact_phone"])
+
+        response = self.client.get(reverse("api_worker_shift_escalation"))
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["escalation_level"], "sos")
+        self.assertEqual(payload["type"], "start")
+        self.assertEqual(payload["auto_sos_after_minutes"], 2)
+        self.assertEqual(payload["delivery_channels"]["sms_contacts"], 1)
+        self.assertEqual(payload["delivery_channels"]["whatsapp_contacts"], 1)
+        self.assertTrue(EmergencyAlert.objects.filter(user=self.user, mode="silent").exists())
+
+    def test_worker_shift_escalation_auto_dispatches_after_two_minute_missed_checkout(self):
+        local_now = timezone.localtime()
+        worker_profile = self.user.worker_profile
+        worker_profile.usual_shift_start = (local_now - timedelta(hours=8)).time().replace(second=0, microsecond=0)
+        worker_profile.usual_shift_end = (local_now - timedelta(minutes=3)).time().replace(second=0, microsecond=0)
+        worker_profile.leave_dates = []
+        worker_profile.emergency_contact_name = "Shift Manager"
+        worker_profile.emergency_contact_phone = "9234567890"
+        worker_profile.save(update_fields=["usual_shift_start", "usual_shift_end", "leave_dates", "emergency_contact_name", "emergency_contact_phone"])
+
+        Shift.objects.create(
+            user=self.user,
+            start_time=timezone.now() - timedelta(hours=8),
+            end_time=timezone.now() - timedelta(minutes=3),
+            actual_start=timezone.now() - timedelta(hours=8),
+            status="active",
+            company_name=worker_profile.company_name,
+        )
+
+        response = self.client.get(reverse("api_worker_shift_escalation"))
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["escalation_level"], "sos")
+        self.assertEqual(payload["type"], "end")
+        self.assertEqual(payload["auto_sos_after_minutes"], 2)
+        self.assertTrue(payload["auto_sos_dispatched"])
+        self.assertTrue(EmergencyAlert.objects.filter(user=self.user, mode="silent").exists())
+
+    def test_worker_shift_escalation_skips_auto_sos_on_leave_day(self):
+        today = timezone.localdate().isoformat()
+        local_now = timezone.localtime()
+        worker_profile = self.user.worker_profile
+        worker_profile.usual_shift_start = (local_now - timedelta(minutes=10)).time().replace(second=0, microsecond=0)
+        worker_profile.usual_shift_end = (local_now + timedelta(hours=7, minutes=50)).time().replace(second=0, microsecond=0)
+        worker_profile.leave_dates = [today]
+        worker_profile.save(update_fields=["usual_shift_start", "usual_shift_end", "leave_dates"])
+
+        response = self.client.get(reverse("api_worker_shift_escalation"))
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["escalation_level"], "leave")
+        self.assertFalse(EmergencyAlert.objects.filter(user=self.user, mode="silent").exists())
+
+    def test_worker_checkout_checkin_marks_shift_completed(self):
+        self.client.post(
+            reverse("start_shift"),
+            data=json.dumps({"lat": 9.9674, "lng": 76.2454}),
+            content_type="application/json",
+        )
+
+        response = self.client.post(
+            reverse("submit_checkin"),
+            data=json.dumps({"status": "checkout", "lat": 9.9674, "lng": 76.2454}),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(CheckIn.objects.filter(user=self.user, status="checkout").exists())
+        self.assertFalse(Shift.objects.filter(user=self.user, status="active").exists())
 
     def test_worker_safe_route_endpoint_returns_live_route_payload(self):
         response = self.client.get(
@@ -585,6 +733,34 @@ class WorkerModuleTests(TestCase):
         self.assertEqual(worker_profile.emergency_contact_phone, "9123456789")
         self.assertEqual(worker_profile.blood_group, "O+")
         self.assertContains(response, "Worker profile updated successfully.")
+
+    def test_worker_profile_requires_all_core_fields(self):
+        response = self.client.post(
+            reverse("worker_profile"),
+            {
+                "first_name": "Ravi",
+                "last_name": "",
+                "phone": "9876543210",
+                "employee_id": "NW-2207",
+                "company_name": "SafeShift Logistics",
+                "designation": "Field Supervisor",
+                "department": "Operations",
+                "work_location": "Ernakulam Junction Hub",
+                "home_address": "12 MG Road, Kochi",
+                "emergency_contact_name": "Anita Kumar",
+                "emergency_contact_phone": "9123456789",
+                "blood_group": "O+",
+                "usual_shift_start": "20:00",
+                "usual_shift_end": "05:00",
+            },
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Complete all required worker profile fields: Last name.")
+        self.user.refresh_from_db()
+        self.assertNotEqual(self.user.first_name, "Ravi")
+        self.assertEqual(self.user.worker_profile.employee_id, "NW-1001")
 
     def test_worker_emergency_api_uses_saved_location_when_gps_is_missing(self):
         response = self.client.post(

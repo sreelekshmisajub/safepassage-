@@ -1,24 +1,27 @@
 import joblib
 import numpy as np
-import os
 import pandas as pd
+from pathlib import Path
 
-# Define paths relative to this file
-# This file is at safepassage_backend/safety/ml_model.py
-# ml-models is at ml-models/
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-MODELS_DIR = os.path.join(BASE_DIR, "../ml-models")
+# Resolve the repo root before building artifact paths so Windows \\?\ paths
+# do not keep raw ".." segments, which breaks joblib open() during manage.py commands.
+REPO_ROOT = Path(__file__).resolve().parents[2]
+MODELS_DIR = REPO_ROOT / "ml-models"
+
+
+def _load_model_artifact(filename):
+    return joblib.load(MODELS_DIR / filename)
 
 # Load models and artifacts
-model = joblib.load(os.path.join(MODELS_DIR, 'safepassage_risk_model.pkl'))
-scaler = joblib.load(os.path.join(MODELS_DIR, 'scaler.pkl'))
+model = _load_model_artifact('safepassage_risk_model.pkl')
+scaler = _load_model_artifact('scaler.pkl')
 # The pipeline saved it as label_encoder.pkl
 try:
-    target_encoder = joblib.load(os.path.join(MODELS_DIR, 'target_encoder.pkl'))
+    target_encoder = _load_model_artifact('target_encoder.pkl')
 except FileNotFoundError:
-    target_encoder = joblib.load(os.path.join(MODELS_DIR, 'label_encoder.pkl'))
+    target_encoder = _load_model_artifact('label_encoder.pkl')
 
-feature_columns = joblib.load(os.path.join(MODELS_DIR, 'feature_columns.pkl'))
+feature_columns = _load_model_artifact('feature_columns.pkl')
 
 def predict_risk(features_dict):
     """

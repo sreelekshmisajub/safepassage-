@@ -1,29 +1,6 @@
 {% extends "admin_control/module_base.html" %}
 
 {% block admin_content %}
-<section class="summary-grid">
-    <article class="summary-card">
-        <div class="summary-label">Managed Users</div>
-        <div class="summary-value">{{ profile_payload.summary.managed_users }}</div>
-        <div class="summary-subtext">Non-admin users currently managed by this control center.</div>
-    </article>
-    <article class="summary-card">
-        <div class="summary-label">Open Incidents</div>
-        <div class="summary-value">{{ profile_payload.summary.open_incidents }}</div>
-        <div class="summary-subtext">Incident records still unresolved across the platform.</div>
-    </article>
-    <article class="summary-card">
-        <div class="summary-label">Open SOS Alerts</div>
-        <div class="summary-value">{{ profile_payload.summary.open_sos_alerts }}</div>
-        <div class="summary-subtext">SOS alerts not yet marked as resolved.</div>
-    </article>
-    <article class="summary-card">
-        <div class="summary-label">Safe Havens</div>
-        <div class="summary-value">{{ profile_payload.summary.safe_havens }}</div>
-        <div class="summary-subtext">Verified safe-zone records visible from your account.</div>
-    </article>
-</section>
-
 <section class="panel-grid two-col">
     <article class="panel-card">
         <div class="panel-header">
@@ -87,19 +64,5 @@
             </div>
         </form>
     </article>
-</section>
-
-<section class="panel-card mt-4">
-    <div class="panel-header">
-        <div>
-            <h2 class="panel-title">Admin Permissions</h2>
-            <p class="panel-subtitle">Operational capabilities currently associated with this admin account.</p>
-        </div>
-    </div>
-    <div class="permission-list">
-        {% for permission in profile_payload.permissions %}
-        <div class="permission-item">{{ permission }}</div>
-        {% endfor %}
-    </div>
 </section>
 {% endblock %}

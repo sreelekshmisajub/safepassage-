@@ -1,6 +1,34 @@
 {% extends "admin_control/module_base.html" %}
 
 {% block admin_content %}
+<section class="panel-card mb-4">
+    <div class="panel-header">
+        <div>
+            <h2 class="panel-title">Filter Incidents</h2>
+            <p class="panel-subtitle">Focus on reported, reviewing, or resolved incident records.</p>
+        </div>
+    </div>
+    <form method="get" class="filter-form">
+        <div class="admin-field">
+            <label for="incidentStatusFilter">Status</label>
+            <select id="incidentStatusFilter" name="status">
+                <option value="">All statuses</option>
+                <option value="reported" {% if incidents_payload.status_filter == "reported" %}selected{% endif %}>Reported</option>
+                <option value="reviewing" {% if incidents_payload.status_filter == "reviewing" %}selected{% endif %}>Reviewing</option>
+                <option value="resolved" {% if incidents_payload.status_filter == "resolved" %}selected{% endif %}>Resolved</option>
+            </select>
+        </div>
+        <div class="admin-field">
+            <label>&nbsp;</label>
+            <button class="btn btn-primary rounded-pill w-100" type="submit">Apply Filter</button>
+        </div>
+        <div class="admin-field">
+            <label>&nbsp;</label>
+            <a class="btn btn-outline-secondary rounded-pill w-100" href="{% url 'admin_incidents' %}">Clear</a>
+        </div>
+    </form>
+</section>
+
 <section class="summary-grid">
     <article class="summary-card">
         <div class="summary-label">Total Incidents</div>
