@@ -210,6 +210,7 @@
                         <div class="editable-field">
                             <select name="nationality" class="form-control form-control-custom">
                                 <option value="" {% if not profile.nationality %}selected{% endif %}>Select nationality</option>
+                                <option value="India" {% if profile.nationality == 'India' %}selected{% endif %}>India</option>
                                 <option value="American" {% if profile.nationality == 'American' %}selected{% endif %}>American</option>
                                 <option value="British" {% if profile.nationality == 'British' %}selected{% endif %}>British</option>
                                 <option value="Canadian" {% if profile.nationality == 'Canadian' %}selected{% endif %}>Canadian</option>

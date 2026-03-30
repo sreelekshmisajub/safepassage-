@@ -109,7 +109,7 @@
     .risk-medium { background: rgba(245, 158, 11, 0.18); color: #b45309; }
     .risk-high { background: rgba(239, 68, 68, 0.14); color: #b91c1c; }
     .risk-unavailable { background: rgba(148, 163, 184, 0.18); color: #475569; }
-    .content-grid { display: grid; gap: 18px; grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.95fr); }
+    .content-grid { display: grid; gap: 18px; grid-template-columns: 1fr; }
     .column-stack { display: flex; flex-direction: column; gap: 18px; }
     .panel-head { align-items: flex-start; display: flex; gap: 12px; justify-content: space-between; padding: 20px 22px 0; }
     .panel-title { color: #0f172a; font-size: 1.05rem; font-weight: 800; margin: 0; }
@@ -162,8 +162,7 @@
             <div class="scam-kicker">Tourist Mode</div>
             <h1 class="scam-title">Live Scam Alerts</h1>
             <p class="scam-subtitle">
-                Track scam hotspots, fraud-related incident reports, and location-matched protection guidance for your live position
-                or any searched place in India.
+                Track location-based scam exposure and verified support options for your live position or any searched place in India.
             </p>
             <div class="hero-meta">
                 <span class="hero-pill" id="scamStatusPill">Waiting for location sync</span>
@@ -218,67 +217,6 @@
 
         <section class="content-grid">
             <div class="column-stack">
-                <article class="panel-card">
-                    <div class="panel-head">
-                        <div>
-                            <h2 class="panel-title">Scam Watch Feed</h2>
-                            <p class="panel-subtitle">Live fraud-related reports and alerts detected near the selected tourist area.</p>
-                        </div>
-                        <span class="risk-badge risk-unavailable" id="scamWatchBadge">LOCATING</span>
-                    </div>
-                    <div class="panel-body">
-                        <div class="stack-list" id="scamFeed">
-                            <div class="empty-state">No live scam feed yet. GPS or place search will populate nearby scam intelligence.</div>
-                        </div>
-                    </div>
-                </article>
-
-                <article class="panel-card">
-                    <div class="panel-head">
-                        <div>
-                            <h2 class="panel-title">Hotspot Corridor</h2>
-                            <p class="panel-subtitle">
-                                Hotspots are nearby risk-zone records linked to scam, fraud, fake-guide, pickpocket, or overcharge patterns.
-                            </p>
-                        </div>
-                    </div>
-                    <div class="panel-body">
-                        <div class="stack-list" id="scamHotspotFeed">
-                            <div class="empty-state">No scam hotspot corridor has been recorded near this area yet.</div>
-                        </div>
-                    </div>
-                </article>
-            </div>
-
-            <div class="column-stack">
-                <article class="panel-card">
-                    <div class="panel-head">
-                        <div>
-                            <h2 class="panel-title">Common Scam Patterns</h2>
-                            <p class="panel-subtitle">Location-matched scam warnings drawn from the live cultural intelligence payload.</p>
-                        </div>
-                    </div>
-                    <div class="panel-body">
-                        <div class="stack-list" id="scamPatternFeed">
-                            <div class="empty-state">Pattern guidance will appear after scam intelligence is loaded for this area.</div>
-                        </div>
-                    </div>
-                </article>
-
-                <article class="panel-card">
-                    <div class="panel-head">
-                        <div>
-                            <h2 class="panel-title">Protection Guidance</h2>
-                            <p class="panel-subtitle">Practical steps based on live tourist safety advice and cultural guidance for this place.</p>
-                        </div>
-                    </div>
-                    <div class="panel-body">
-                        <div class="stack-list" id="scamProtectionFeed">
-                            <div class="empty-state">Protection guidance will load after live location or place search sync.</div>
-                        </div>
-                    </div>
-                </article>
-
                 <article class="panel-card">
                     <div class="panel-head">
                         <div>
@@ -398,83 +336,6 @@
         `).join('');
     }
 
-    function scamRenderFeed(items) {
-        scamRenderList(
-            'scamFeed',
-            items,
-            (item) => `
-                <article class="stack-item">
-                    <div class="d-flex justify-content-between align-items-start gap-3">
-                        <strong>${scamEscapeHtml(item.title || 'Scam alert')}</strong>
-                        <span class="risk-badge ${scamRiskClass(item.severity)}">${scamEscapeHtml(item.severity || 'UNAVAILABLE')}</span>
-                    </div>
-                    <p>${scamEscapeHtml(item.description || 'Scam-related alert recorded near this area.')}</p>
-                    <div class="meta-row">
-                        <span>${scamEscapeHtml(scamFormatDistance(item.distance_km))}</span>
-                        <span>${scamEscapeHtml(item.source_label || item.source || 'live-alert')}</span>
-                        ${item.location_label ? `<span>${scamEscapeHtml(item.location_label)}</span>` : ''}
-                    </div>
-                </article>
-            `,
-            'No live scam feed is stored for this area right now.'
-        );
-    }
-
-    function scamRenderHotspots(items) {
-        scamRenderList(
-            'scamHotspotFeed',
-            items,
-            (item) => `
-                <article class="stack-item">
-                    <div class="d-flex justify-content-between align-items-start gap-3">
-                        <strong>${scamEscapeHtml(item.city || item.risk_type || 'Scam hotspot')}</strong>
-                        <span class="risk-badge ${scamRiskClass(item.risk_label || item.severity)}">${scamEscapeHtml(item.risk_label || item.severity || 'UNAVAILABLE')}</span>
-                    </div>
-                    <p>${scamEscapeHtml(item.description || 'Scam hotspot recorded near this area.')}</p>
-                    <div class="meta-row">
-                        <span>${scamEscapeHtml(scamFormatDistance(item.distance_km))}</span>
-                        <span>${scamEscapeHtml(item.risk_type || 'risk-zone')}</span>
-                    </div>
-                </article>
-            `,
-            'No scam hotspot corridor has been recorded near this area yet.'
-        );
-    }
-
-    function scamRenderPatterns(items) {
-        scamRenderList(
-            'scamPatternFeed',
-            items,
-            (item) => `
-                <article class="stack-item">
-                    <strong>${scamEscapeHtml(item.title || 'Scam pattern')}</strong>
-                    <p>${scamEscapeHtml(item.content || '')}</p>
-                    <div class="meta-row"><span class="meta-pill">${scamEscapeHtml(item.source_label || item.source || 'Guide library')}</span></div>
-                </article>
-            `,
-            'No scam-pattern guidance is stored for this place yet.'
-        );
-    }
-
-    function scamRenderProtection(culture, risk) {
-        const guidance = [];
-        if (risk && risk.advice) guidance.push({ title: 'Live safety advice', content: risk.advice, source_label: 'Risk engine' });
-        (culture && Array.isArray(culture.donts) ? culture.donts : []).slice(0, 2).forEach((item) => guidance.push(item));
-        (culture && Array.isArray(culture.dos) ? culture.dos : []).slice(0, 2).forEach((item) => guidance.push(item));
-        scamRenderList(
-            'scamProtectionFeed',
-            guidance,
-            (item) => `
-                <article class="stack-item">
-                    <strong>${scamEscapeHtml(item.title || 'Tourist guidance')}</strong>
-                    <p>${scamEscapeHtml(item.content || '')}</p>
-                    <div class="meta-row"><span class="meta-pill">${scamEscapeHtml(item.source_label || item.source || 'Live guidance')}</span></div>
-                </article>
-            `,
-            'No live protection guidance is available for this area right now.'
-        );
-    }
-
     function scamRenderSupport(resources) {
         scamRenderList(
             'scamSupportFeed',
@@ -527,7 +388,6 @@
         const riskLabel = String((culture && culture.risk_label) || (risk && risk.risk_label) || 'UNAVAILABLE').toUpperCase();
         const riskScore = (culture && culture.risk_score) != null ? culture.risk_score : risk && risk.risk_score;
         const riskBadge = document.getElementById('scamRiskBadge');
-        const watchBadge = document.getElementById('scamWatchBadge');
 
         scamSetText('scamZoneLabel', (culture && culture.location) || (risk && risk.location) || 'Live location unavailable');
         scamSetText('scamZoneAdvice', (culture && culture.risk_advice) || (risk && risk.advice) || 'No live scam guidance available.');
@@ -550,15 +410,11 @@
             riskBadge.textContent = riskLabel;
             riskBadge.className = `risk-badge ${scamRiskClass(riskLabel)}`;
         }
-        if (watchBadge) {
-            watchBadge.textContent = riskLabel;
-            watchBadge.className = `risk-badge ${scamRiskClass(riskLabel)}`;
-        }
     }
 
     function scamRefresh(lat, lng) {
         const params = new URLSearchParams({ lat: Number(lat).toFixed(6), lng: Number(lng).toFixed(6) });
-        scamSetStatus('Syncing live scam feed');
+        scamSetStatus('Syncing scam alerts');
         Promise.all([
             scamFetchJson(`/cultural-data/?${params.toString()}`),
             scamFetchJson(`/api/predict-risk/?${params.toString()}`),
@@ -569,20 +425,12 @@
                 ? risk.nearby_resources.filter((item) => ['Police Station', 'Hospital'].includes(item.type))
                 : [];
             scamUpdateSummary(culture, risk, signals, supportResources);
-            scamRenderFeed(signals.merged);
-            scamRenderHotspots(signals.hotspots);
-            scamRenderPatterns(Array.isArray(culture && culture.risk_behaviors) ? culture.risk_behaviors : []);
-            scamRenderProtection(culture, risk);
             scamRenderSupport(supportResources);
             scamSetStatus(signals.merged.length ? 'Live scam alerts active' : 'No scam alerts active nearby');
         }).catch(() => {
             scamSetText('scamZoneAdvice', 'Live scam data could not be loaded. Try again or switch to a searched place.');
-            scamRenderFeed([]);
-            scamRenderHotspots([]);
-            scamRenderPatterns([]);
-            scamRenderProtection(null, null);
             scamRenderSupport([]);
-            scamSetStatus('Scam feed unavailable');
+            scamSetStatus('Scam alerts unavailable');
         });
     }
 
