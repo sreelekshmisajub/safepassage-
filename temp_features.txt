@@ -1,1 +1,0 @@
-Total_Crimes,Avg_Severity,Night_Crime_Ratio,Weekend_Crime_Ratio,Police_Deployment,Case_Closure_Rate,State_Crime_Rate,Population_Density,Tourist_Risk_Factor,Night_Worker_Risk

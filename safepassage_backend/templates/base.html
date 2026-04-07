@@ -193,11 +193,9 @@
 
     <!-- Global Emergency Button -->
     {% if not user.is_authenticated or user.role == 'tourist' or user.role == 'worker' %}
-    <a class="panic-btn panic-pulse text-decoration-none" id="globalPanicBtn"
-        href="{% if not user.is_authenticated %}/login/{% elif user.role == 'worker' %}/worker/sos/{% else %}/sos/{% endif %}"
-        aria-label="Emergency SOS">
+    <button class="panic-btn panic-pulse" id="globalPanicBtn" onclick="sendSOS()" aria-label="Emergency SOS">
         <i class="bi bi-shield-fill-exclamation text-white"></i>
-    </a>
+    </button>
     {% endif %}
 
     <!-- Footer -->
@@ -243,6 +241,72 @@
 
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        function sendSOS() {
+            {% if not user.is_authenticated %}
+                window.location.href = '/login/';
+                return;
+            {% endif %}
+
+            if (!confirm('🚨 EMERGENCY SOS: Are you sure you want to trigger an alert? This will send your real-time location to your registered email.')) {
+                return;
+            }
+
+            const btn = document.getElementById('globalPanicBtn');
+            const originalHTML = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>';
+
+            console.log('SOS: Starting location capture...');
+
+            // Get Geolocation
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        console.log('SOS: GPS captured:', position.coords.latitude, position.coords.longitude);
+                        triggerSOS(position.coords.latitude, position.coords.longitude);
+                    },
+                    (error) => {
+                        console.warn('SOS: Geolocation denied/failed:', error.message);
+                        alert('Location access denied. Sending SOS without GPS coordinates.');
+                        triggerSOS('Unknown', 'Unknown');
+                    },
+                    { enableHighAccuracy: true, timeout: 8000 }
+                );
+            } else {
+                console.warn('SOS: Browser does not support geolocation');
+                triggerSOS('Unknown', 'Unknown');
+            }
+
+            function triggerSOS(lat, lng) {
+                console.log(`SOS: Dispatching to server (/sos-trigger/?lat=${lat}&lng=${lng})...`);
+                fetch(`/sos-trigger/?lat=${lat}&lng=${lng}`, {
+                    method: 'GET',
+                    credentials: 'include'
+                })
+                .then(res => res.json())
+                .then(data => {
+                    console.log('SOS: Server response:', data);
+                    if (data.status.includes('sent') || data.status.includes('Dispatched')) {
+                        alert('✅ SOS ALERT DISPATCHED!\nAn emergency email has been sent successfully.');
+                    } else if (data.status === 'error' || data.error) {
+                        alert('❌ ERROR: ' + (data.error || data.message || 'Server rejected the request'));
+                    } else {
+                        alert('Status: ' + data.status);
+                    }
+                })
+                .catch(err => {
+                    console.error('SOS: Server Fetch Error:', err);
+                    alert('❌ NETWORK ERROR: Failed to reach the server. Please check your connection.');
+                })
+                .finally(() => {
+                    btn.disabled = false;
+                    btn.innerHTML = originalHTML;
+                });
+            }
+        }
+    </script>
+
     {% block extra_js %}{% endblock %}
 </body>
 

@@ -16,6 +16,7 @@ urlpatterns = [
     path('scam-alerts/', views.tourist_scam_alerts, name='tourist_scam_alerts'),
     path('emergency/', views.tourist_emergency_contacts, name='tourist_emergency_contacts'),
     path('sos/', views.tourist_emergency, name='tourist_sos'),
+    path('sos-trigger/', views.sos_alert, name='sos_trigger'),
     path('alerts/', views.tourist_alerts, name='tourist_alerts'),
     path('translate/', views.tourist_translate, name='tourist_translate'),
     path('profile/', views.tourist_profile, name='tourist_profile_hub'),
@@ -109,4 +110,5 @@ urlpatterns = [
     path('api/update-contact/<int:contact_id>/', views.update_contact, name='update_contact'),
     path('api/get-contact/<int:contact_id>/', views.get_contact, name='get_contact'),
     path('api/delete-contact/<int:contact_id>/', views.delete_contact, name='delete_contact'),
+    path('sos/confirm/<uuid:token>/', views.api_sos_acknowledge, name='api_sos_acknowledge'),
 ]

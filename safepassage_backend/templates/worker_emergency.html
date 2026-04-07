@@ -100,14 +100,20 @@
     <section class="worker-sos-shell">
         <div class="small text-uppercase text-danger fw-bold">Night Worker Emergency Center</div>
         <h1 class="fw-bold mt-2">Sound to Call for Rescue | Emergency alarm SOS</h1>
-        <button class="worker-sos-button" type="button" id="workerSosButton">
-            <i class="bi bi-shield-fill-exclamation fs-1 mb-2"></i>
-            Send SOS
-        </button>
-        <div class="d-flex flex-wrap justify-content-center gap-3">
-            <button class="btn btn-outline-danger rounded-pill px-4 py-2 fw-bold" type="button" id="workerVoiceToggle">Voice SOS: Off</button>
-            <span class="text-muted" id="workerSosStatus">No worker emergency alert has been sent in this session.</span>
+        <div class="d-flex flex-column align-items-center gap-3 my-4">
+            <div class="d-grid gap-3 w-100" style="max-width: 400px;">
+                <button class="btn btn-danger rounded-pill py-3 fw-bold fs-5 shadow-sm" type="button" id="silentSosButton">
+                    <i class="bi bi-shield-fill-exclamation me-2"></i>SILENT ALERT
+                </button>
+                <button class="btn btn-dark rounded-pill py-3 fw-bold fs-5 shadow-sm" type="button" id="loudSosButton">
+                    <i class="bi bi-megaphone-fill me-2"></i>LOUD ALARM
+                </button>
+                <button class="btn btn-outline-secondary rounded-pill py-2 fw-bold" type="button" id="stopAlarmButton" style="display:none;">
+                    <i class="bi bi-slash-circle me-1"></i>Stop Alarm
+                </button>
+            </div>
         </div>
+        <div class="small text-muted" id="workerSosStatus">System armed. Click a button above to trigger dispatch.</div>
         <div class="worker-sos-grid">
             <div class="info-card">
                 <h5 class="fw-bold mb-2">SOS Phone Target</h5>
@@ -141,7 +147,23 @@
             </div>
             <div class="info-card">
                 <h5 class="fw-bold mb-3">Last Alert</h5>
-                <div class="text-muted">{% if latest_alert %}{{ latest_alert.timestamp }} | {{ latest_alert.mode|upper }}{% if latest_alert_location %} | {{ latest_alert_location }}{% endif %}{% else %}No worker SOS recorded yet.{% endif %}</div>
+                <div class="text-muted">
+                    {% if latest_alert %}
+                        <div class="mb-1 fw-bold text-dark">{{ latest_alert.timestamp }} | {{ latest_alert.mode|upper }}</div>
+                        <div class="small">
+                            <i class="bi bi-geo-alt me-1"></i>{% if latest_alert_location %}{{ latest_alert_location }}{% else %}{{ latest_alert.latitude }}, {{ latest_alert.longitude }}{% endif %}
+                        </div>
+                        {% if latest_alert.acknowledged_at %}
+                        <div class="mt-1 text-success fw-bold small">
+                            <i class="bi bi-check-all me-1"></i>Received ({{ latest_alert.acknowledged_at|date:"H:i:s" }})
+                        </div>
+                        {% else %}
+                        <div class="mt-1 text-muted small fst-italic">Waiting for contact confirmation...</div>
+                        {% endif %}
+                    {% else %}
+                        No worker SOS recorded yet.
+                    {% endif %}
+                </div>
             </div>
             <div class="info-card" style="grid-column: span 2;">
                 <div class="d-flex justify-content-between align-items-center mb-3">
@@ -179,257 +201,95 @@
 
 {% block extra_js %}
 <script>
-    let workerVoiceActive = false;
     let workerAlarmState = null;
     let workerAlarmTimer = null;
-    const workerSavedTarget = {
-        name: '{{ worker.emergency_contact_name|default:""|escapejs }}',
-        phone: '{{ worker.emergency_contact_phone|default:""|escapejs }}',
-    };
 
     function stopWorkerAlarm() {
-        if (workerAlarmTimer) {
-            clearTimeout(workerAlarmTimer);
-            workerAlarmTimer = null;
-        }
+        if (workerAlarmTimer) { clearTimeout(workerAlarmTimer); workerAlarmTimer = null; }
         if (workerAlarmState) {
-            if (workerAlarmState.intervalId) {
-                clearInterval(workerAlarmState.intervalId);
-            }
-            try {
-                workerAlarmState.oscillators.forEach((oscillator) => oscillator.stop());
-            } catch (error) {}
-            try {
-                workerAlarmState.audioContext.close();
-            } catch (error) {}
+            if (workerAlarmState.intervalId) clearInterval(workerAlarmState.intervalId);
+            try { workerAlarmState.oscillators.forEach(o => o.stop()); } catch(e){}
+            try { workerAlarmState.audioContext.close(); } catch(e){}
             workerAlarmState = null;
         }
-    }
-
-    function scheduleWorkerIntensePattern(audioContext, oscillators, startTime) {
-        const pattern = [
-            { start: 880, end: 1240, duration: 0.6 },
-            { start: 1240, end: 960, duration: 0.6 },
-            { start: 1040, end: 1480, duration: 0.25 },
-            { start: 1480, end: 1040, duration: 0.25 },
-            { start: 1600, end: 1900, duration: 0.15 },
-        ];
-
-        oscillators.forEach((oscillator) => oscillator.frequency.cancelScheduledValues(startTime));
-
-        let cursor = startTime;
-        pattern.forEach((segment) => {
-            oscillators[0].frequency.setValueAtTime(segment.start, cursor);
-            oscillators[0].frequency.exponentialRampToValueAtTime(segment.end, cursor + segment.duration);
-
-            oscillators[1].frequency.setValueAtTime(segment.start / 2, cursor);
-            oscillators[1].frequency.exponentialRampToValueAtTime(segment.end / 2, cursor + segment.duration);
-
-            oscillators[2].frequency.setValueAtTime((segment.start * 3) / 2, cursor);
-            oscillators[2].frequency.exponentialRampToValueAtTime((segment.end * 3) / 2, cursor + segment.duration);
-
-            oscillators[3].frequency.setValueAtTime(segment.start * 2.2, cursor);
-            oscillators[3].frequency.exponentialRampToValueAtTime(segment.end * 2.2, cursor + segment.duration);
-            
-            cursor += segment.duration;
-        });
-
-        return cursor - startTime;
+        document.getElementById('stopAlarmButton').style.display = 'none';
     }
 
     async function startWorkerAlarm() {
-        if (workerAlarmState) {
-            if (workerAlarmState.audioContext.state === 'suspended') {
-                try {
-                    await workerAlarmState.audioContext.resume();
-                } catch (error) {}
-            }
-            return workerAlarmState.audioContext.state === 'running';
-        }
-
-        stopWorkerAlarm();
+        if (workerAlarmState) return true;
         const AudioContextRef = window.AudioContext || window.webkitAudioContext;
-        if (!AudioContextRef) {
-            return false;
-        }
-
+        if (!AudioContextRef) return false;
         try {
-            const audioContext = new AudioContextRef();
-            const filter = audioContext.createBiquadFilter();
-            filter.type = 'lowpass';
-            filter.frequency.setValueAtTime(1800, audioContext.currentTime);
-            filter.Q.value = 1.2;
-
-            const masterGain = audioContext.createGain();
-            masterGain.gain.setValueAtTime(0.0001, audioContext.currentTime);
-            masterGain.gain.exponentialRampToValueAtTime(0.45, audioContext.currentTime + 0.06);
-
-            filter.connect(masterGain);
-            masterGain.connect(audioContext.destination);
-
-            const primary = audioContext.createOscillator();
-            primary.type = 'sawtooth';
-            const body = audioContext.createOscillator();
-            body.type = 'triangle';
-            const edge = audioContext.createOscillator();
-            edge.type = 'square';
-            const piercing = audioContext.createOscillator();
-            piercing.type = 'square';
+            const ctx = new AudioContextRef();
+            const filter = ctx.createBiquadFilter(); filter.type = 'lowpass'; filter.frequency.value = 1800;
+            const masterGain = ctx.createGain(); masterGain.gain.setValueAtTime(0.0001, ctx.currentTime);
+            masterGain.gain.exponentialRampToValueAtTime(0.45, ctx.currentTime + 0.08);
+            filter.connect(masterGain); masterGain.connect(ctx.destination);
             
-            const primaryGain = audioContext.createGain();
-            primaryGain.gain.value = 0.12;
-            const bodyGain = audioContext.createGain();
-            bodyGain.gain.value = 0.08;
-            const edgeGain = audioContext.createGain();
-            edgeGain.gain.value = 0.025;
-            const piercingGain = audioContext.createGain();
-            piercingGain.gain.value = 0.015;
-            
-            primary.connect(primaryGain);
-            body.connect(bodyGain);
-            edge.connect(edgeGain);
-            piercing.connect(piercingGain);
-            primaryGain.connect(filter);
-            bodyGain.connect(filter);
-            edgeGain.connect(filter);
-            piercingGain.connect(filter);
-            
-            const tremolo = audioContext.createOscillator();
-            tremolo.type = 'sine';
-            tremolo.frequency.setValueAtTime(12.5, audioContext.currentTime);
-            const tremoloDepth = audioContext.createGain();
-            tremoloDepth.gain.setValueAtTime(0.08, audioContext.currentTime);
-            tremolo.connect(tremoloDepth);
-            tremoloDepth.connect(masterGain.gain);
+            const o1 = ctx.createOscillator(); o1.type = 'sawtooth';
+            const o2 = ctx.createOscillator(); o2.type = 'square';
+            [o1, o2].forEach(o => { o.connect(filter); o.start(); });
 
-            primary.start();
-            body.start();
-            edge.start();
-            piercing.start();
-            tremolo.start();
-
-            const oscillators = [primary, body, edge, piercing];
-            const cycleDuration = scheduleWorkerIntensePattern(audioContext, oscillators, audioContext.currentTime + 0.02);
             const intervalId = setInterval(() => {
-                scheduleWorkerIntensePattern(audioContext, oscillators, audioContext.currentTime + 0.04);
-            }, Math.max(400, Math.round((cycleDuration - 0.04) * 1000)));
+                const now = ctx.currentTime;
+                o1.frequency.linearRampToValueAtTime(880, now + 0.5);
+                o1.frequency.linearRampToValueAtTime(440, now + 1.0);
+            }, 1000);
 
-            if (audioContext.state === 'suspended') {
-                await audioContext.resume();
-            }
-
-            workerAlarmState = {
-                audioContext,
-                oscillators: [primary, body, edge, piercing, tremolo],
-                intervalId,
-            };
-            workerAlarmTimer = setTimeout(stopWorkerAlarm, 12000);
-            return audioContext.state === 'running';
-        } catch (error) {
-            stopWorkerAlarm();
-            return false;
-        }
+            workerAlarmState = { audioContext: ctx, oscillators: [o1, o2], intervalId };
+            document.getElementById('stopAlarmButton').style.display = 'inline-block';
+            return true;
+        } catch (e) { return false; }
     }
 
-    async function workerSendSos() {
-        const soundStarted = await startWorkerAlarm();
-        resolveCurrentLocation().then((coords) => {
-            const requestBody = { mode: 'loud' };
-            if (coords) {
-                requestBody.latitude = coords.lat;
-                requestBody.longitude = coords.lng;
-            }
+    function triggerWorkerSOS(mode) {
+        const statusNode = document.getElementById('workerSosStatus');
+        const siren = (mode === 'loud');
+        
+        statusNode.textContent = '🚨 Locating and sending SOS...';
+
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                async (position) => {
+                    const lat = position.coords.latitude;
+                    const lng = position.coords.longitude;
+                    if (siren) await startWorkerAlarm();
+                    sendToServer(lat, lng, mode);
+                },
+                async (error) => {
+                    if (siren) await startWorkerAlarm();
+                    sendToServer(null, null, mode);
+                },
+                { enableHighAccuracy: true, timeout: 5000 }
+            );
+        } else {
+            sendToServer(null, null, mode);
+        }
+
+        function sendToServer(lat, lng, mode) {
             fetch('/api/emergency/', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'X-CSRFToken': '{{ csrf_token }}'
                 },
-                body: JSON.stringify(requestBody)
-            }).then((response) => response.json()).then((payload) => {
-                document.getElementById('workerSosStatus').textContent = payload.status === 'success'
-                    ? `Worker SOS sent for ${payload.location || 'your tracked location'}.`
-                    : (payload.message || 'Worker SOS dispatch failed.');
-                document.getElementById('workerDispatchMeta').textContent = payload.status === 'success'
-                    ? `Admin and emergency monitoring have been notified for ${payload.location || 'your tracked worker location'} using ${payload.location_source === 'saved' ? 'the last stored coordinates' : 'live GPS'}.${soundStarted ? ' Ambulance siren started locally.' : ' Alarm audio was not available in this browser.'}`
-                    : 'The live emergency endpoint did not confirm dispatch.';
-            }).catch(() => {
-                document.getElementById('workerSosStatus').textContent = 'Worker SOS dispatch failed.';
-                document.getElementById('workerDispatchMeta').textContent = soundStarted
-                    ? 'The local ambulance siren started, but the emergency request could not be confirmed.'
-                    : 'The alarm audio and emergency request could not be confirmed.';
-            });
-        });
-    }
-
-    function workerUpdateTargetStatus(name, phone) {
-        const statusNode = document.getElementById('workerSosTargetStatus');
-        if (name && phone) {
-            statusNode.textContent = `Current worker SOS target: ${name} at ${phone}.`;
-        } else {
-            statusNode.textContent = 'No direct worker SOS phone target is saved yet.';
-        }
-    }
-
-    function workerSaveSosTarget() {
-        const name = document.getElementById('workerSosTargetName').value.trim();
-        const phone = document.getElementById('workerSosTargetPhone').value.trim();
-        const statusNode = document.getElementById('workerSosTargetStatus');
-
-        if (!/^[a-zA-Z\s]{2,}$/.test(name)) {
-            statusNode.textContent = 'Enter a valid contact name using at least 2 alphabetic characters.';
-            return;
-        }
-        if (!/^\d{10}$/.test(phone)) {
-            statusNode.textContent = 'Enter a valid 10-digit mobile number.';
-            return;
-        }
-
-        statusNode.textContent = 'Saving worker SOS target...';
-        fetch('/api/worker/sos-target/', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': '{{ csrf_token }}'
-            },
-            body: JSON.stringify({ name, phone })
-        }).then((response) => response.json())
-            .then((payload) => {
-                if (payload.status !== 'success') {
-                    statusNode.textContent = payload.message || 'Unable to save the worker SOS target.';
-                    return;
-                }
-                workerSavedTarget.name = payload.contact ? payload.contact.name : name;
-                workerSavedTarget.phone = payload.contact ? payload.contact.phone : phone;
-                workerUpdateTargetStatus(workerSavedTarget.name, workerSavedTarget.phone);
-                document.getElementById('workerDispatchMeta').textContent = `Worker SOS will include ${workerSavedTarget.name} at ${workerSavedTarget.phone} in the dispatch list, together with the real emergency endpoint.`;
+                body: JSON.stringify({ latitude: lat, longitude: lng, mode: mode })
             })
-            .catch(() => {
-                statusNode.textContent = 'Unable to save the worker SOS target right now.';
+            .then(res => res.json())
+            .then(data => {
+                const info = data.status === 'success' ? `✅ SOS Dispatched to ${data.notified_contacts || 0} contacts successfully.` : '❌ Error: ' + (data.message || 'Server error');
+                statusNode.textContent = info;
+            })
+            .catch(err => {
+                statusNode.textContent = '❌ Network Error. Alert failed.';
             });
+        }
     }
 
     document.addEventListener('DOMContentLoaded', () => {
-        document.getElementById('workerSosButton').addEventListener('click', workerSendSos);
-        document.getElementById('workerVoiceToggle').addEventListener('click', () => {
-            workerVoiceActive = !workerVoiceActive;
-            document.getElementById('workerVoiceToggle').textContent = workerVoiceActive ? 'Voice SOS: On' : 'Voice SOS: Off';
-        });
-        document.getElementById('workerSaveSosTargetButton').addEventListener('click', workerSaveSosTarget);
-        workerUpdateTargetStatus(workerSavedTarget.name, workerSavedTarget.phone);
-        resolveCurrentLocation().then((coords) => {
-            if (!coords) return;
-            fetch(`/api/worker/risk/?lat=${coords.lat}&lng=${coords.lng}`)
-                .then((response) => response.json())
-                .then((payload) => {
-                    if (payload.location) {
-                        document.getElementById('workerDispatchMeta').textContent = workerSavedTarget.name && workerSavedTarget.phone
-                            ? `Current live area: ${payload.location}. Worker SOS will notify ${workerSavedTarget.name} at ${workerSavedTarget.phone} together with the real emergency endpoint.`
-                            : `Current live area: ${payload.location}. The system will send the alert through the real emergency endpoint.`;
-                    }
-                })
-                .catch(() => {});
-        });
+        document.getElementById('silentSosButton').addEventListener('click', () => triggerWorkerSOS('silent'));
+        document.getElementById('loudSosButton').addEventListener('click', () => triggerWorkerSOS('loud'));
+        document.getElementById('stopAlarmButton').addEventListener('click', stopWorkerAlarm);
     });
 </script>
 {% endblock %}

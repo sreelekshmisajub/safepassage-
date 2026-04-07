@@ -552,6 +552,7 @@
             const deliveryChannels = payload.delivery_channels || {};
             const smsCount = Number(deliveryChannels.sms_contacts || 0);
             const whatsappCount = Number(deliveryChannels.whatsapp_contacts || 0);
+            const emailCount = Number(deliveryChannels.email_contacts || 0);
             const contactNames = Array.isArray(payload.contact_deliveries)
                 ? payload.contact_deliveries.slice(0, 3).map(contact => contact.name).join(', ')
                 : '';
@@ -559,7 +560,7 @@
                 mode === 'loud' ? 'LOUD ALERT' : 'SENT',
                 mode === 'loud' ? 'risk-high' : 'risk-low',
                 `${mode === 'loud' ? 'Loud' : 'Silent'} SOS dispatched.`,
-                `Alert source: ${sourceLabel}. SMS: ${smsCount}, WhatsApp: ${whatsappCount}. ${contactNames ? `Selected contacts: ${contactNames}. ` : ''}Location: ${formatLocationLabel(payload.location, emergencyState.lat, emergencyState.lng, 'your coordinates')}.`
+                `Alert source: ${sourceLabel}. SMS: ${smsCount}, WhatsApp: ${whatsappCount}, Email: ${emailCount}. ${contactNames ? `Selected contacts: ${contactNames}. ` : ''}Location: ${formatLocationLabel(payload.location, emergencyState.lat, emergencyState.lng, 'your coordinates')}.`
             );
             logAlertToHistory(mode, sourceLabel, payload);
             loadAlertHistory();
@@ -618,7 +619,10 @@
                     </div>
                     <div class="text-end">
                         <span class="risk-pill ${mode === 'loud' ? 'risk-high' : 'risk-medium'}" style="font-size:0.65rem;">${mode.toUpperCase()}</span>
-                        ${status ? `<div class="small text-muted mt-1">${status}</div>` : ''}
+                        ${item.acknowledged_at 
+                            ? `<div class="small text-success mt-1 fw-bold"><i class="bi bi-check-all me-1"></i>Received</div>` 
+                            : (status ? `<div class="small text-muted mt-1">${status}</div>` : '')
+                        }
                         <div class="small text-muted mt-1">${dtLabel}</div>
                     </div>
                 </div>

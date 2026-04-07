@@ -53,6 +53,8 @@ class RiskZone(models.Model):
     def __str__(self):
         return f"{self.risk_type} ({self.risk_score}) at {self.latitude}, {self.longitude}"
 
+import uuid
+
 class EmergencyAlert(models.Model):
     MODE_CHOICES = (
         ('loud', 'Loud'),
@@ -65,6 +67,9 @@ class EmergencyAlert(models.Model):
     mode = models.CharField(max_length=10, choices=MODE_CHOICES, default='silent')
     timestamp = models.DateTimeField(auto_now_add=True)
     status = models.CharField(max_length=20, default="Active")
+    token = models.UUIDField(default=uuid.uuid4, editable=False, null=True, blank=True)
+    acknowledged_at = models.DateTimeField(null=True, blank=True)
+    acknowledged_by = models.CharField(max_length=100, blank=True, null=True)
 
     def __str__(self):
         return f"SOS by {self.user.email} ({self.mode}) at {self.timestamp}"
