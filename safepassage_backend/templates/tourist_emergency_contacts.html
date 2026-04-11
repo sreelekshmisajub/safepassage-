@@ -88,6 +88,17 @@
         gap: 6px;
         margin-top: 10px;
     }
+    .inline-actions {
+        align-items: center;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+    .resource-note {
+        color: #64748b;
+        font-size: 0.82rem;
+        margin-top: 12px;
+    }
     @media (max-width: 767.98px) {
         .contact-grid,
         .personal-contact-grid {
@@ -110,10 +121,10 @@
             <div class="col-xl-5">
                 <div class="contact-shell">
                     <div class="small text-muted">Embassy support</div>
-                    <h4 class="fw-bold mb-1" id="contactEmbassyName">Waiting for location...</h4>
-                    <p class="small text-muted mb-2" id="contactEmbassyAddress">Embassy address will load after GPS sync.</p>
-                    <p class="small text-muted mb-3" id="contactEmbassyAlert">Zone-specific embassy guidance will appear here.</p>
-                    <a href="#" class="btn btn-danger rounded-pill fw-bold disabled" id="contactEmbassyLink">Call Embassy</a>
+                    <h4 class="fw-bold mb-1" id="contactEmbassyName">{{ initial_embassy.embassy_name|default:"Waiting for location..." }}</h4>
+                    <p class="small text-muted mb-2" id="contactEmbassyAddress">{{ initial_embassy.address|default:"Embassy address will load after GPS sync." }}</p>
+                    <p class="small text-muted mb-3" id="contactEmbassyAlert">{{ initial_embassy.zone_alert|default:"Zone-specific embassy guidance will appear here." }}</p>
+                    <a href="{% if initial_embassy.phone %}tel:{{ initial_embassy.phone }}{% else %}#{% endif %}" class="btn btn-danger rounded-pill fw-bold {% if not initial_embassy.phone %}disabled{% endif %}" id="contactEmbassyLink">Call Embassy</a>
                     <div class="small text-muted mt-4">Personal emergency contacts are listed below in a dedicated section.</div>
                 </div>
             </div>
@@ -144,8 +155,19 @@
                     </div>
                     <h5 class="fw-bold mb-3">Nearby verified resources</h5>
                     <div class="contact-grid" id="nearbyContactResources">
-                        <div class="contact-card text-muted small">Nearby police stations, hospitals, and safe havens will load from your live location.</div>
+                        {% if initial_nearby_resources %}
+                            {% for resource in initial_nearby_resources %}
+                            <div class="contact-card">
+                                <div class="fw-bold mb-1">{{ resource.name }}</div>
+                                <div class="small text-muted mb-2">{{ resource.type }} | {% if resource.distance_km != None %}{{ resource.distance_km }} km away{% else %}Distance unavailable{% endif %}</div>
+                                <div class="small text-muted">{{ resource.address|default:"Address unavailable" }}</div>
+                            </div>
+                            {% endfor %}
+                        {% else %}
+                        <div class="contact-card text-muted small">Nearby police stations, hospitals, clinics, and verified support points will load from your live or last saved location.</div>
+                        {% endif %}
                     </div>
+                    <div class="resource-note" id="nearbyResourceNote">Live support points refresh from your current GPS location and fall back to your last saved location when available.</div>
                 </div>
             </div>
         </div>
@@ -153,7 +175,10 @@
         <section class="contact-shell">
             <div class="d-flex justify-content-between align-items-center gap-3 mb-4">
                 <h4 class="fw-bold mb-0"><i class="bi bi-people-fill text-primary me-2"></i>My Emergency Contacts</h4>
-                <span class="contact-badge">{{ emergency_contacts_count|default:0 }}</span>
+                <div class="inline-actions">
+                    <span class="contact-badge" id="contactCountBadge">{{ emergency_contacts_count|default:0 }}</span>
+                    <button type="button" class="btn btn-primary rounded-pill px-4" onclick="openContactModal()">Add Contact</button>
+                </div>
             </div>
             {% if emergency_contacts %}
             <div class="personal-contact-grid">
@@ -168,11 +193,9 @@
                     <div class="small text-muted mb-1">{{ contact.get_relationship_display }}</div>
                     <div class="small text-muted"><a href="tel:{{ contact.phone }}" class="text-decoration-none">{{ contact.phone }}</a></div>
                     <div class="contact-channels">
-                        {% if contact.sms_enabled %}<span class="channel-badge channel-sms">SMS</span>{% endif %}
-                        {% if contact.whatsapp_enabled %}<span class="channel-badge channel-whatsapp">WhatsApp</span>{% endif %}
                         {% if contact.email %}<span class="channel-badge channel-email">Email</span>{% endif %}
-                        {% if not contact.sms_enabled and not contact.whatsapp_enabled and not contact.email %}
-                        <span class="channel-badge channel-none">No alert channel selected</span>
+                        {% if not contact.email %}
+                        <span class="channel-badge channel-none">No email added</span>
                         {% endif %}
                     </div>
                 </article>
@@ -182,10 +205,64 @@
             <div class="personal-contact-empty">
                 <i class="bi bi-person-plus"></i>
                 <div class="fs-5">No personal emergency contacts saved yet.</div>
-                <a href="{% url 'tourist_profile_hub' %}" class="btn btn-primary rounded-pill px-4">Add Contacts</a>
+                <button type="button" class="btn btn-primary rounded-pill px-4" onclick="openContactModal()">Add Contact</button>
+                <a href="{% url 'tourist_profile_hub' %}" class="btn btn-outline-secondary rounded-pill px-4">Manage in Profile</a>
             </div>
             {% endif %}
         </section>
+    </div>
+</div>
+
+<div class="modal fade" id="emergencyContactModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add Emergency Contact</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="emergencyContactForm" class="row g-3">
+                    <div class="col-12">
+                        <label class="form-label">Name</label>
+                        <input type="text" name="name" class="form-control" required>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label">Relationship</label>
+                        <select name="relationship" class="form-select" required>
+                            <option value="">Select relationship</option>
+                            <option value="parent">Parent</option>
+                            <option value="spouse">Spouse</option>
+                            <option value="sibling">Sibling</option>
+                            <option value="friend">Friend</option>
+                            <option value="relative">Relative</option>
+                            <option value="colleague">Colleague</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label">Phone Number</label>
+                        <input type="tel" name="phone" class="form-control" required>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label">Email</label>
+                        <input type="email" name="email" class="form-control" required>
+                    </div>
+                    <div class="col-12">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="is_primary" id="touristEmergencyPrimary">
+                            <label class="form-check-label" for="touristEmergencyPrimary">Set as primary contact</label>
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        <div class="small text-muted">Email is the only alert channel used from this page.</div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary rounded-pill" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary rounded-pill px-4" onclick="saveEmergencyContact()">Save Contact</button>
+            </div>
+        </div>
     </div>
 </div>
 {% endblock %}
@@ -203,6 +280,21 @@
         if (node) node.textContent = value;
     }
 
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let index = 0; index < cookies.length; index += 1) {
+                const cookie = cookies[index].trim();
+                if (cookie.substring(0, name.length + 1) === `${name}=`) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
     function fetchJson(url) {
         return fetch(url).then((response) => {
             if (!response.ok) throw new Error(`Request failed: ${response.status}`);
@@ -210,53 +302,130 @@
         });
     }
 
-    function refreshContacts(lat, lng) {
-        const params = new URLSearchParams({ lat: lat.toFixed(6), lng: lng.toFixed(6) });
-        Promise.all([
-            fetchJson(`/api/embassy-info/?${params.toString()}`),
-            fetchJson(`/api/predict-risk/?${params.toString()}`),
-        ]).then(([embassy, risk]) => {
-            setText('contactEmbassyName', embassy.embassy_name || 'Embassy unavailable');
-            setText('contactEmbassyAddress', embassy.address || 'Address unavailable');
-            setText('contactEmbassyAlert', embassy.zone_alert || risk.advice || 'No live guidance available.');
-            const embassyLink = document.getElementById('contactEmbassyLink');
-            if (embassy.phone) {
-                embassyLink.href = `tel:${embassy.phone.replace(/[^+\d]/g, '')}`;
-                embassyLink.classList.remove('disabled');
-            } else {
-                embassyLink.href = '#';
-                embassyLink.classList.add('disabled');
-            }
+    function renderNearbyResources(resources) {
+        const container = document.getElementById('nearbyContactResources');
+        if (!container) return;
 
-            const resources = risk.nearby_resources || [];
-            const container = document.getElementById('nearbyContactResources');
-            if (!resources.length) {
-                container.innerHTML = '<div class="contact-card text-muted small">No verified local response resources are stored near your current position yet.</div>';
-                return;
-            }
-
-            container.innerHTML = resources.map((resource) => `
-                <div class="contact-card">
-                    <div class="fw-bold mb-1">${escapeHtml(resource.name)}</div>
-                    <div class="small text-muted mb-2">${escapeHtml(resource.type)} | ${resource.distance_km != null ? `${resource.distance_km} km away` : 'Distance unavailable'}</div>
-                    <div class="small text-muted">${escapeHtml(resource.address || '')}</div>
-                </div>
-            `).join('');
-        }).catch(() => {
-            setText('contactEmbassyAlert', 'Emergency contact data failed to refresh. We’ll retry on the next GPS update.');
-        });
-    }
-
-    document.addEventListener('DOMContentLoaded', () => {
-        if (!navigator.geolocation) {
-            setText('contactEmbassyName', 'Browser geolocation is unavailable.');
+        if (!resources.length) {
+            container.innerHTML = '<div class="contact-card text-muted small">No nearby verified resources have been mapped for this place yet. Try refreshing live location or return after a new GPS update.</div>';
             return;
         }
 
-        navigator.geolocation.watchPosition((position) => {
-            refreshContacts(position.coords.latitude, position.coords.longitude);
+        container.innerHTML = resources.map((resource) => `
+            <div class="contact-card">
+                <div class="fw-bold mb-1">${escapeHtml(resource.name)}</div>
+                <div class="small text-muted mb-2">${escapeHtml(resource.type)} | ${resource.distance_km != null ? `${resource.distance_km} km away` : 'Distance unavailable'}</div>
+                <div class="small text-muted">${escapeHtml(resource.address || 'Address unavailable')}</div>
+            </div>
+        `).join('');
+    }
+
+    function updateEmbassyCard(embassy, sourceLabel) {
+        setText('contactEmbassyName', embassy.embassy_name || 'Embassy unavailable');
+        setText('contactEmbassyAddress', embassy.address || 'Address unavailable');
+        setText('contactEmbassyAlert', embassy.zone_alert || (sourceLabel === 'saved' ? 'Showing your last saved location context.' : 'No live guidance available.'));
+
+        const embassyLink = document.getElementById('contactEmbassyLink');
+        if (!embassyLink) return;
+
+        if (embassy.phone) {
+            embassyLink.href = `tel:${String(embassy.phone).replace(/[^+\d]/g, '')}`;
+            embassyLink.classList.remove('disabled');
+        } else {
+            embassyLink.href = '#';
+            embassyLink.classList.add('disabled');
+        }
+    }
+
+    function refreshContacts(lat, lng, sourceLabel) {
+        const params = new URLSearchParams({ lat: lat.toFixed(6), lng: lng.toFixed(6) });
+        fetchJson(`/api/tourist/emergency-context/?${params.toString()}`)
+            .then((payload) => {
+                updateEmbassyCard(payload.embassy || {}, sourceLabel);
+                renderNearbyResources(payload.nearby_resources || []);
+                setText(
+                    'nearbyResourceNote',
+                    sourceLabel === 'saved'
+                        ? 'Showing support points from your last saved location because live GPS is not available right now.'
+                        : 'Showing nearby verified support points from your live location.'
+                );
+            })
+            .catch(() => {
+                setText('contactEmbassyAlert', "Emergency contact data failed to refresh. We'll retry on the next location update.");
+                setText('nearbyResourceNote', 'Live support points could not be refreshed right now.');
+            });
+    }
+
+    function openContactModal() {
+        const form = document.getElementById('emergencyContactForm');
+        if (form) form.reset();
+        new bootstrap.Modal(document.getElementById('emergencyContactModal')).show();
+    }
+
+    function saveEmergencyContact() {
+        const form = document.getElementById('emergencyContactForm');
+        const formData = new FormData(form);
+
+        fetch('/api/add-contact/', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken'),
+            },
+            body: formData,
+        })
+            .then((response) => response.json())
+            .then((data) => {
+                if (!data.success) {
+                    alert(data.error || 'Unable to save the contact right now.');
+                    return;
+                }
+                const modal = bootstrap.Modal.getInstance(document.getElementById('emergencyContactModal'));
+                if (modal) modal.hide();
+                window.location.reload();
+            })
+            .catch(() => {
+                alert('Unable to save the contact right now.');
+            });
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const savedLat = {% if saved_location %}{{ saved_location.latitude|floatformat:6 }}{% else %}null{% endif %};
+        const savedLng = {% if saved_location %}{{ saved_location.longitude|floatformat:6 }}{% else %}null{% endif %};
+        let hasLiveRefresh = false;
+        let usedSavedFallback = false;
+
+        const useSavedLocation = () => {
+            if (usedSavedFallback || savedLat === null || savedLng === null) return;
+            usedSavedFallback = true;
+            refreshContacts(Number(savedLat), Number(savedLng), 'saved');
+        };
+
+        if (!navigator.geolocation) {
+            setText('contactEmbassyName', 'Browser geolocation is unavailable.');
+            setText('nearbyResourceNote', 'Live GPS is unavailable in this browser. Using your last saved location when possible.');
+            useSavedLocation();
+            return;
+        }
+
+        window.setTimeout(() => {
+            if (!hasLiveRefresh) {
+                useSavedLocation();
+            }
+        }, 2500);
+
+        navigator.geolocation.getCurrentPosition((position) => {
+            hasLiveRefresh = true;
+            refreshContacts(position.coords.latitude, position.coords.longitude, 'live');
         }, () => {
             setText('contactEmbassyName', 'Location permission required for live emergency contacts.');
+            useSavedLocation();
+        }, { enableHighAccuracy: true, maximumAge: 0, timeout: 12000 });
+
+        navigator.geolocation.watchPosition((position) => {
+            hasLiveRefresh = true;
+            refreshContacts(position.coords.latitude, position.coords.longitude, 'live');
+        }, () => {
+            useSavedLocation();
         }, { enableHighAccuracy: true, maximumAge: 15000, timeout: 20000 });
     });
 </script>

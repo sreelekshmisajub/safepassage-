@@ -162,7 +162,7 @@
             <div class="scam-kicker">Tourist Mode</div>
             <h1 class="scam-title">Live Scam Alerts</h1>
             <p class="scam-subtitle">
-                Track location-based scam exposure and verified support options for your live position or any searched place in India.
+                Track location-based scam exposure and nearby support options for your live position or any searched place in India.
             </p>
             <div class="hero-meta">
                 <span class="hero-pill" id="scamStatusPill">Waiting for location sync</span>
@@ -211,7 +211,7 @@
             <article class="summary-card">
                 <div class="summary-label">Nearby Support</div>
                 <div class="summary-value" id="scamSupportCount">0</div>
-                <p class="summary-note" id="scamSupportNote">Police and hospital support points will appear after sync.</p>
+                <p class="summary-note" id="scamSupportNote">Nearby police, hospitals, and emergency support points will appear after sync.</p>
             </article>
         </section>
 
@@ -221,7 +221,7 @@
                     <div class="panel-head">
                         <div>
                             <h2 class="panel-title">Nearby Support Points</h2>
-                            <p class="panel-subtitle">Verified police and hospital stops that can help if a scam situation escalates.</p>
+                            <p class="panel-subtitle">Nearby police, hospitals, pharmacies, clinics, and verified safety points that can help if a scam situation escalates.</p>
                         </div>
                     </div>
                     <div class="panel-body">
@@ -351,8 +351,33 @@
                     </div>
                 </article>
             `,
-            'No nearby police or hospital support points were found for this place.'
+            'No nearby support points were found for this place.'
         );
+    }
+
+    function scamSupportResourceKey(item) {
+        return [
+            String(item && item.name || '').toLowerCase(),
+            String(item && item.type || '').toLowerCase(),
+            Number(item && item.latitude || 0).toFixed(5),
+            Number(item && item.longitude || 0).toFixed(5),
+        ].join('|');
+    }
+
+    function scamMergeSupportResources() {
+        const merged = [];
+        const seen = new Set();
+        Array.from(arguments).forEach((items) => {
+            if (!Array.isArray(items)) return;
+            items.forEach((item) => {
+                if (!item) return;
+                const key = scamSupportResourceKey(item);
+                if (seen.has(key)) return;
+                seen.add(key);
+                merged.push(item);
+            });
+        });
+        return merged.sort((left, right) => Number(left.distance_km || 999) - Number(right.distance_km || 999));
     }
 
     function scamBuildSignals(culture, incidents, risk) {
@@ -402,8 +427,8 @@
             : 'No live scam-linked reports or alerts are active nearby right now.');
         scamSetText('scamSupportCount', `${supportResources.length}`);
         scamSetText('scamSupportNote', supportResources.length
-            ? `${supportResources.length} nearby police or hospital stops are available if you need in-person support.`
-            : 'No nearby police or hospital support points are stored for this place right now.');
+            ? `${supportResources.length} nearby safety support points are available if you need in-person help.`
+            : 'No nearby support points are mapped for this place right now.');
         scamSetText('scamLocationMode', scamState.locationMode === 'search' ? 'Viewing searched place' : 'Using live GPS');
 
         if (riskBadge) {
@@ -421,9 +446,14 @@
             scamFetchJson(`/api/incidents/?${params.toString()}`),
         ]).then(([culture, risk, incidents]) => {
             const signals = scamBuildSignals(culture, incidents, risk);
-            const supportResources = Array.isArray(risk && risk.nearby_resources)
-                ? risk.nearby_resources.filter((item) => ['Police Station', 'Hospital'].includes(item.type))
-                : [];
+            const supportResources = scamMergeSupportResources(
+                culture && culture.emergency && Array.isArray(culture.emergency.nearby_resources)
+                    ? culture.emergency.nearby_resources
+                    : [],
+                Array.isArray(risk && risk.nearby_resources)
+                    ? risk.nearby_resources
+                    : []
+            );
             scamUpdateSummary(culture, risk, signals, supportResources);
             scamRenderSupport(supportResources);
             scamSetStatus(signals.merged.length ? 'Live scam alerts active' : 'No scam alerts active nearby');

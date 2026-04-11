@@ -39,14 +39,62 @@
 
 {% block dashboard_content %}
 <div class="container-fluid py-2">
-    <section class="alerts-card">
-        <h1 class="fw-bold mb-1">Worker Alerts</h1>
-        <p class="text-muted mb-4">Live high-risk signals, route warnings, and shift-monitor alerts tied to your current worker location.</p>
-        <div class="small text-muted mb-4" id="workerAlertsLocationMeta">Waiting for live location name.</div>
-        <div class="alert-stack" id="workerAlertsList">
-            <div class="empty-state">Waiting for live worker alerts.</div>
+    <div class="row g-4">
+        <div class="col-lg-8">
+            <section class="alerts-card h-100">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                    <h1 class="fw-bold mb-0">Worker Alerts</h1>
+                    <button class="btn btn-danger rounded-pill px-4 fw-bold" data-bs-toggle="modal" data-bs-target="#reportScamModal">
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i>Report Scam
+                    </button>
+                </div>
+                <p class="text-muted mb-4">Live high-risk signals, route warnings, and shift-monitor alerts tied to your current worker location.</p>
+                <div class="small text-muted mb-4" id="workerAlertsLocationMeta">Waiting for live location name.</div>
+                <div class="alert-stack" id="workerAlertsList">
+                    <div class="empty-state">Waiting for live worker alerts.</div>
+                </div>
+            </section>
         </div>
-    </section>
+        <div class="col-lg-4">
+            <section class="alerts-card h-100">
+                <h5 class="fw-bold mb-3">Community Safety</h5>
+                <p class="small text-muted">As a night worker, your reports help other workers and tourists stay safe. If you spot a scam or a dangerous zone, report it immediately.</p>
+                <div class="p-3 border rounded-4 bg-light">
+                    <div class="small fw-bold text-uppercase mb-2 text-danger">Guidelines</div>
+                    <ul class="small text-muted ps-3 mb-0">
+                        <li>Only report active, live threats.</li>
+                        <li>Provide clear descriptions.</li>
+                        <li>Include landmarks if possible.</li>
+                    </ul>
+                </div>
+            </section>
+        </div>
+    </div>
+</div>
+
+<!-- Report Scam Modal -->
+<div class="modal fade" id="reportScamModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow" style="border-radius: 28px;">
+            <div class="modal-header border-0 pb-0 pt-4 px-4">
+                <h5 class="fw-bold mb-0">Report Live Scam</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <p class="text-muted small mb-4">Your report will be shared with the SafePassage community to warn others in this area.</p>
+                <form id="scamReportForm">
+                    <div class="mb-3">
+                        <label class="field-label mb-2">Scam Description</label>
+                        <textarea class="profile-textarea w-100" id="scamDescription" placeholder="What kind of scam did you see? (e.g., Overcharging taxi, fake guide, etc.)" required style="min-height: 100px; border-radius: 16px;"></textarea>
+                    </div>
+                    <div class="mb-1 text-center">
+                        <div id="scamReportStatus" class="small mb-2"></div>
+                        <button type="submit" class="btn btn-danger btn-lg rounded-pill w-100 fw-bold py-3 shadow-sm">Submit Live Alert</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 </div>
 {% endblock %}
 
@@ -94,6 +142,60 @@
                     document.getElementById('workerAlertsList').innerHTML = '<div class="empty-state">No worker alerts could be loaded for this account.</div>';
                 });
         });
+
+        const scamForm = document.getElementById('scamReportForm');
+        if (scamForm) {
+            scamForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const description = document.getElementById('scamDescription').value;
+                const statusNode = document.getElementById('scamReportStatus');
+                const btn = e.target.querySelector('button[type="submit"]');
+
+                btn.disabled = true;
+                btn.textContent = 'Submitting...';
+
+                try {
+                    const coords = await resolveCurrentLocation();
+                    const payload = {
+                        incident_type: 'scam',
+                        description: description,
+                        latitude: coords ? coords.lat : 0,
+                        longitude: coords ? coords.lng : 0,
+                    };
+
+                    const response = await fetch('/api/report-incident/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': '{{ csrf_token }}'
+                        },
+                        body: JSON.stringify(payload)
+                    });
+
+                    const data = await response.json();
+                    if (data.status === 'success') {
+                        statusNode.className = 'small mb-2 text-success fw-bold';
+                        statusNode.textContent = '✅ Scam alert reported successfully!';
+                        setTimeout(() => {
+                            const modalEl = document.getElementById('reportScamModal');
+                            const modal = bootstrap.Modal.getInstance(modalEl);
+                            if (modal) modal.hide();
+                            scamForm.reset();
+                            statusNode.textContent = '';
+                            btn.disabled = false;
+                            btn.textContent = 'Submit Live Alert';
+                        }, 2000);
+                    } else {
+                        throw new Error(data.message || 'Submission failed');
+                    }
+                } catch (err) {
+                    statusNode.className = 'small mb-2 text-danger fw-bold';
+                    statusNode.textContent = '❌ ' + err.message;
+                    btn.disabled = false;
+                    btn.textContent = 'Submit Live Alert';
+                }
+            });
+        }
     });
 </script>
 {% endblock %}

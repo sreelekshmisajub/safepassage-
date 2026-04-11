@@ -466,9 +466,7 @@
     }
 
     function cultureSourceMarkup(item) {
-        const sourceLabel = item && (item.source_label || item.source);
-        if (!sourceLabel) return '';
-        return `<div class="meta-row"><span class="source-pill">${cultureEscapeHtml(sourceLabel)}</span></div>`;
+        return '';
     }
 
     function cultureSearchResultsNode() {
@@ -525,45 +523,6 @@
         cultureSetText('cultureTipStatus', `${doCount} do tips | ${dontCount} caution tips`);
     }
 
-    function renderRestrictedZones(items) {
-        renderStackItems(
-            'restrictedContainer',
-            items,
-            (item) => `
-                <article class="stack-item">
-                    <strong>${cultureEscapeHtml(item.name || 'Sensitive zone')}</strong>
-                    <p>${cultureEscapeHtml(item.description || 'Sensitive-zone information available for this area.')}</p>
-                    <div class="meta-row">
-                        <span>${cultureEscapeHtml(item.risk_label || 'UNAVAILABLE')}</span>
-                        <span>${cultureEscapeHtml(cultureFormatDistance(item.distance_km))}</span>
-                        <span>${cultureEscapeHtml(item.source || 'risk-zone')}</span>
-                    </div>
-                </article>
-            `,
-            'No restricted or sensitive zone records were found near this live location.'
-        );
-    }
-
-    function renderScamAwareness(items) {
-        renderStackItems(
-            'scamContainer',
-            items,
-            (item) => `
-                <article class="stack-item">
-                    <div class="d-flex justify-content-between align-items-start gap-3">
-                        <strong>${cultureEscapeHtml(item.title || 'Scam warning')}</strong>
-                        <span class="risk-badge ${cultureRiskClass(item.severity)}">${cultureEscapeHtml(item.severity || 'UNAVAILABLE')}</span>
-                    </div>
-                    <p>${cultureEscapeHtml(item.description || 'Scam-related alert recorded near this area.')}</p>
-                    <div class="meta-row">
-                        <span>${cultureEscapeHtml(cultureFormatDistance(item.distance_km))}</span>
-                        <span>${cultureEscapeHtml(item.source || 'alert')}</span>
-                    </div>
-                </article>
-            `,
-            'No scam or fraud alerts are stored near this live location right now.'
-        );
-    }
 
     function renderQuickHelp(items) {
         const container = document.getElementById('quickHelpContainer');
@@ -671,7 +630,7 @@
                     <p>${cultureEscapeHtml(item)}</p>
                 </article>
             `,
-            'No explanation is available because this zone has no nearby stored signals yet.'
+            'Live area signals are still syncing for this place.'
         );
     }
 
@@ -905,8 +864,6 @@
                 );
                 renderRiskReasons(payload.risk_explanation || []);
                 renderCultureTips(payload);
-                renderRestrictedZones(payload.restricted_zones || []);
-                renderScamAwareness(payload.scam_alerts || []);
                 renderLocationInsights(payload.location_insights || {});
                 renderRiskMeta(payload.cultural_risk_score_meta || {});
             })
@@ -1076,17 +1033,6 @@
                     </div>
                 </section>
 
-                <section class="info-card">
-                    <div class="info-card-header">
-                        <h2 class="info-card-title"><i class="bi bi-sign-stop-fill text-danger me-2"></i>Restricted or Sensitive Zones</h2>
-                    </div>
-                    <p class="info-card-subtitle">Derived from nearby risk zones, incident patterns, and active tourist-area signals around your current position.</p>
-                    <div class="info-card-body">
-                        <div class="stack-list" id="restrictedContainer">
-                            <div class="empty-state">No sensitive-zone records loaded yet.</div>
-                        </div>
-                    </div>
-                </section>
             </div>
 
             <div class="column-stack">
@@ -1125,17 +1071,6 @@
                     </div>
                 </section>
 
-                <section class="info-card">
-                    <div class="info-card-header">
-                        <h2 class="info-card-title"><i class="bi bi-exclamation-diamond-fill text-danger me-2"></i>Scam Awareness</h2>
-                    </div>
-                    <p class="info-card-subtitle">Live scam and fraud warnings sourced from nearby incident reports, hotspot descriptions, and current tourist-corridor signals.</p>
-                    <div class="info-card-body">
-                        <div class="stack-list" id="scamContainer">
-                            <div class="empty-state">Scam awareness data has not loaded yet.</div>
-                        </div>
-                    </div>
-                </section>
 
             </div>
         </div>

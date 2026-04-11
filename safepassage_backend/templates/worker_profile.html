@@ -211,8 +211,16 @@
                         <input class="profile-input" id="employeeIdInput" type="text" name="employee_id" value="{{ worker.employee_id }}" required>
                     </div>
                     <div>
-                        <label class="field-label" for="companyInput">Company</label>
+                        <label class="field-label" for="companyInput">Company Name</label>
                         <input class="profile-input" id="companyInput" type="text" name="company_name" value="{{ worker.company_name }}" required>
+                    </div>
+                    <div>
+                        <label class="field-label" for="companyPhoneInput">Company Phone</label>
+                        <input class="profile-input" id="companyPhoneInput" type="text" name="company_phone" value="{{ worker.company_phone }}" required>
+                    </div>
+                    <div class="profile-grid-wide">
+                        <label class="field-label" for="companyAddressInput">Company Address</label>
+                        <input class="profile-input" id="companyAddressInput" type="text" name="company_address" value="{{ worker.company_address }}" required>
                     </div>
                     <div>
                         <label class="field-label" for="designationInput">Designation</label>
@@ -249,28 +257,16 @@
                         <input class="profile-input" id="emergencyPhoneInput" type="text" name="emergency_contact_phone" maxlength="10" value="{{ worker.emergency_contact_phone }}" required>
                     </div>
                     <div>
-                        <label class="field-label">Usual shift start</label>
-                        <div class="d-flex gap-2">
-                            <input class="profile-input" id="shiftStartInput" type="time" name="usual_shift_start" value="{% if worker.usual_shift_start %}{{ worker.usual_shift_start|time:'H:i' }}{% endif %}" required>
-                            <select class="profile-select" name="shift_start_period" style="width: auto;">
-                                <option value="AM" {% if worker.usual_shift_start and worker.usual_shift_start.hour < 12 %}selected{% endif %}>AM</option>
-                                <option value="PM" {% if worker.usual_shift_start and worker.usual_shift_start.hour >= 12 %}selected{% endif %}>PM</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div>
-                        <label class="field-label">Usual shift end</label>
-                        <div class="d-flex gap-2">
-                            <input class="profile-input" id="shiftEndInput" type="time" name="usual_shift_end" value="{% if worker.usual_shift_end %}{{ worker.usual_shift_end|time:'H:i' }}{% endif %}" required>
-                            <select class="profile-select" name="shift_end_period" style="width: auto;">
-                                <option value="AM" {% if worker.usual_shift_end and worker.usual_shift_end.hour < 12 %}selected{% endif %}>AM</option>
-                                <option value="PM" {% if worker.usual_shift_end and worker.usual_shift_end.hour >= 12 %}selected{% endif %}>PM</option>
-                            </select>
-                        </div>
+                        <label class="field-label" for="emergencyEmailInput">Emergency contact email</label>
+                        <input class="profile-input" id="emergencyEmailInput" type="email" name="emergency_contact_email" value="{{ worker.emergency_contact_email }}" required>
                     </div>
                     <div class="profile-grid-wide">
                         <label class="field-label" for="homeAddressInput">Home address</label>
                         <textarea class="profile-textarea" id="homeAddressInput" name="home_address" required>{{ worker.home_address }}</textarea>
+                    </div>
+                    <div class="profile-grid-wide">
+                        <label class="field-label" for="medicationsInput">Medicine Intake & Health Notes</label>
+                        <textarea class="profile-textarea" id="medicationsInput" name="medications" placeholder="List medications or health conditions (Optional)">{{ worker.medications }}</textarea>
                     </div>
                 </div>
             </section>

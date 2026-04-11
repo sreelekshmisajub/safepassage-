@@ -307,6 +307,27 @@
     .legend-pill.hotspot::before {
         background: #ef4444;
     }
+    .worker-map-pin {
+        align-items: center;
+        border-radius: 999px;
+        box-shadow: 0 10px 22px rgba(15, 23, 42, 0.18);
+        color: #fff;
+        display: flex;
+        font-size: 0.8rem;
+        font-weight: 800;
+        height: 24px;
+        justify-content: center;
+        width: 24px;
+    }
+    .worker-map-pin.self {
+        background: #0f172a;
+    }
+    .worker-map-pin.haven {
+        background: #2563eb;
+    }
+    .worker-map-pin.hotspot {
+        background: #ef4444;
+    }
     #workerDashboardMap {
         height: 410px;
         width: 100%;
@@ -564,36 +585,60 @@
         workerMarkers = [];
     }
 
+    function workerIcon(type, glyph) {
+        return L.divIcon({
+            className: '',
+            html: `<div class="worker-map-pin ${type}">${glyph}</div>`,
+            iconSize: [24, 24],
+            iconAnchor: [12, 12],
+            popupAnchor: [0, -10],
+        });
+    }
+
     function workerPlotMap(payload) {
         workerInitMap();
         workerResetMarkers();
 
         const lat = payload.coordinates.latitude;
         const lng = payload.coordinates.longitude;
-        workerDashboardMap.setView([lat, lng], 14);
+        const bounds = [[lat, lng]];
 
-        const selfMarker = L.marker([lat, lng]).addTo(workerDashboardMap).bindPopup(payload.location || 'Current worker location');
+        const selfMarker = L.marker([lat, lng], { icon: workerIcon('self', 'W') }).addTo(workerDashboardMap).bindPopup(payload.location || 'Current worker location');
         workerMarkers.push(selfMarker);
 
         (payload.nearby_safe_havens || []).forEach((haven) => {
-            const marker = L.circleMarker([haven.latitude, haven.longitude], {
-                radius: 8,
-                color: '#2563eb',
-                fillColor: '#60a5fa',
-                fillOpacity: 0.85,
-            }).addTo(workerDashboardMap).bindPopup(`<strong>${haven.name}</strong><br>${haven.type}`);
+            bounds.push([haven.latitude, haven.longitude]);
+            const marker = L.marker([haven.latitude, haven.longitude], {
+                icon: workerIcon('haven', 'H'),
+            }).addTo(workerDashboardMap).bindPopup(
+                `<strong>${haven.name}</strong><br>${haven.type}<br>${haven.distance_km != null ? `${haven.distance_km} km away` : 'Distance unavailable'}`
+            );
             workerMarkers.push(marker);
         });
 
         (payload.risk_hotspots || []).forEach((hotspot) => {
+            bounds.push([hotspot.latitude, hotspot.longitude]);
             const marker = L.circle([hotspot.latitude, hotspot.longitude], {
-                radius: 180,
+                radius: 220,
                 color: '#ef4444',
                 fillColor: '#fca5a5',
                 fillOpacity: 0.22,
-            }).addTo(workerDashboardMap).bindPopup(`<strong>${hotspot.city || hotspot.risk_type}</strong><br>${hotspot.description || 'Risk zone'}`);
+                weight: 2,
+            }).addTo(workerDashboardMap).bindPopup(`<strong>${hotspot.city || hotspot.risk_type}</strong><br>${hotspot.description || 'Risk zone'}<br>${hotspot.distance_km != null ? `${hotspot.distance_km} km away` : ''}`);
             workerMarkers.push(marker);
+
+            const hotspotPin = L.marker([hotspot.latitude, hotspot.longitude], {
+                icon: workerIcon('hotspot', '!'),
+            }).addTo(workerDashboardMap);
+            workerMarkers.push(hotspotPin);
         });
+
+        workerDashboardMap.invalidateSize();
+        if (bounds.length > 1) {
+            workerDashboardMap.fitBounds(bounds, { padding: [40, 40], maxZoom: 13 });
+        } else {
+            workerDashboardMap.setView([lat, lng], 14);
+        }
 
         workerSetText('workerMapMeta', `Live zone: ${payload.location || 'Unknown area'} | Hotspots: ${(payload.risk_hotspots || []).length} | Safe havens: ${(payload.nearby_safe_havens || []).length}`);
     }
@@ -661,10 +706,11 @@
                         <span>${haven.type}</span>
                         <span>${haven.distance_km} km away</span>
                         <span>${haven.phone || 'No phone listed'}</span>
+                        <span>${haven.source_label || 'Worker support point'}</span>
                     </div>
                 </article>
             `,
-            'No verified safe havens are stored near this live location.'
+            'No nearby safe havens or support points could be found for the current worker location.'
         );
 
         workerPlotMap(payload);

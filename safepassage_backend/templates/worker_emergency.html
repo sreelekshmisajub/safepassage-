@@ -116,28 +116,27 @@
         <div class="small text-muted" id="workerSosStatus">System armed. Click a button above to trigger dispatch.</div>
         <div class="worker-sos-grid">
             <div class="info-card">
-                <h5 class="fw-bold mb-2">SOS Phone Target</h5>
-                <p class="text-muted mb-0">Set the employer or emergency phone number that should be included in the worker SOS dispatch list.</p>
+                <h5 class="fw-bold mb-2">SOS Email Target</h5>
+                <p class="text-muted mb-0">Set the employer or emergency email address that should be included in the worker SOS dispatch list.</p>
                 <form id="workerSosTargetForm" class="sos-target-form">
                     <div class="sos-target-field">
                         <label for="workerSosTargetName">Contact name</label>
                         <input type="text" id="workerSosTargetName" value="{{ worker.emergency_contact_name|default:'' }}" placeholder="Supervisor or employer name" autocomplete="name">
                     </div>
                     <div class="sos-target-field">
-                        <label for="workerSosTargetPhone">Phone number</label>
-                        <input type="tel" id="workerSosTargetPhone" value="{{ worker.emergency_contact_phone|default:'' }}" placeholder="10-digit mobile number" inputmode="numeric" autocomplete="tel">
+                        <label for="workerSosTargetEmail">Email address</label>
+                        <input type="email" id="workerSosTargetEmail" value="{{ worker.emergency_contact_email|default:'' }}" placeholder="supervisor@company.com" autocomplete="email">
                     </div>
                 </form>
                 <div class="sos-target-meta">
-                    <span class="sos-target-chip">SMS target</span>
-                    <span class="sos-target-chip">WhatsApp target</span>
+                    <span class="sos-target-chip">Email SMTP Target</span>
                     <button class="btn btn-danger rounded-pill px-4 py-2 fw-bold ms-auto" type="button" id="workerSaveSosTargetButton">Save SOS Target</button>
                 </div>
                 <div class="sos-target-status" id="workerSosTargetStatus">
-                    {% if worker.emergency_contact_name and worker.emergency_contact_phone %}
-                    Current worker SOS target: {{ worker.emergency_contact_name }} at {{ worker.emergency_contact_phone }}.
+                    {% if worker.emergency_contact_name and worker.emergency_contact_email %}
+                    Current worker SOS target: {{ worker.emergency_contact_name }} at {{ worker.emergency_contact_email }}.
                     {% else %}
-                    No direct worker SOS phone target is saved yet.
+                    No direct worker SOS email target is saved yet.
                     {% endif %}
                 </div>
             </div>
@@ -290,6 +289,46 @@
         document.getElementById('silentSosButton').addEventListener('click', () => triggerWorkerSOS('silent'));
         document.getElementById('loudSosButton').addEventListener('click', () => triggerWorkerSOS('loud'));
         document.getElementById('stopAlarmButton').addEventListener('click', stopWorkerAlarm);
+
+        document.getElementById('workerSaveSosTargetButton').addEventListener('click', function() {
+            const name = document.getElementById('workerSosTargetName').value;
+            const email = document.getElementById('workerSosTargetEmail').value;
+            const statusNode = document.getElementById('workerSosTargetStatus');
+            const btn = this;
+
+            btn.disabled = true;
+            btn.textContent = 'Saving...';
+
+            fetch('/api/worker/sos-target/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify({ name: name, email: email })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    statusNode.innerHTML = `<span class="text-success fw-bold">✅ Updated: ${data.contact.name} at ${data.contact.email}</span>`;
+                } else {
+                    alert(data.message || 'Error updating target');
+                    btn.disabled = false;
+                    btn.textContent = 'Save SOS Target';
+                }
+            })
+            .catch(err => {
+                alert('Network error. Failed to save.');
+                btn.disabled = false;
+                btn.textContent = 'Save SOS Target';
+            })
+            .finally(() => {
+                setTimeout(() => {
+                    btn.disabled = false;
+                    btn.textContent = 'Save SOS Target';
+                }, 2000);
+            });
+        });
     });
 </script>
 {% endblock %}

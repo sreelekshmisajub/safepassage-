@@ -107,7 +107,7 @@
                     <div>${haven.address || 'Address unavailable'}</div>
                     <div class="meta-row">
                         <span>${haven.type}</span>
-                        <span>${haven.distance_km} km away</span>
+                        <span>${haven.distance_km != null ? haven.distance_km + ' km away' : 'Distance unavailable'}</span>
                         <span>${haven.phone || 'No phone listed'}</span>
                     </div>
                 </article>

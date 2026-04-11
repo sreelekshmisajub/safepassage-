@@ -95,6 +95,7 @@ urlpatterns = [
     path('api/weather-risk/', views.api_weather_risk, name='api_weather_risk'),
     path('api/cultural-advice/', views.api_cultural_advice, name='api_cultural_advice'),
     path('api/embassy-info/', views.api_embassy_info, name='api_embassy_info'),
+    path('api/tourist/emergency-context/', views.api_tourist_emergency_context, name='api_tourist_emergency_context'),
     path('api/translate/', views.api_translate, name='api_translate'),
     path('api/report-incident/', views.api_report_incident, name='api_report_incident'),
     path('api/emergency/', views.api_emergency, name='api_emergency'),

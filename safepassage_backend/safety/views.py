@@ -186,6 +186,93 @@ EMBASSY_DIRECTORY = {
     },
 }
 
+KNOWN_DIPLOMATIC_MISSIONS = [
+    {
+        "country_key": "germany",
+        "country": "Germany",
+        "embassy_name": "Honorary Consul of Germany, Thiruvananthapuram",
+        "city": "Thiruvananthapuram",
+        "phone": "+91-471-2300777",
+        "emergency_number": "+91-94470-11496",
+        "address": "D9, Jawahar Nagar, Thiruvananthapuram - 695003, Kerala, India",
+        "latitude": 8.5241,
+        "longitude": 76.9366,
+        "source": "known-mission-directory",
+    },
+    {
+        "country_key": "australia",
+        "country": "Australia",
+        "embassy_name": "Australian Consulate-General Chennai",
+        "city": "Chennai",
+        "phone": "+91-44-4592-1300",
+        "emergency_number": "+61-2-6261-3305",
+        "address": "9th Floor, Express Chambers, Express Avenue Estate, Whites Road, Royapettah, Chennai 600014",
+        "latitude": 13.0550,
+        "longitude": 80.2642,
+        "source": "known-mission-directory",
+    },
+    {
+        "country_key": "uk",
+        "country": "United Kingdom",
+        "embassy_name": "British Deputy High Commission Chennai",
+        "city": "Chennai",
+        "phone": "+91-44-4219-2151",
+        "emergency_number": "+44-20-7008-5000",
+        "address": "20 Anderson Road, Chennai 600006, India",
+        "latitude": 13.0696,
+        "longitude": 80.2483,
+        "source": "known-mission-directory",
+    },
+    {
+        "country_key": "us",
+        "country": "United States",
+        "embassy_name": "U.S. Embassy New Delhi",
+        "city": "New Delhi",
+        "phone": "+91-11-2419-8000",
+        "emergency_number": "+91-11-2419-8000",
+        "address": "Shantipath, Chanakyapuri, New Delhi 110021, India",
+        "latitude": 28.5886,
+        "longitude": 77.1889,
+        "source": "known-mission-directory",
+    },
+    {
+        "country_key": "australia",
+        "country": "Australia",
+        "embassy_name": "Australian High Commission New Delhi",
+        "city": "New Delhi",
+        "phone": "+91-11-4139-9900",
+        "emergency_number": "+61-2-6261-3305",
+        "address": "1/50 G, Shantipath, Chanakyapuri, New Delhi 110021, India",
+        "latitude": 28.5929,
+        "longitude": 77.1881,
+        "source": "known-mission-directory",
+    },
+    {
+        "country_key": "uk",
+        "country": "United Kingdom",
+        "embassy_name": "British High Commission New Delhi",
+        "city": "New Delhi",
+        "phone": "+91-11-2419-2100",
+        "emergency_number": "+44-20-7008-5000",
+        "address": "Shantipath, Chanakyapuri, New Delhi 110021, India",
+        "latitude": 28.5923,
+        "longitude": 77.1890,
+        "source": "known-mission-directory",
+    },
+    {
+        "country_key": "canada",
+        "country": "Canada",
+        "embassy_name": "High Commission of Canada in India",
+        "city": "New Delhi",
+        "phone": "+91-11-4178-2000",
+        "emergency_number": "+91-11-4178-2000",
+        "address": "7/8 Shantipath, Chanakyapuri, New Delhi 110021, India",
+        "latitude": 28.5917,
+        "longitude": 77.1902,
+        "source": "known-mission-directory",
+    },
+]
+
 OFFICIAL_EMERGENCY_LINES = [
     {
         "label": "Police",
@@ -453,6 +540,493 @@ def _reverse_geocode_name(lat, lng):
     return ", ".join(segment.strip() for segment in display_name.split(",")[:2] if segment.strip()) or None
 
 
+def _resource_address_from_tags(tags):
+    if not tags:
+        return ""
+    full_address = (tags.get("addr:full") or "").strip()
+    if full_address:
+        return full_address
+
+    parts = [
+        " ".join(part for part in [tags.get("addr:housenumber"), tags.get("addr:street")] if part),
+        tags.get("addr:suburb") or tags.get("addr:neighbourhood"),
+        tags.get("addr:city") or tags.get("addr:town") or tags.get("addr:village"),
+        tags.get("addr:state"),
+    ]
+    cleaned_parts = []
+    for part in parts:
+        if not part:
+            continue
+        normalized = part.strip()
+        if not normalized:
+            continue
+        if cleaned_parts and cleaned_parts[-1].lower() == normalized.lower():
+            continue
+        cleaned_parts.append(normalized)
+    return ", ".join(cleaned_parts[:3])
+
+
+def _external_resource_type(tags):
+    amenity = (tags.get("amenity") or "").strip().lower()
+    healthcare = (tags.get("healthcare") or "").strip().lower()
+    shop = (tags.get("shop") or "").strip().lower()
+
+    if amenity == "police":
+        return "Police Station"
+    if amenity == "hospital" or healthcare == "hospital":
+        return "Hospital"
+    if amenity == "clinic" or healthcare == "clinic":
+        return "Clinic"
+    if amenity == "fire_station":
+        return "Fire Station"
+    if amenity == "pharmacy" or shop == "pharmacy" or healthcare == "pharmacy":
+        return "Pharmacy"
+    if amenity == "doctors" or healthcare == "doctor":
+        return "Medical Support"
+    return "Safety Resource"
+
+
+def _embassy_resource_country(tags):
+    raw_country = (
+        tags.get("country")
+        or tags.get("addr:country")
+        or tags.get("diplomatic:country")
+        or tags.get("embassy")
+        or tags.get("consulate")
+        or ""
+    ).strip()
+    if raw_country:
+        return raw_country
+
+    for field in ("name", "official_name", "short_name"):
+        text = (tags.get(field) or "").strip()
+        if text:
+            return text
+    return ""
+
+
+@lru_cache(maxsize=128)
+def _fetch_nearby_embassy_resources(lat_key, lng_key, nationality_key=""):
+    if not _remote_service_enabled():
+        return []
+
+    filters = '[amenity="embassy"];'
+    diplomatic_filters = '[office="diplomatic"];'
+    radius_steps = (120000, 350000, 900000, 1800000)
+    nationality_terms = {
+        "us": ("united states", "u.s.", "usa", "american"),
+        "uk": ("united kingdom", "british", "uk", "great britain"),
+        "canada": ("canada", "canadian"),
+        "australia": ("australia", "australian"),
+        "india": ("india", "indian"),
+    }.get(nationality_key or "", ())
+
+    for radius_m in radius_steps:
+        query = (
+            "[out:json][timeout:8];("
+            f'node(around:{radius_m},{lat_key},{lng_key}){filters}'
+            f'way(around:{radius_m},{lat_key},{lng_key}){filters}'
+            f'relation(around:{radius_m},{lat_key},{lng_key}){filters}'
+            f'node(around:{radius_m},{lat_key},{lng_key}){diplomatic_filters}'
+            f'way(around:{radius_m},{lat_key},{lng_key}){diplomatic_filters}'
+            f'relation(around:{radius_m},{lat_key},{lng_key}){diplomatic_filters}'
+            ");out center tags 24;"
+        )
+        endpoints = (
+            "https://overpass-api.de/api/interpreter",
+            "https://overpass.kumi.systems/api/interpreter",
+        )
+        payload = None
+        for endpoint in endpoints:
+            request = Request(
+                f"{endpoint}?{urlencode({'data': query})}",
+                headers={
+                    "User-Agent": "SafePassage/1.0 (tourist-embassy-support)",
+                    "Accept": "application/json",
+                },
+            )
+            try:
+                with urlopen(request, timeout=3.5) as response:
+                    payload = json.loads(response.read().decode("utf-8"))
+                    break
+            except (URLError, HTTPError, TimeoutError, json.JSONDecodeError, ValueError):
+                continue
+
+        if not payload:
+            continue
+
+        resources = []
+        seen = set()
+        for element in payload.get("elements", []):
+            tags = element.get("tags") or {}
+            latitude = element.get("lat")
+            longitude = element.get("lon")
+            if latitude is None or longitude is None:
+                center = element.get("center") or {}
+                latitude = center.get("lat")
+                longitude = center.get("lon")
+            if latitude is None or longitude is None:
+                continue
+
+            name = (
+                (tags.get("name") or "").strip()
+                or (tags.get("official_name") or "").strip()
+                or "Diplomatic Mission"
+            )
+            resource_country = _embassy_resource_country(tags)
+            searchable_text = _normalize_lookup_text(
+                " ".join(
+                    part for part in [
+                        name,
+                        resource_country,
+                        tags.get("official_name") or "",
+                        tags.get("short_name") or "",
+                    ] if part
+                )
+            )
+            if nationality_terms and not any(term in searchable_text for term in nationality_terms):
+                continue
+
+            key = (name.lower(), round(float(latitude), 5), round(float(longitude), 5))
+            if key in seen:
+                continue
+            seen.add(key)
+
+            distance_km = round(_haversine_km(float(lat_key), float(lng_key), float(latitude), float(longitude)), 2)
+            resources.append(
+                {
+                    "name": name,
+                    "country": resource_country or "Not specified",
+                    "type": "Embassy Support",
+                    "latitude": float(latitude),
+                    "longitude": float(longitude),
+                    "address": _resource_address_from_tags(tags),
+                    "phone": (tags.get("phone") or tags.get("contact:phone") or "").strip(),
+                    "distance_km": distance_km,
+                    "source": "public-map",
+                }
+            )
+
+        resources.sort(key=lambda item: item["distance_km"])
+        if resources:
+            return resources[:4]
+
+    return []
+
+
+def _embassy_search_result_from_payload(item, origin_lat=None, origin_lng=None):
+    latitude = item.get("lat")
+    longitude = item.get("lon")
+    try:
+        latitude = float(latitude)
+        longitude = float(longitude)
+    except (TypeError, ValueError):
+        return None
+
+    display_name = (item.get("display_name") or "").strip()
+    name = (item.get("name") or "").strip()
+    if not name:
+        name = display_name.split(",")[0].strip() if display_name else "Diplomatic Mission"
+
+    distance_km = None
+    if origin_lat is not None and origin_lng is not None:
+        distance_km = round(_haversine_km(origin_lat, origin_lng, latitude, longitude), 2)
+
+    return {
+        "name": name,
+        "country": item.get("country") or "",
+        "type": "Embassy Support",
+        "latitude": latitude,
+        "longitude": longitude,
+        "address": display_name,
+        "phone": "",
+        "distance_km": distance_km,
+        "source": "place-search",
+    }
+
+
+def _is_diplomatic_place_result(item):
+    result_class = _normalize_lookup_text(item.get("class") or item.get("category") or "")
+    result_type = _normalize_lookup_text(item.get("type") or "")
+    address_type = _normalize_lookup_text(item.get("addresstype") or "")
+    searchable_text = _normalize_lookup_text(
+        " ".join(
+            [
+                item.get("display_name") or "",
+                item.get("name") or "",
+                item.get("type") or "",
+                item.get("category") or "",
+                item.get("class") or "",
+                item.get("addresstype") or "",
+            ]
+        )
+    )
+
+    excluded_keywords = (
+        "hotel",
+        "resort",
+        "suite",
+        "suites",
+        "hostel",
+        "guest house",
+        "guesthouse",
+        "lodge",
+        "inn",
+        "motel",
+        "accommodation",
+        "apartment",
+        "rooms",
+        "stay",
+        "tourism",
+    )
+    if result_class == "tourism" or result_type in {"hotel", "guest house", "guesthouse", "hostel", "resort", "motel", "apartment"}:
+        return False
+    if address_type in {"hotel", "guest house", "guesthouse", "hostel", "resort", "motel", "apartment"}:
+        return False
+    if any(keyword in searchable_text for keyword in excluded_keywords):
+        return False
+
+    diplomatic_keywords = ("embassy", "consulate", "consul", "high commission", "diplomatic")
+    has_diplomatic_keyword = any(keyword in searchable_text for keyword in diplomatic_keywords)
+    if not has_diplomatic_keyword:
+        return False
+
+    diplomatic_types = {"embassy", "consulate", "diplomatic"}
+    diplomatic_classes = {"amenity", "office", "building"}
+    return (
+        result_type in diplomatic_types
+        or address_type in diplomatic_types
+        or result_class in diplomatic_classes
+    )
+
+
+def _search_embassy_places_by_location(location_query, nationality_key="", origin_lat=None, origin_lng=None):
+    if not _remote_service_enabled():
+        return []
+
+    location_query = (location_query or "").strip()
+    if not location_query:
+        return []
+
+    nationality_terms = {
+        "us": ("united states", "u.s.", "usa", "american"),
+        "uk": ("united kingdom", "british", "uk", "great britain"),
+        "canada": ("canada", "canadian"),
+        "australia": ("australia", "australian"),
+        "india": ("india", "indian"),
+    }.get(nationality_key or "", ())
+
+    queries = [
+        f"embassy in {location_query}",
+        f"consulate in {location_query}",
+        f"high commission in {location_query}",
+    ]
+
+    for query_text in queries:
+        request = Request(
+            f"https://nominatim.openstreetmap.org/search?{urlencode({'q': query_text, 'format': 'jsonv2', 'limit': 6, 'countrycodes': 'in', 'addressdetails': 1})}",
+            headers={
+                "User-Agent": "SafePassage/1.0 (tourist-embassy-search)",
+                "Accept": "application/json",
+                "Accept-Language": "en",
+            },
+        )
+        try:
+            with urlopen(request, timeout=3.5) as response:
+                payload = json.loads(response.read().decode("utf-8"))
+        except (URLError, HTTPError, TimeoutError, json.JSONDecodeError, ValueError):
+            continue
+
+        resources = []
+        for item in payload or []:
+            display_blob = _normalize_lookup_text(
+                " ".join(
+                    [
+                        item.get("display_name") or "",
+                        item.get("name") or "",
+                        item.get("type") or "",
+                    ]
+                )
+            )
+            if nationality_terms and not any(term in display_blob for term in nationality_terms):
+                continue
+            if not _is_diplomatic_place_result(item):
+                continue
+            resource = _embassy_search_result_from_payload(item, origin_lat=origin_lat, origin_lng=origin_lng)
+            if resource:
+                resources.append(resource)
+
+        resources.sort(key=lambda item: item["distance_km"] if item["distance_km"] is not None else 999999)
+        if resources:
+            return resources[:4]
+
+    return []
+
+
+def _nearest_known_diplomatic_missions(lat, lng, nationality_key=""):
+    if lat is None or lng is None:
+        return []
+
+    filtered_missions = list(KNOWN_DIPLOMATIC_MISSIONS)
+    if nationality_key and nationality_key != "india":
+        preferred = [
+            mission for mission in KNOWN_DIPLOMATIC_MISSIONS
+            if mission.get("country_key") == nationality_key
+        ]
+        if preferred:
+            filtered_missions = preferred
+
+    ranked_missions = []
+    for mission in filtered_missions:
+        mission_lat = mission.get("latitude")
+        mission_lng = mission.get("longitude")
+        if mission_lat is None or mission_lng is None:
+            continue
+        distance_km = round(_haversine_km(lat, lng, float(mission_lat), float(mission_lng)), 2)
+        ranked_missions.append(
+            {
+                "name": mission.get("embassy_name") or "Diplomatic Mission",
+                "country": mission.get("country") or "",
+                "type": mission.get("mission_type") or "Embassy Support",
+                "latitude": float(mission_lat),
+                "longitude": float(mission_lng),
+                "address": mission.get("address") or "",
+                "phone": mission.get("phone") or mission.get("emergency_number") or "",
+                "distance_km": distance_km,
+                "source": mission.get("source") or "known-mission-directory",
+                "city": mission.get("city") or "",
+            }
+        )
+
+    ranked_missions.sort(key=lambda item: item["distance_km"])
+    return ranked_missions[:4]
+
+
+@lru_cache(maxsize=128)
+def _fetch_public_safety_resources(lat_key, lng_key, radius_km=8, limit=8):
+    if not _remote_service_enabled():
+        return []
+
+    radius_m = max(int(float(radius_km) * 1000), 1000)
+    query = (
+        "[out:json][timeout:6];"
+        "("
+        f'node(around:{radius_m},{lat_key},{lng_key})[amenity~"^(police|hospital|clinic|pharmacy|fire_station|doctors)$"];'
+        f'way(around:{radius_m},{lat_key},{lng_key})[amenity~"^(police|hospital|clinic|pharmacy|fire_station|doctors)$"];'
+        f'relation(around:{radius_m},{lat_key},{lng_key})[amenity~"^(police|hospital|clinic|pharmacy|fire_station|doctors)$"];'
+        ");"
+        "out center tags 18;"
+    )
+
+    endpoints = (
+        "https://overpass-api.de/api/interpreter",
+        "https://overpass.kumi.systems/api/interpreter",
+    )
+    payload = None
+    for endpoint in endpoints:
+        request = Request(
+            f"{endpoint}?{urlencode({'data': query})}",
+            headers={
+                "User-Agent": "SafePassage/1.0 (tourist-safety-resources)",
+                "Accept": "application/json",
+            },
+        )
+        try:
+            with urlopen(request, timeout=2.8) as response:
+                payload = json.loads(response.read().decode("utf-8"))
+                break
+        except (URLError, HTTPError, TimeoutError, json.JSONDecodeError, ValueError):
+            continue
+
+    if not payload:
+        return []
+
+    resources = []
+    seen = set()
+    for element in payload.get("elements", []):
+        tags = element.get("tags") or {}
+        latitude = element.get("lat")
+        longitude = element.get("lon")
+        if latitude is None or longitude is None:
+            center = element.get("center") or {}
+            latitude = center.get("lat")
+            longitude = center.get("lon")
+        if latitude is None or longitude is None:
+            continue
+
+        resource_type = _external_resource_type(tags)
+        name = (tags.get("name") or "").strip() or resource_type
+        key = (name.lower(), resource_type.lower(), round(float(latitude), 5), round(float(longitude), 5))
+        if key in seen:
+            continue
+        seen.add(key)
+
+        distance_km = round(_haversine_km(float(lat_key), float(lng_key), float(latitude), float(longitude)), 2)
+        resources.append(
+            {
+                "name": name,
+                "type": resource_type,
+                "latitude": float(latitude),
+                "longitude": float(longitude),
+                "address": _resource_address_from_tags(tags),
+                "phone": (tags.get("phone") or tags.get("contact:phone") or "").strip(),
+                "distance_km": distance_km,
+                "is_open_24_7": (tags.get("opening_hours") or "").strip() == "24/7",
+                "source": "public-map",
+                "source_label": "Nearby public safety service",
+            }
+        )
+
+    resources.sort(key=lambda item: item["distance_km"])
+    return resources[: max(int(limit), 1)]
+
+
+def _build_nearby_resource_payload(lat, lng, radius_km=8, limit=8):
+    combined = []
+    seen = set()
+
+    def add_resource(resource):
+        name = (resource.get("name") or "").strip()
+        resource_type = (resource.get("type") or "").strip()
+        latitude = resource.get("latitude")
+        longitude = resource.get("longitude")
+        if latitude is None or longitude is None:
+            return
+        key = (
+            name.lower(),
+            resource_type.lower(),
+            round(float(latitude), 5),
+            round(float(longitude), 5),
+        )
+        if key in seen:
+            return
+        seen.add(key)
+        combined.append(resource)
+
+    local_resources = _nearby_records(SafeHaven.objects.all(), lat, lng, radius_km=radius_km)
+    for haven, distance_km in local_resources:
+        add_resource(
+            {
+                "name": haven.name,
+                "type": haven.get_type_display(),
+                "latitude": haven.latitude,
+                "longitude": haven.longitude,
+                "address": haven.address,
+                "phone": haven.phone,
+                "distance_km": distance_km,
+                "is_open_24_7": haven.is_open_24_7,
+                "source": "verified-safehaven",
+                "source_label": "Verified Safe Haven",
+            }
+        )
+
+    for resource in _fetch_public_safety_resources(round(lat, 4), round(lng, 4), radius_km=radius_km, limit=max(limit * 2, 8)):
+        add_resource(resource)
+
+    combined.sort(key=lambda item: (item.get("distance_km", 999), 0 if item.get("source") == "verified-safehaven" else 1))
+    return combined[:limit]
+
+
 def _resolve_location_name(lat, lng):
     zones = list(RiskZone.objects.exclude(city="")[:100])
     closest_name = None
@@ -631,7 +1205,7 @@ def _build_risk_payload(lat, lng):
         lng,
         radius_km=6,
     )
-    nearby_resources = _nearby_records(SafeHaven.objects.all(), lat, lng, radius_km=8)
+    nearby_resources = _build_nearby_resource_payload(lat, lng, radius_km=8, limit=8)
     weather = _weather_payload(lat, lng)
     zone_signal = (
         int(sum(zone.risk_score for zone, _ in nearby_zones) / len(nearby_zones))
@@ -689,19 +1263,7 @@ def _build_risk_payload(lat, lng):
         for zone, distance_km in nearby_zones[:3]
     ]
 
-    resources = [
-        {
-            "name": haven.name,
-            "type": haven.get_type_display(),
-            "latitude": haven.latitude,
-            "longitude": haven.longitude,
-            "address": haven.address,
-            "phone": haven.phone,
-            "distance_km": distance_km,
-            "is_open_24_7": haven.is_open_24_7,
-        }
-        for haven, distance_km in nearby_resources[:4]
-    ]
+    resources = nearby_resources[:4]
 
     return {
         "location": location_name,
@@ -739,6 +1301,47 @@ def _resolve_user_coordinates(user):
     if latest_location:
         return latest_location.latitude, latest_location.longitude
     return None, None
+
+
+def _serialize_emergency_contact(contact):
+    return {
+        "id": contact.id,
+        "name": contact.name,
+        "relationship": contact.relationship,
+        "relationship_label": contact.get_relationship_display(),
+        "phone": contact.phone,
+        "email": contact.email or "",
+        "is_primary": contact.is_primary,
+        "whatsapp_enabled": contact.whatsapp_enabled,
+        "sms_enabled": contact.sms_enabled,
+    }
+
+
+def _build_tourist_emergency_context(request, lat=None, lng=None):
+    if lat is None or lng is None:
+        lat, lng = _resolve_user_coordinates(request.user)
+
+    contact_qs = EmergencyContact.objects.filter(user=request.user).order_by("-is_primary", "name")
+    location_available = lat is not None and lng is not None
+    embassy_payload = _default_embassy_payload(request, lat, lng) if location_available else _default_embassy_payload(request)
+    nearby_resources = (
+        _build_nearby_resource_payload(lat, lng, radius_km=12, limit=6)
+        if location_available
+        else []
+    )
+
+    return {
+        "location_available": location_available,
+        "coordinates": (
+            {"latitude": round(lat, 6), "longitude": round(lng, 6)}
+            if location_available
+            else None
+        ),
+        "embassy": embassy_payload,
+        "nearby_resources": nearby_resources,
+        "emergency_contacts_count": contact_qs.count(),
+        "emergency_contacts": [_serialize_emergency_contact(contact) for contact in contact_qs],
+    }
 
 
 def _normalize_lookup_text(value):
@@ -863,6 +1466,283 @@ def _collect_cultural_entries(language, category, limit=4, context_terms=None):
     ]
 
 
+def _guidance_entry(title, content, source="live-context", source_label="Live safety engine"):
+    return {
+        "title": title,
+        "content": content,
+        "source": source,
+        "source_label": source_label,
+    }
+
+
+def _append_unique_guidance(entries, title, content, source="live-context", source_label="Live safety engine", limit=4):
+    title = (title or "").strip()
+    content = (content or "").strip()
+    if not title or not content or len(entries) >= limit:
+        return
+
+    normalized_candidate = _normalize_lookup_text(f"{title} {content}")
+    for entry in entries:
+        existing_text = _normalize_lookup_text(f"{entry.get('title', '')} {entry.get('content', '')}")
+        if existing_text == normalized_candidate:
+            return
+
+    entries.append(_guidance_entry(title, content, source=source, source_label=source_label))
+
+
+def _build_cultural_fallbacks(location_name, risk_payload, alerts, dataset_context, nearby_resources, restricted_zones, scam_alerts):
+    location_reference = location_name or dataset_context.get("city") or "this area"
+    risk_label = _optional_risk_label(risk_payload.get("risk_score")) if risk_payload.get("risk_score") is not None else "UNAVAILABLE"
+    weather = risk_payload.get("weather", {}) or {}
+    signal_counts = risk_payload.get("signal_counts", {}) or {}
+    hotspot_count = signal_counts.get("risk_zones", 0) or len(risk_payload.get("nearby_hotspots", []))
+    report_count = signal_counts.get("incident_reports", 0) or len(alerts)
+
+    police_resources = [resource for resource in nearby_resources if resource.get("type") == "Police Station"]
+    medical_resources = [
+        resource
+        for resource in nearby_resources
+        if resource.get("type") in {"Hospital", "Clinic", "Medical Support", "Pharmacy", "Fire Station"}
+    ]
+
+    top_crimes = dataset_context.get("top_crimes", [])[:2] if dataset_context else []
+    top_crime_text = ", ".join(top_crimes)
+    weather_label = (weather.get("risk_label") or "").strip().upper()
+    weather_condition = (weather.get("condition") or "current weather").strip()
+
+    fallback_dos = []
+    if nearby_resources:
+        service_names = ", ".join(resource.get("name", "support point") for resource in nearby_resources[:2])
+        _append_unique_guidance(
+            fallback_dos,
+            "Keep official help points ready",
+            f"Save nearby support points around {location_reference}, especially {service_names}, before moving deeper into unfamiliar streets.",
+            source="resource-network",
+            source_label="Nearby support network",
+        )
+    if hotspot_count:
+        _append_unique_guidance(
+            fallback_dos,
+            "Stay on active public routes",
+            f"{hotspot_count} nearby safety signals are active around {location_reference}, so prefer busy, well-lit roads and staffed transport points.",
+            source="risk-zone",
+            source_label="Live zone signal",
+        )
+    if dataset_context.get("available") and top_crime_text:
+        _append_unique_guidance(
+            fallback_dos,
+            "Follow local movement patterns",
+            f"Recent city data for {dataset_context['city']} highlights {top_crime_text}, so move with crowds and use clearly identified public access points.",
+            source="dataset-context",
+            source_label="City dataset context",
+        )
+    if not fallback_dos:
+        _append_unique_guidance(
+            fallback_dos,
+            "Observe the local pace first",
+            f"Spend a moment reading how people around {location_reference} queue, speak, and move before joining lines, asking for help, or taking photos.",
+        )
+
+    fallback_donts = []
+    if scam_alerts:
+        _append_unique_guidance(
+            fallback_donts,
+            "Do not trust unsolicited offers",
+            f"Scam-linked warnings are active near {location_reference}, so avoid unofficial guides, surprise transport offers, or anyone asking for instant cash decisions.",
+            source="scam-alert",
+            source_label="Live scam signal",
+        )
+    if restricted_zones:
+        _append_unique_guidance(
+            fallback_donts,
+            "Do not enter sensitive pockets casually",
+            f"Sensitive or restricted zones are recorded near {location_reference}; avoid entering, photographing, or lingering unless you have a clear legitimate reason.",
+            source="risk-zone",
+            source_label="Sensitive-zone signal",
+        )
+    if weather_label and weather_label not in {"LOW", "UNAVAILABLE"}:
+        _append_unique_guidance(
+            fallback_donts,
+            "Do not rely on shortcuts in low visibility",
+            f"{weather_condition} currently adds {weather_label.lower()} travel risk around {location_reference}, so avoid isolated shortcuts and poorly lit service roads.",
+            source="weather",
+            source_label="Weather signal",
+        )
+    if not fallback_donts:
+        _append_unique_guidance(
+            fallback_donts,
+            "Do not hand over documents or devices",
+            f"When navigating {location_reference}, keep passports, phones, and booking details with you instead of sharing them with unofficial helpers.",
+        )
+
+    fallback_risk_behaviors = []
+    if scam_alerts:
+        first_alert = scam_alerts[0]
+        _append_unique_guidance(
+            fallback_risk_behaviors,
+            first_alert.get("title") or "Scam pattern",
+            first_alert.get("description") or f"Scam-related activity has been recorded near {location_reference}.",
+            source=first_alert.get("source") or "scam-alert",
+            source_label="Live scam signal",
+        )
+    elif top_crime_text:
+        _append_unique_guidance(
+            fallback_risk_behaviors,
+            "Reported local pressure points",
+            f"City crime context around {location_reference} currently overlaps with {top_crime_text}, so verify prices, routes, and identities before committing.",
+            source="dataset-context",
+            source_label="City dataset context",
+        )
+    else:
+        _append_unique_guidance(
+            fallback_risk_behaviors,
+            "Cross-check every offer",
+            f"If someone in {location_reference} pressures you to change transport, guide, or payment plans on the spot, verify it through an official counter first.",
+        )
+
+    fallback_risk_explanation = []
+    if risk_payload.get("risk_score") is not None:
+        _append_unique_guidance(
+            fallback_risk_explanation,
+            "Current zone score",
+            f"The cultural risk score is {risk_label.lower()} around {location_reference}, based on live GPS position and the safety signals currently mapped nearby.",
+        )
+    if hotspot_count:
+        _append_unique_guidance(
+            fallback_risk_explanation,
+            "Nearby risk signals",
+            f"{hotspot_count} nearby hotspot or risk-zone records are contributing to the score for {location_reference}.",
+            source="risk-zone",
+            source_label="Live zone signal",
+        )
+    if report_count:
+        _append_unique_guidance(
+            fallback_risk_explanation,
+            "Recent incident activity",
+            f"{report_count} recent incident or alert records were found around {location_reference}, so the system is raising extra cultural-safety caution there.",
+            source="incident-feed",
+            source_label="Live alert feed",
+        )
+    if not fallback_risk_explanation:
+        readiness_text = "support points are already mapped nearby" if nearby_resources else "nearby support records are still sparse"
+        _append_unique_guidance(
+            fallback_risk_explanation,
+            "Sparse but active monitoring",
+            f"Detailed cultural records are limited for {location_reference}, but SafePassage is still evaluating the live area and {readiness_text}.",
+        )
+
+    fallback_local_customs = []
+    _append_unique_guidance(
+        fallback_local_customs,
+        "Read the local tone first",
+        f"In {location_reference}, observe how people queue, greet, and wait before joining a line or approaching staff, especially in stations, temples, and civic spaces.",
+    )
+    if dataset_context.get("available"):
+        _append_unique_guidance(
+            fallback_local_customs,
+            "Blend with the local routine",
+            f"Because {dataset_context['city']} has active safety records, keep your movement deliberate and low-profile rather than stopping abruptly in crowded corridors.",
+            source="dataset-context",
+            source_label="City dataset context",
+        )
+
+    fallback_dress_codes = []
+    if restricted_zones:
+        _append_unique_guidance(
+            fallback_dress_codes,
+            "Dress conservatively near sensitive spaces",
+            f"Sensitive areas around {location_reference} call for modest clothing and a low-profile appearance, especially near worship, government, or checkpoint zones.",
+            source="risk-zone",
+            source_label="Sensitive-zone signal",
+        )
+    else:
+        _append_unique_guidance(
+            fallback_dress_codes,
+            "Choose practical modest clothing",
+            f"For unfamiliar areas in {location_reference}, prefer comfortable modest clothing, secure footwear, and avoid flashy valuables on display.",
+        )
+
+    fallback_behavior = []
+    _append_unique_guidance(
+        fallback_behavior,
+        "Keep conversations calm in transit areas",
+        f"When moving through {location_reference}, keep your voice low, avoid arguments in queues, and use formal language with transport or security staff.",
+    )
+    if police_resources:
+        _append_unique_guidance(
+            fallback_behavior,
+            "Use official staff for help",
+            f"Police or official safety services are nearby in {location_reference}, so route questions and complaints through uniformed or clearly identified staff first.",
+            source="resource-network",
+            source_label="Nearby support network",
+        )
+
+    fallback_restricted_actions = []
+    if restricted_zones:
+        first_zone = restricted_zones[0]
+        _append_unique_guidance(
+            fallback_restricted_actions,
+            first_zone.get("name") or "Sensitive zone",
+            first_zone.get("description") or f"Restricted activity has been flagged near {location_reference}.",
+            source=first_zone.get("source") or "risk-zone",
+            source_label="Live zone signal",
+        )
+    _append_unique_guidance(
+        fallback_restricted_actions,
+        "Avoid unofficial detours after dark",
+        f"If someone redirects you away from main public routes in {location_reference}, do not follow until you confirm the route through an official app, counter, or safety point.",
+    )
+
+    fallback_scam_alerts = []
+    if not scam_alerts:
+        if top_crime_text:
+            fallback_scam_alerts.append(
+                {
+                    "title": f"{location_reference} fraud caution",
+                    "description": f"Local crime context around {location_reference} overlaps with {top_crime_text}, so verify transport rates, ticketing, and guide identity before paying.",
+                    "severity": risk_label,
+                    "distance_km": 0,
+                    "source": "dataset-context",
+                }
+            )
+        elif hotspot_count:
+            fallback_scam_alerts.append(
+                {
+                    "title": "Risk-linked tourist caution",
+                    "description": f"Nearby hotspot pressure around {location_reference} means you should double-check prices, routes, and identity badges before accepting help.",
+                    "severity": risk_label,
+                    "distance_km": 0,
+                    "source": "risk-zone",
+                }
+            )
+
+    fallback_restricted_zones = []
+    if not restricted_zones and hotspot_count:
+        fallback_restricted_zones.append(
+            {
+                "name": f"{location_reference} monitored pocket",
+                "description": f"Active hotspot records exist near {location_reference}; avoid isolated side streets and move toward staffed public spaces if the area feels uncomfortable.",
+                "risk_score": risk_payload.get("risk_score"),
+                "risk_label": risk_label,
+                "distance_km": 0,
+                "source": "risk-zone",
+            }
+        )
+
+    return {
+        "dos": fallback_dos,
+        "donts": fallback_donts,
+        "risk_behaviors": fallback_risk_behaviors,
+        "risk_explanation": [entry["content"] for entry in fallback_risk_explanation],
+        "local_customs": fallback_local_customs,
+        "dress_codes": fallback_dress_codes,
+        "behavior_guidelines": fallback_behavior,
+        "restricted_actions": fallback_restricted_actions,
+        "scam_alerts": fallback_scam_alerts,
+        "restricted_zones": fallback_restricted_zones,
+    }
+
+
 @lru_cache(maxsize=1)
 def _load_city_crime_context():
     dataset_path = Path(settings.BASE_DIR).parent / "dataset" / "crime with names_dataset_india.csv"
@@ -937,8 +1817,9 @@ def _city_dataset_context(location_name):
 
 
 def _build_incident_alerts(lat, lng, limit=5):
+    recent_reports_queryset = IncidentReport.objects.filter(created_at__gte=timezone.now() - timedelta(days=7))
     recent_reports = _nearby_records(
-        IncidentReport.objects.filter(created_at__gte=timezone.now() - timedelta(days=7)),
+        recent_reports_queryset,
         lat,
         lng,
         radius_km=8,
@@ -960,6 +1841,7 @@ def _build_incident_alerts(lat, lng, limit=5):
         }
         for report, distance_km in recent_reports[:limit]
     ]
+    seen_ids = {alert["id"] for alert in alerts}
 
     if len(alerts) < limit:
         for zone, distance_km in nearby_zones[: limit - len(alerts)]:
@@ -977,6 +1859,66 @@ def _build_incident_alerts(lat, lng, limit=5):
                     "created_at": timezone.now().isoformat(),
                 }
             )
+            seen_ids.add(f"zone-{zone.id}")
+
+    if len(alerts) < limit:
+        fallback_reports = []
+        for report in recent_reports_queryset:
+            distance_km = round(_haversine_km(lat, lng, report.latitude, report.longitude), 2)
+            fallback_reports.append((report, distance_km))
+        fallback_reports.sort(key=lambda item: item[1])
+
+        for report, distance_km in fallback_reports:
+            if len(alerts) >= limit:
+                break
+            if report.id in seen_ids:
+                continue
+            alerts.append(
+                {
+                    "id": report.id,
+                    "incident_type": report.incident_type,
+                    "title": report.location_label or f"{report.get_incident_type_display()} reported nearby",
+                    "description": report.description,
+                    "severity": _optional_risk_label(report.risk_score_snapshot),
+                    "distance_km": distance_km,
+                    "latitude": report.latitude,
+                    "longitude": report.longitude,
+                    "source": "user-report",
+                    "scope": "nearest-available",
+                    "created_at": report.created_at.isoformat(),
+                }
+            )
+            seen_ids.add(report.id)
+
+    if len(alerts) < limit:
+        fallback_zones = []
+        for zone in RiskZone.objects.all():
+            distance_km = round(_haversine_km(lat, lng, zone.latitude, zone.longitude), 2)
+            fallback_zones.append((zone, distance_km))
+        fallback_zones.sort(key=lambda item: item[1])
+
+        for zone, distance_km in fallback_zones:
+            if len(alerts) >= limit:
+                break
+            zone_key = f"zone-{zone.id}"
+            if zone_key in seen_ids:
+                continue
+            alerts.append(
+                {
+                    "id": zone_key,
+                    "incident_type": zone.risk_type,
+                    "title": f"{zone.get_risk_type_display()} hotspot",
+                    "description": zone.description,
+                    "severity": _normalize_risk_label(zone.risk_score),
+                    "distance_km": distance_km,
+                    "latitude": zone.latitude,
+                    "longitude": zone.longitude,
+                    "source": "risk-zone",
+                    "scope": "nearest-available",
+                    "created_at": timezone.now().isoformat(),
+                }
+            )
+            seen_ids.add(zone_key)
 
     return alerts
 
@@ -1079,8 +2021,17 @@ def _build_cultural_safety_payload(user, lat, lng, language, assist_language=Non
     emergency_resources = [
         resource
         for resource in nearby_resources
-        if resource.get("type") in {"Police Station", "Hospital"}
-    ][:4]
+        if resource.get("type") in {
+            "Police Station",
+            "Hospital",
+            "Clinic",
+            "Medical Support",
+            "Pharmacy",
+            "Fire Station",
+            "Verified Safe Business",
+            "24/7 Public Space",
+        }
+    ][:6]
 
     def _tip_text(entry):
         return " ".join(
@@ -1145,6 +2096,27 @@ def _build_cultural_safety_payload(user, lat, lng, language, assist_language=Non
         ],
     }
 
+    fallback_guidance = _build_cultural_fallbacks(
+        location_name,
+        risk_payload,
+        alerts,
+        dataset_context,
+        nearby_resources,
+        restricted_zones,
+        scam_alerts,
+    )
+
+    dos = (dos or fallback_guidance["dos"])[:4]
+    donts = (donts or fallback_guidance["donts"])[:4]
+    risk_behaviors = (risk_behaviors or fallback_guidance["risk_behaviors"])[:4]
+    scam_alerts = (scam_alerts or fallback_guidance["scam_alerts"])[:5]
+    restricted_zones = (restricted_zones or fallback_guidance["restricted_zones"])[:4]
+    risk_explanation = (risk_explanation or fallback_guidance["risk_explanation"])[:6]
+    local_customs = (local_customs or fallback_guidance["local_customs"])[:4]
+    dress_codes = (dress_codes or fallback_guidance["dress_codes"])[:4]
+    behavior_guidelines = (behavior_guidelines or fallback_guidance["behavior_guidelines"])[:4]
+    restricted_actions = (restricted_actions or fallback_guidance["restricted_actions"])[:6]
+
     return {
         "status": "success",
         "country": "India",
@@ -1167,14 +2139,14 @@ def _build_cultural_safety_payload(user, lat, lng, language, assist_language=Non
         "dos": dos,
         "donts": donts,
         "risk_behaviors": risk_behaviors,
-        "scam_alerts": scam_alerts[:5],
-        "restricted_zones": restricted_zones[:4],
+        "scam_alerts": scam_alerts,
+        "restricted_zones": restricted_zones,
         "quick_help": quick_help,
         "location_insights": {
-            "local_customs": local_customs[:4],
-            "dress_codes": dress_codes[:4],
-            "behavior_guidelines": behavior_guidelines[:4],
-            "restricted_actions": restricted_actions[:6],
+            "local_customs": local_customs,
+            "dress_codes": dress_codes,
+            "behavior_guidelines": behavior_guidelines,
+            "restricted_actions": restricted_actions,
         },
         "cultural_risk_score_meta": cultural_risk_score_meta,
         "live_context": {
@@ -1833,6 +2805,8 @@ def _build_safe_route_payload(user, source_lat, source_lng, dest_lat, dest_lng, 
 
 def _normalize_nationality(raw_value):
     value = (raw_value or "").strip().lower()
+    if value in {"indian", "india"}:
+        return "india"
     if value in {"american", "usa", "us", "united states", "united states of america"}:
         return "us"
     if value in {"british", "uk", "united kingdom", "england"}:
@@ -1847,21 +2821,68 @@ def _normalize_nationality(raw_value):
 def _default_embassy_payload(request, lat=None, lng=None):
     profile = TouristProfile.objects.filter(user=request.user).first()
     nationality_key = _normalize_nationality(profile.nationality if profile else "")
-    if nationality_key and nationality_key in EMBASSY_DIRECTORY:
+    lookup_nationality_key = nationality_key if nationality_key != "india" else ""
+    nearby_missions = []
+    location_name = None
+    if lat is not None and lng is not None:
+        location_name = _resolve_location_name(lat, lng)
+        nearby_missions = _fetch_nearby_embassy_resources(round(lat, 4), round(lng, 4), lookup_nationality_key)
+        if not nearby_missions and not lookup_nationality_key:
+            nearby_missions = _fetch_nearby_embassy_resources(round(lat, 4), round(lng, 4), "")
+        if not nearby_missions and location_name:
+            nearby_missions = _search_embassy_places_by_location(
+                location_name,
+                nationality_key=lookup_nationality_key,
+                origin_lat=lat,
+                origin_lng=lng,
+            )
+        if not nearby_missions and location_name and not lookup_nationality_key:
+            nearby_missions = _search_embassy_places_by_location(
+                location_name,
+                nationality_key="",
+                origin_lat=lat,
+                origin_lng=lng,
+            )
+        if not nearby_missions:
+            nearby_missions = _nearest_known_diplomatic_missions(lat, lng, nationality_key=lookup_nationality_key)
+
+    if nearby_missions:
+        mission = nearby_missions[0]
+        embassy = {
+            "country": mission.get("country") or (profile.nationality if profile and profile.nationality else "Not specified"),
+            "embassy_name": mission.get("name") or "Nearby embassy support",
+            "city": mission.get("city") or (
+                _resolve_location_name(mission.get("latitude"), mission.get("longitude"))
+                if mission.get("latitude") is not None and mission.get("longitude") is not None
+                else ""
+            ),
+            "phone": mission.get("phone") or "",
+            "emergency_number": mission.get("phone") or "112",
+            "address": mission.get("address") or "Nearby embassy support point identified.",
+            "distance_km": mission.get("distance_km"),
+            "mission_type": mission.get("type") or "Embassy Support",
+            "source": mission.get("source") or "public-map",
+            "nearby_missions": nearby_missions,
+        }
+    elif nationality_key and nationality_key in EMBASSY_DIRECTORY:
         embassy = EMBASSY_DIRECTORY[nationality_key].copy()
+        embassy["source"] = "directory"
+        embassy["nearby_missions"] = []
     else:
         embassy = {
             "country": profile.nationality if profile and profile.nationality else "Not specified",
-            "embassy_name": "Embassy details need your nationality",
+            "embassy_name": "Nearby embassy support is still syncing",
             "city": "",
             "phone": "",
             "emergency_number": "112",
-            "address": "Update your nationality in the tourist profile to load the correct embassy contact.",
+            "address": "Allow location so SafePassage can look for the nearest embassy or consulate.",
+            "source": "fallback",
+            "nearby_missions": [],
         }
 
     if lat is not None and lng is not None:
         embassy["zone_alert"] = _build_risk_payload(lat, lng)["advice"]
-        embassy["location"] = _resolve_location_name(lat, lng)
+        embassy["location"] = location_name or _resolve_location_name(lat, lng)
     else:
         embassy["zone_alert"] = "Keep your embassy contact saved offline before longer intercity travel."
         embassy["location"] = None
@@ -2363,7 +3384,18 @@ def tourist_dashboard(request):
 
 @tourist_required
 def tourist_alerts(request):
-    return render(request, "tourist_alerts.html")
+    saved_lat, saved_lng = _resolve_user_coordinates(request.user)
+    return render(
+        request,
+        "tourist_alerts.html",
+        {
+            "saved_location": (
+                {"latitude": round(saved_lat, 6), "longitude": round(saved_lng, 6)}
+                if saved_lat is not None and saved_lng is not None
+                else None
+            )
+        },
+    )
 
 
 @tourist_required
@@ -2375,12 +3407,15 @@ def tourist_translate(request):
 # Tourist Emergency
 @tourist_required
 def tourist_emergency(request):
+    initial_live_context = _build_tourist_emergency_context(request)
     return render(
         request,
         "tourist_emergency.html",
         {
             "emergency_contacts": EmergencyContact.objects.filter(user=request.user).order_by("-is_primary", "name"),
             "emergency_contacts_count": EmergencyContact.objects.filter(user=request.user).count(),
+            "initial_embassy": initial_live_context["embassy"],
+            "saved_location": initial_live_context["coordinates"],
         },
     )
 
@@ -2418,12 +3453,16 @@ def tourist_scam_alerts(request):
 
 @tourist_required
 def tourist_emergency_contacts(request):
+    initial_live_context = _build_tourist_emergency_context(request)
     return render(
         request,
         "tourist_emergency_contacts.html",
         {
-            "emergency_contacts_count": EmergencyContact.objects.filter(user=request.user).count(),
+            "emergency_contacts_count": initial_live_context["emergency_contacts_count"],
             "emergency_contacts": EmergencyContact.objects.filter(user=request.user).order_by("-is_primary", "name"),
+            "initial_embassy": initial_live_context["embassy"],
+            "initial_nearby_resources": initial_live_context["nearby_resources"],
+            "saved_location": initial_live_context["coordinates"],
         },
     )
 
@@ -2461,11 +3500,19 @@ def tourist_profile(request):
     
     # Get emergency contacts
     emergency_contacts = EmergencyContact.objects.filter(user=request.user).order_by('-is_primary', 'name')
+    current_lat, current_lng = _resolve_user_coordinates(request.user)
+    current_location_display = journey.current_location or ""
+    current_location_status = "Current location will update after GPS access is allowed."
+    if current_lat is not None and current_lng is not None:
+        current_location_display = _compose_location_label(current_lat, current_lng, include_coordinates=True) or current_location_display
+        current_location_status = f"Saved location available: {current_location_display}"
     
     context = {
         'profile': profile,
         'journey': journey,
         'emergency_contacts': emergency_contacts,
+        'current_location_display': current_location_display,
+        'current_location_status': current_location_status,
     }
     
     return render(request, "tourist_profile.html", context)
@@ -2648,6 +3695,18 @@ def api_embassy_info(request):
     embassy_payload = _default_embassy_payload(request, lat, lng)
     embassy_payload["status"] = "success"
     return JsonResponse(embassy_payload)
+
+
+@login_required
+def api_tourist_emergency_context(request):
+    guard_response = _tourist_api_guard(request)
+    if guard_response:
+        return guard_response
+
+    lat, lng = _parse_coordinates(request.GET)
+    payload = _build_tourist_emergency_context(request, lat, lng)
+    payload["status"] = "success"
+    return JsonResponse(payload)
 
 
 @login_required
@@ -3139,23 +4198,23 @@ def _dispatch_contact_rows(user):
 
     if user.role == "worker":
         worker_profile = getattr(user, "worker_profile", None)
-        if worker_profile and worker_profile.emergency_contact_name and worker_profile.emergency_contact_phone:
-            employer_phone = _normalized_contact_phone(worker_profile.emergency_contact_phone)
+        if worker_profile and worker_profile.emergency_contact_name and worker_profile.emergency_contact_email:
+            employer_email = (worker_profile.emergency_contact_email or "").strip().lower()
             dedupe_key = (
-                employer_phone,
                 "",
+                employer_email,
                 (worker_profile.emergency_contact_name or "").strip().lower(),
             )
-            if employer_phone and dedupe_key not in seen:
+            if employer_email and dedupe_key not in seen:
                 contacts.append(
                     {
                         "name": worker_profile.emergency_contact_name,
-                        "phone": worker_profile.emergency_contact_phone,
+                        "phone": worker_profile.emergency_contact_phone or "",
                         "relationship": "Employer Contact",
                         "is_primary": not contacts,
-                        "sms_enabled": True,
-                        "whatsapp_enabled": True,
-                        "email": "",
+                        "sms_enabled": False,
+                        "whatsapp_enabled": False,
+                        "email": worker_profile.emergency_contact_email,
                         "source": "worker-profile",
                     }
                 )
@@ -3260,27 +4319,61 @@ def _next_checkin_due_minutes(active_shift, last_checkin, interval_minutes=30):
 
 
 def _build_worker_safe_havens_payload(lat, lng, radius_km=10):
-    havens = _nearby_records(SafeHaven.objects.all(), lat, lng, radius_km=radius_km)
+    support_points = _build_nearby_resource_payload(lat, lng, radius_km=radius_km, limit=8)
+    scope = "nearby"
+    if not support_points:
+        support_points = _build_nearby_resource_payload(lat, lng, radius_km=max(radius_km * 2, 20), limit=8)
+        scope = "nearest-available" if support_points else "none"
+
+    normalized_points = []
+    for index, resource in enumerate(support_points, start=1):
+        resource_type = resource.get("type") or "Safety Resource"
+        normalized_points.append(
+            {
+                "id": resource.get("id") or f"{resource.get('source', 'resource')}-{index}",
+                "name": resource.get("name") or resource_type,
+                "type": resource_type,
+                "type_code": _normalize_lookup_text(resource_type).replace(" ", "-") or "safety-resource",
+                "latitude": resource.get("latitude"),
+                "longitude": resource.get("longitude"),
+                "address": resource.get("address") or "",
+                "phone": resource.get("phone") or "",
+                "is_open_24_7": bool(resource.get("is_open_24_7")),
+                "distance_km": resource.get("distance_km"),
+                "source": resource.get("source") or "verified-safehaven",
+                "source_label": resource.get("source_label") or "Worker support point",
+                "scope": scope,
+            }
+        )
+    return normalized_points
+
+
+def _build_worker_hotspot_payload(lat, lng, radius_km=6, fallback_radius_km=25, limit=4):
+    hotspots = _nearby_records(RiskZone.objects.all(), lat, lng, radius_km=radius_km)
+    scope = "nearby"
+    if not hotspots:
+        hotspots = _nearby_records(RiskZone.objects.all(), lat, lng, radius_km=fallback_radius_km)
+        scope = "nearest-available" if hotspots else "none"
+
     return [
         {
-            "id": haven.id,
-            "name": haven.name,
-            "type": haven.get_type_display(),
-            "type_code": haven.type,
-            "latitude": haven.latitude,
-            "longitude": haven.longitude,
-            "address": haven.address,
-            "phone": haven.phone,
-            "is_open_24_7": haven.is_open_24_7,
+            "risk_type": zone.get_risk_type_display(),
+            "risk_score": zone.risk_score,
+            "description": zone.description,
+            "city": zone.city,
+            "latitude": zone.latitude,
+            "longitude": zone.longitude,
             "distance_km": distance_km,
+            "scope": scope,
         }
-        for haven, distance_km in havens[:8]
+        for zone, distance_km in hotspots[:limit]
     ]
 
 
 def _build_worker_risk_payload(lat, lng):
     base_payload = _build_risk_payload(lat, lng)
     verified_havens = _build_worker_safe_havens_payload(lat, lng, radius_km=8)
+    hotspot_points = _build_worker_hotspot_payload(lat, lng, radius_km=6, fallback_radius_km=25)
     base_score = base_payload.get("risk_score")
     local_hour = timezone.localtime().hour
     is_night_window = local_hour >= 20 or local_hour < 6
@@ -3313,6 +4406,7 @@ def _build_worker_risk_payload(lat, lng):
             "night_window": is_night_window,
             "night_adjustment": risk_adjustment,
             "nearby_safe_havens": verified_havens,
+            "nearby_hotspots": hotspot_points,
         }
     )
     return base_payload
@@ -3514,18 +4608,20 @@ def worker_profile(request):
         home_address = (request.POST.get("home_address") or "").strip()
         emergency_contact_name = (request.POST.get("emergency_contact_name") or "").strip()
         emergency_contact_phone = (request.POST.get("emergency_contact_phone") or "").strip()
+        emergency_contact_email = (request.POST.get("emergency_contact_email") or "").strip()
         blood_group = (request.POST.get("blood_group") or "").strip().upper()
-        usual_shift_start = (request.POST.get("usual_shift_start") or "").strip()
-        usual_shift_end = (request.POST.get("usual_shift_end") or "").strip()
-        start_period = request.POST.get("shift_start_period", "AM")
-        end_period = request.POST.get("shift_end_period", "AM")
+        company_phone = (request.POST.get("company_phone") or "").strip()
+        company_address = (request.POST.get("company_address") or "").strip()
+        medications = (request.POST.get("medications") or "").strip()
 
         required_fields = {
             "First name": first_name,
             "Last name": last_name,
             "Phone": phone,
             "Employee ID": employee_id,
-            "Company": company_name,
+            "Company Name": company_name,
+            "Company Phone": company_phone,
+            "Company Address": company_address,
             "Designation": designation,
             "Department": department,
             "Work location": work_location,
@@ -3533,8 +4629,7 @@ def worker_profile(request):
             "Blood group": blood_group,
             "Emergency contact name": emergency_contact_name,
             "Emergency contact phone": emergency_contact_phone,
-            "Usual shift start": usual_shift_start,
-            "Usual shift end": usual_shift_end,
+            "Emergency contact email": emergency_contact_email,
         }
         missing_fields = [label for label, value in required_fields.items() if not value]
         if missing_fields:
@@ -3561,27 +4656,14 @@ def worker_profile(request):
             messages.error(request, "Emergency contact phone must be a valid 10-digit mobile number.")
             return redirect("worker_profile")
 
+        if not re.match(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$", emergency_contact_email):
+            messages.error(request, "Emergency contact email must be a valid email address.")
+            return redirect("worker_profile")
+
         if blood_group not in {"A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"}:
             messages.error(request, "Select a valid blood group.")
             return redirect("worker_profile")
 
-        parsed_shift_start = None
-        parsed_shift_end = None
-        try:
-            from datetime import time
-            h_s, m_s = map(int, usual_shift_start.split(':'))
-            # If picker was 12h, adjust based on period. If 24h, normalize.
-            if h_s < 12 and start_period == "PM": h_s += 12
-            elif h_s == 12 and start_period == "AM": h_s = 0
-            parsed_shift_start = time(h_s, m_s)
-
-            h_e, m_e = map(int, usual_shift_end.split(':'))
-            if h_e < 12 and end_period == "PM": h_e += 12
-            elif h_e == 12 and end_period == "AM": h_e = 0
-            parsed_shift_end = time(h_e, m_e)
-        except (ValueError, IndexError):
-            messages.error(request, "Invalid shift timing format.")
-            return redirect("worker_profile")
 
         request.user.first_name = first_name
         request.user.last_name = last_name
@@ -3592,16 +4674,18 @@ def worker_profile(request):
 
         worker.employee_id = employee_id
         worker.company_name = company_name
+        worker.company_phone = company_phone
+        worker.company_address = company_address
         worker.phone = phone
         worker.designation = designation
         worker.department = department
         worker.work_location = work_location
         worker.home_address = home_address
+        worker.medications = medications
         worker.emergency_contact_name = emergency_contact_name
         worker.emergency_contact_phone = emergency_contact_phone
+        worker.emergency_contact_email = emergency_contact_email
         worker.blood_group = blood_group
-        worker.usual_shift_start = parsed_shift_start
-        worker.usual_shift_end = parsed_shift_end
         worker.save()
 
         messages.success(request, "Worker profile updated successfully.")
@@ -3622,7 +4706,7 @@ def api_worker_sos_target(request):
 
     payload = _load_request_payload(request)
     contact_name = (payload.get("name") or "").strip()
-    contact_phone = (payload.get("phone") or "").strip()
+    contact_email = (payload.get("email") or "").strip()
 
     if not re.match(r"^[a-zA-Z\s]{2,}$", contact_name):
         return JsonResponse(
@@ -3630,16 +4714,16 @@ def api_worker_sos_target(request):
             status=400,
         )
 
-    if not re.match(r"^\d{10}$", contact_phone):
+    if not re.match(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$", contact_email):
         return JsonResponse(
-            {"status": "error", "message": "Phone number must be a valid 10-digit mobile number."},
+            {"status": "error", "message": "Please provide a valid email address."},
             status=400,
         )
 
     worker_profile = _get_or_create_worker_profile(request.user)
     worker_profile.emergency_contact_name = contact_name
-    worker_profile.emergency_contact_phone = contact_phone
-    worker_profile.save(update_fields=["emergency_contact_name", "emergency_contact_phone"])
+    worker_profile.emergency_contact_email = contact_email
+    worker_profile.save(update_fields=["emergency_contact_name", "emergency_contact_email"])
 
     return JsonResponse(
         {
@@ -3647,9 +4731,9 @@ def api_worker_sos_target(request):
             "message": "Worker SOS target updated successfully.",
             "contact": {
                 "name": worker_profile.emergency_contact_name,
-                "phone": worker_profile.emergency_contact_phone,
+                "email": worker_profile.emergency_contact_email,
                 "relationship": "Employer Contact",
-                "channels": ["SMS", "WhatsApp"],
+                "channels": ["Email SMTP"],
                 "source": "worker-profile",
             },
         }
@@ -3688,8 +4772,40 @@ def api_worker_safe_havens(request):
         return guard_response
 
     lat, lng = _resolve_worker_coordinates(request, request.GET)
-    if lat is None or lng is None:
-        return JsonResponse({"status": "error", "message": "Live coordinates are required."}, status=400)
+    location_unknown = lat is None or lng is None
+    if location_unknown:
+        # No live or saved location — return all DB safe havens so the page is not empty
+        all_havens = list(
+            SafeHaven.objects.all().order_by("name").values(
+                "id", "name", "type", "latitude", "longitude", "address", "phone", "is_open_24_7"
+            )
+        )
+        normalized = [
+            {
+                "id": h["id"],
+                "name": h["name"] or "Safe Haven",
+                "type": h["type"],
+                "latitude": h["latitude"],
+                "longitude": h["longitude"],
+                "address": h["address"] or "",
+                "phone": h["phone"] or "",
+                "is_open_24_7": bool(h["is_open_24_7"]),
+                "distance_km": None,
+                "source": "verified-safehaven",
+                "source_label": "Verified Safe Haven",
+                "scope": "all",
+            }
+            for h in all_havens
+            if h["latitude"] is not None and h["longitude"] is not None
+        ]
+        center = normalized[0] if normalized else {"latitude": 9.9674, "longitude": 76.2454}
+        return JsonResponse({
+            "status": "success",
+            "location": "Location unavailable – showing all registered safe havens",
+            "coordinates": {"latitude": center["latitude"], "longitude": center["longitude"]},
+            "count": len(normalized),
+            "havens": normalized,
+        })
     havens = _build_worker_safe_havens_payload(lat, lng)
     return JsonResponse(
         {

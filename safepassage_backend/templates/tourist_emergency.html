@@ -178,10 +178,12 @@
                     <p class="small text-muted mt-3 mb-0" id="sosRiskAdvice">Live risk guidance will appear once your location is available.</p>
                 </div>
                 <div class="status-box">
-                    <div class="small text-muted mb-1">Embassy support</div>
-                    <h5 class="fw-bold mb-1" id="sosEmbassyName">Waiting for nationality and location</h5>
-                    <p class="small text-muted mb-2" id="sosEmbassyAddress">Add nationality in profile if embassy details are not available yet.</p>
-                    <a href="#" class="btn btn-outline-danger rounded-pill btn-sm disabled" id="sosEmbassyCall">Call Embassy</a>
+                    <div class="small text-muted mb-1">Nearby embassy support</div>
+                    <h5 class="fw-bold mb-1" id="sosEmbassyName">{{ initial_embassy.embassy_name|default:"Waiting for nationality and location" }}</h5>
+                    <p class="small text-muted mb-2" id="sosEmbassyAddress">{{ initial_embassy.address|default:"Add nationality in profile if embassy details are not available yet." }}</p>
+                    <p class="small text-muted mb-2" id="sosEmbassyContact">{% if initial_embassy.city or initial_embassy.phone %}{% if initial_embassy.city %}{{ initial_embassy.city }}{% endif %}{% if initial_embassy.city and initial_embassy.phone %} • {% endif %}{% if initial_embassy.phone %}{{ initial_embassy.phone }}{% endif %}{% else %}City and contact details will appear when the nearest mission is resolved.{% endif %}</p>
+                    <p class="small text-muted mb-3" id="sosEmbassyHint">{% if initial_embassy.distance_km != None %}Nearest embassy support is about {{ initial_embassy.distance_km }} km away.{% else %}Nearest embassy support will follow your live or last saved location.{% endif %}</p>
+                    <a href="{% if initial_embassy.phone %}tel:{{ initial_embassy.phone }}{% else %}#{% endif %}" class="btn btn-outline-danger rounded-pill btn-sm {% if not initial_embassy.phone %}disabled{% endif %}" id="sosEmbassyCall">Call Embassy</a>
                 </div>
             </div>
 
@@ -275,6 +277,12 @@
                         <a href="tel:181" class="btn btn-outline-secondary rounded-pill btn-sm">Call 181</a>
                     </div>
                     <div class="contact-box">
+                        <div class="fw-bold mb-1">Nearby Embassy</div>
+                        <div class="small text-muted mb-2" id="sosEmbassyQuickName">{{ initial_embassy.embassy_name|default:"Waiting for location" }}</div>
+                        <div class="small text-muted mb-3" id="sosEmbassyQuickMeta">{% if initial_embassy.distance_km != None %}About {{ initial_embassy.distance_km }} km from your current or saved location.{% else %}Live or saved-location embassy support will appear here.{% endif %}</div>
+                        <a href="{% if initial_embassy.phone %}tel:{{ initial_embassy.phone }}{% else %}#{% endif %}" class="btn btn-outline-danger rounded-pill btn-sm {% if not initial_embassy.phone %}disabled{% endif %}" id="sosEmbassyQuickCall">Call Embassy</a>
+                    </div>
+                    <div class="contact-box">
                         <div class="fw-bold mb-1">Manage Contacts</div>
                         <div class="small text-muted mb-3">{{ emergency_contacts_count|default:0 }} saved — Configure SMS + WhatsApp alerts</div>
                         <a href="{% url 'tourist_profile_hub' %}" class="btn btn-outline-dark rounded-pill btn-sm">Open Profile</a>
@@ -340,6 +348,39 @@
         if (label) return label;
         if (lat != null && lng != null) return formatCoord(lat, lng);
         return fallback || 'Live location unavailable';
+    }
+
+    function updateEmbassySupport(embassy, sourceLabel) {
+        const embassyName = embassy && embassy.embassy_name ? embassy.embassy_name : 'Embassy unavailable';
+        const embassyAddress = embassy && embassy.address ? embassy.address : 'Address unavailable';
+        const embassyLocation = embassy && embassy.location ? embassy.location : '';
+        const embassyPhone = embassy && embassy.phone ? String(embassy.phone) : '';
+        const embassyCity = embassy && embassy.city ? String(embassy.city) : '';
+        const embassyDistance = embassy && embassy.distance_km != null ? `${embassy.distance_km} km away` : '';
+        const hint = sourceLabel === 'saved'
+            ? `Showing embassy support for your last saved location${embassyLocation ? ` near ${embassyLocation}` : ''}${embassyDistance ? `, about ${embassyDistance}` : ''}.`
+            : `Showing nearby embassy support${embassyLocation ? ` for ${embassyLocation}` : ''}${embassyDistance ? `, about ${embassyDistance}` : ''}.`;
+        const contactDetails = [embassyCity, embassyPhone].filter(Boolean).join(' • ') || 'City and contact details will appear when the nearest mission is resolved.';
+
+        setText('sosEmbassyName', embassyName);
+        setText('sosEmbassyAddress', embassyAddress);
+        setText('sosEmbassyContact', contactDetails);
+        setText('sosEmbassyHint', hint);
+        setText('sosEmbassyQuickName', embassyName);
+        setText('sosEmbassyQuickMeta', hint);
+
+        const callTargets = ['sosEmbassyCall', 'sosEmbassyQuickCall'];
+        callTargets.forEach((id) => {
+            const link = document.getElementById(id);
+            if (!link) return;
+            if (embassyPhone) {
+                link.href = `tel:${embassyPhone.replace(/[^+\d]/g, '')}`;
+                link.classList.remove('disabled');
+            } else {
+                link.href = '#';
+                link.classList.add('disabled');
+            }
+        });
     }
 
     function getVoicePrompt() {
@@ -502,27 +543,19 @@
         } catch (e) { return false; }
     }
 
-    function refreshEmergencyContext(lat, lng) {
+    function refreshEmergencyContext(lat, lng, sourceLabel = 'live') {
         const params = new URLSearchParams({ lat: lat.toFixed(6), lng: lng.toFixed(6) });
         Promise.all([
             fetchJson(`/api/predict-risk/?${params}`),
-            fetchJson(`/api/embassy-info/?${params}`),
-        ]).then(([risk, embassy]) => {
+            fetchJson(`/api/tourist/emergency-context/?${params}`),
+        ]).then(([risk, emergencyContext]) => {
             setText('sosLocationLabel', formatLocationLabel(risk.location, lat, lng, 'Live location unavailable'));
             setText('sosCoordinates', formatCoord(lat, lng));
-            setText('gpsStatusBadge', 'GPS locked');
+            setText('gpsStatusBadge', sourceLabel === 'saved' ? 'Saved location' : 'GPS locked');
             setText('sosRiskScore', risk.risk_score != null ? `${risk.risk_score}%` : '--');
             setBadge('sosRiskBadge', risk.risk_label || 'UNAVAILABLE');
             setText('sosRiskAdvice', risk.advice || 'No live risk advice available.');
-            setText('sosEmbassyName', embassy.embassy_name || 'Embassy unavailable');
-            setText('sosEmbassyAddress', embassy.address || 'Address unavailable');
-            const callLink = document.getElementById('sosEmbassyCall');
-            if (embassy.phone) {
-                callLink.href = `tel:${embassy.phone.replace(/[^+\d]/g, '')}`;
-                callLink.classList.remove('disabled');
-            } else {
-                callLink.href = '#'; callLink.classList.add('disabled');
-            }
+            updateEmbassySupport((emergencyContext && emergencyContext.embassy) || {}, sourceLabel);
         }).catch(() => setText('sosRiskAdvice', 'Live emergency context failed to refresh.'));
     }
 
@@ -771,6 +804,19 @@
     };
 
     document.addEventListener('DOMContentLoaded', () => {
+        const savedLat = {% if saved_location %}{{ saved_location.latitude|floatformat:6 }}{% else %}null{% endif %};
+        const savedLng = {% if saved_location %}{{ saved_location.longitude|floatformat:6 }}{% else %}null{% endif %};
+        let hasLiveRefresh = false;
+        let usedSavedFallback = false;
+
+        const useSavedLocation = () => {
+            if (usedSavedFallback || savedLat === null || savedLng === null) return;
+            usedSavedFallback = true;
+            emergencyState.lat = Number(savedLat);
+            emergencyState.lng = Number(savedLng);
+            refreshEmergencyContext(emergencyState.lat, emergencyState.lng, 'saved');
+        };
+
         document.getElementById('silentSosButton').addEventListener('click', () => sendEmergency('silent', 'manual button'));
         document.getElementById('loudSosButton').addEventListener('click', () => sendEmergency('loud', 'manual button', { armLocalAlarm: true }));
         document.getElementById('stopAlarmButton').addEventListener('click', stopLocalAlarm);
@@ -793,13 +839,18 @@
         if (!navigator.geolocation) {
             setText('gpsStatusBadge', 'GPS unavailable');
             setDispatchState('WAIT', 'risk-medium', 'Browser geolocation is unavailable.', 'Use a browser or device with GPS support.');
+            useSavedLocation();
             return;
         }
+        window.setTimeout(() => {
+            if (!hasLiveRefresh) useSavedLocation();
+        }, 2500);
         navigator.geolocation.watchPosition(position => {
+            hasLiveRefresh = true;
             emergencyState.lat = position.coords.latitude;
             emergencyState.lng = position.coords.longitude;
             setText('gpsStatusBadge', `GPS locked (${Math.round(position.coords.accuracy || 0)} m)`);
-            refreshEmergencyContext(emergencyState.lat, emergencyState.lng);
+            refreshEmergencyContext(emergencyState.lat, emergencyState.lng, 'live');
             syncLocation(emergencyState.lat, emergencyState.lng);
             if (emergencyState.pendingVoiceDispatch) {
                 emergencyState.pendingVoiceDispatch = false;
@@ -816,6 +867,7 @@
                 setText('voiceTranscript', 'Trigger phrase heard, but location permission is blocked.');
             }
             setDispatchState('WAIT', 'risk-medium', 'Location permission required.', 'Allow GPS access so SafePassage can send a real emergency location.');
+            useSavedLocation();
         }, { enableHighAccuracy: true, maximumAge: 10000, timeout: 20000 });
     });
 </script>

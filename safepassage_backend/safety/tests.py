@@ -1,12 +1,14 @@
 import json
 from datetime import timedelta
+from unittest.mock import patch
 
 from django.core import mail
 from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
-from .models import CheckIn, CulturalGuide, EmergencyAlert, EmergencyContact, IncidentReport, RiskZone, SafeHaven, SafePassageUser, Shift, UserLocation, WorkerProfile
+from . import views
+from .models import CheckIn, CulturalGuide, EmergencyAlert, EmergencyContact, IncidentReport, RiskZone, SafeHaven, SafePassageUser, Shift, TouristProfile, UserLocation, WorkerProfile
 
 
 class LandingPageTests(TestCase):
@@ -167,6 +169,167 @@ class TouristApiTests(TestCase):
         self.assertIn("nearby_resources", payload)
         self.assertEqual(payload["location"], "Kochi Central")
 
+    @patch("safety.views._fetch_public_safety_resources")
+    def test_predict_risk_endpoint_includes_public_safety_services_when_safe_havens_missing(self, mock_public_resources):
+        mock_public_resources.return_value = [
+            {
+                "name": "City General Hospital",
+                "type": "Hospital",
+                "latitude": 10.2005,
+                "longitude": 76.4005,
+                "address": "Main Road, Example City",
+                "phone": "+91-1111111111",
+                "distance_km": 0.18,
+                "is_open_24_7": True,
+                "source": "public-map",
+                "source_label": "Nearby public safety service",
+            },
+            {
+                "name": "Town Police Station",
+                "type": "Police Station",
+                "latitude": 10.2011,
+                "longitude": 76.4011,
+                "address": "Station Road, Example City",
+                "phone": "+91-2222222222",
+                "distance_km": 0.29,
+                "is_open_24_7": True,
+                "source": "public-map",
+                "source_label": "Nearby public safety service",
+            },
+        ]
+
+        response = self.client.get(reverse("api_predict_risk"), {"lat": 10.2000, "lng": 76.4000})
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["status"], "success")
+        self.assertEqual(len(payload["nearby_resources"]), 2)
+        self.assertEqual(payload["nearby_resources"][0]["name"], "City General Hospital")
+        self.assertEqual(payload["nearby_resources"][1]["type"], "Police Station")
+
+    @patch("safety.views._fetch_public_safety_resources")
+    def test_tourist_emergency_context_endpoint_uses_saved_location_and_support_resources(self, mock_public_resources):
+        UserLocation.objects.create(user=self.user, latitude=10.2000, longitude=76.4000)
+        mock_public_resources.return_value = [
+            {
+                "name": "City Clinic",
+                "type": "Clinic",
+                "latitude": 10.2002,
+                "longitude": 76.4001,
+                "address": "Station Road, Example City",
+                "phone": "+91-3333333333",
+                "distance_km": 0.12,
+                "is_open_24_7": True,
+                "source": "public-map",
+                "source_label": "Nearby public safety service",
+            }
+        ]
+
+        response = self.client.get(reverse("api_tourist_emergency_context"))
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["status"], "success")
+        self.assertTrue(payload["location_available"])
+        self.assertEqual(payload["emergency_contacts_count"], 1)
+        self.assertEqual(payload["nearby_resources"][0]["name"], "City Clinic")
+
+    @patch("safety.views._fetch_nearby_embassy_resources")
+    def test_embassy_info_endpoint_returns_nearby_embassy_when_available(self, mock_embassies):
+        mock_embassies.return_value = [
+            {
+                "name": "Consulate General of Example Country",
+                "country": "Example Country",
+                "type": "Embassy Support",
+                "latitude": 9.9400,
+                "longitude": 76.2800,
+                "address": "Marine Drive, Kochi",
+                "phone": "+91-484-1234567",
+                "distance_km": 3.4,
+                "source": "public-map",
+            }
+        ]
+
+        response = self.client.get(reverse("api_embassy_info"), {"lat": 9.9312, "lng": 76.2673})
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["status"], "success")
+        self.assertEqual(payload["embassy_name"], "Consulate General of Example Country")
+        self.assertEqual(payload["distance_km"], 3.4)
+
+    @patch("safety.views._search_embassy_places_by_location")
+    @patch("safety.views._fetch_nearby_embassy_resources")
+    def test_embassy_info_endpoint_uses_location_search_when_nearby_query_is_empty(self, mock_embassies, mock_search):
+        mock_embassies.return_value = []
+        mock_search.return_value = [
+            {
+                "name": "Example Consulate Kochi",
+                "country": "Example Country",
+                "type": "Embassy Support",
+                "latitude": 9.9500,
+                "longitude": 76.2800,
+                "address": "MG Road, Kochi",
+                "phone": "",
+                "distance_km": 2.7,
+                "source": "place-search",
+            }
+        ]
+
+        response = self.client.get(reverse("api_embassy_info"), {"lat": 9.9312, "lng": 76.2673})
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["status"], "success")
+        self.assertEqual(payload["embassy_name"], "Example Consulate Kochi")
+        self.assertEqual(payload["distance_km"], 2.7)
+
+    @patch("safety.views._search_embassy_places_by_location")
+    @patch("safety.views._fetch_nearby_embassy_resources")
+    def test_embassy_info_endpoint_uses_known_mission_fallback_when_live_lookup_is_empty(self, mock_embassies, mock_search):
+        TouristProfile.objects.create(user=self.user, nationality="India")
+        mock_embassies.return_value = []
+        mock_search.return_value = []
+
+        response = self.client.get(reverse("api_embassy_info"), {"lat": 9.9312, "lng": 76.2673})
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["status"], "success")
+        self.assertNotEqual(payload["embassy_name"], "Nearby embassy support is still syncing")
+        self.assertEqual(payload["source"], "known-mission-directory")
+        self.assertTrue(payload["phone"])
+        self.assertIn("Thiruvananthapuram", payload["embassy_name"])
+
+    def test_diplomatic_place_filter_rejects_hotel_style_results(self):
+        hotel_like_result = {
+            "display_name": "Embassy Suites by Example, Kochi, Ernakulam, Kerala, India",
+            "name": "Embassy Suites by Example",
+            "class": "tourism",
+            "type": "hotel",
+            "addresstype": "hotel",
+        }
+        diplomatic_result = {
+            "display_name": "Consulate General of Example Country, Kochi, Ernakulam, Kerala, India",
+            "name": "Consulate General of Example Country",
+            "class": "office",
+            "type": "consulate",
+            "addresstype": "office",
+        }
+
+        self.assertFalse(views._is_diplomatic_place_result(hotel_like_result))
+        self.assertTrue(views._is_diplomatic_place_result(diplomatic_result))
+
+    def test_tourist_emergency_contacts_page_renders_inline_add_contact_flow(self):
+        response = self.client.get(reverse("tourist_emergency_contacts"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Nearby verified resources")
+        self.assertContains(response, "My Emergency Contacts")
+        self.assertContains(response, "Add Contact")
+        self.assertContains(response, "/api/add-contact/")
+        self.assertContains(response, "Maya")
+
     def test_incidents_endpoint_returns_zone_backed_alerts(self):
         response = self.client.get(reverse("api_incidents"), {"lat": 9.9312, "lng": 76.2673})
 
@@ -175,6 +338,15 @@ class TouristApiTests(TestCase):
         self.assertEqual(payload["status"], "success")
         self.assertGreaterEqual(payload["count"], 1)
         self.assertIn("risk-zone", [item["source"] for item in payload["alerts"]])
+
+    def test_alerts_endpoint_falls_back_to_nearest_available_alerts(self):
+        response = self.client.get(reverse("api_alerts"), {"lat": 28.6139, "lng": 77.2090})
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["status"], "success")
+        self.assertGreaterEqual(payload["count"], 1)
+        self.assertTrue(any(item.get("scope") == "nearest-available" for item in payload["alerts"]))
 
     def test_report_incident_creates_database_record(self):
         response = self.client.post(
@@ -327,14 +499,15 @@ class TouristApiTests(TestCase):
         self.assertGreaterEqual(len(payload["results"]), 1)
         self.assertTrue(any("kochi" in item["name"].lower() for item in payload["results"]))
 
-    def test_embassy_info_requires_known_nationality_for_specific_contact(self):
+    def test_embassy_info_falls_back_to_nearest_known_mission_when_specific_match_is_unavailable(self):
         response = self.client.get(reverse("api_embassy_info"), {"lat": 9.9312, "lng": 76.2673})
 
         self.assertEqual(response.status_code, 200)
         payload = response.json()
         self.assertEqual(payload["status"], "success")
-        self.assertEqual(payload["embassy_name"], "Embassy details need your nationality")
-        self.assertEqual(payload["phone"], "")
+        self.assertNotEqual(payload["embassy_name"], "Nearby embassy support is still syncing")
+        self.assertEqual(payload["source"], "known-mission-directory")
+        self.assertTrue(payload["phone"])
 
     def test_safe_route_page_renders(self):
         response = self.client.get(reverse("tourist_safe_route"))
@@ -342,13 +515,23 @@ class TouristApiTests(TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertEqual(response["Location"], "/map/?tab=routes")
 
+    def test_tourist_profile_prefills_current_journey_from_saved_location(self):
+        UserLocation.objects.create(user=self.user, latitude=9.9312, longitude=76.2673)
+
+        response = self.client.get(reverse("tourist_profile_hub"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Current Journey")
+        self.assertContains(response, "Kochi Central")
+        self.assertContains(response, "Refresh live location")
+
     def test_cultural_safety_page_renders(self):
         response = self.client.get(reverse("tourist_cultural_safety"))
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Cultural Safety Guide")
         self.assertContains(response, "/cultural-data/")
-        self.assertContains(response, "Scam Awareness")
+        self.assertContains(response, "Live Cultural Profile")
         self.assertContains(response, "Search a place in India")
 
     def test_cultural_data_endpoint_returns_aggregated_live_payload(self):
@@ -369,6 +552,21 @@ class TouristApiTests(TestCase):
         self.assertIn("location_insights", payload)
         self.assertIn("cultural_risk_score_meta", payload)
 
+    @patch("safety.views._collect_cultural_entries", return_value=[])
+    def test_cultural_data_endpoint_builds_fallback_guidance_when_library_is_empty(self, mocked_collect):
+        response = self.client.get(reverse("cultural_data"), {"lat": 10.4310, "lng": 76.2710})
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["status"], "success")
+        self.assertTrue(payload["risk_explanation"])
+        self.assertTrue(payload["dos"])
+        self.assertTrue(payload["donts"])
+        self.assertTrue(payload["location_insights"]["local_customs"])
+        self.assertTrue(payload["location_insights"]["dress_codes"])
+        self.assertTrue(payload["location_insights"]["behavior_guidelines"])
+        self.assertTrue(payload["location_insights"]["restricted_actions"])
+
     def test_scam_alerts_page_renders_live_location_search(self):
         response = self.client.get(reverse("tourist_scam_alerts"))
 
@@ -376,13 +574,22 @@ class TouristApiTests(TestCase):
         self.assertContains(response, "Live Scam Alerts")
         self.assertContains(response, "Search a place in India")
         self.assertContains(response, "/api/place-search/")
-        self.assertContains(response, "Scam Watch Feed")
+        self.assertContains(response, "Nearby Support Points")
+
+    def test_alerts_page_renders_scam_submission_form(self):
+        response = self.client.get(reverse("tourist_alerts"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Add Scam Data")
+        self.assertContains(response, "Submit Scam Alert")
+        self.assertContains(response, "/api/report-incident/")
 
     def test_sos_page_renders_live_dispatch_controls(self):
         response = self.client.get(reverse("tourist_sos"))
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "SOS and Panic Center")
+        self.assertContains(response, "Nearby Embassy")
         self.assertContains(response, "SafePassage Help")
 
 
@@ -513,6 +720,44 @@ class WorkerModuleTests(TestCase):
         self.assertEqual(payload["status"], "success")
         self.assertEqual(payload["coordinates"]["latitude"], 9.9674)
         self.assertEqual(payload["coordinates"]["longitude"], 76.2454)
+
+    @patch("safety.views._fetch_public_safety_resources")
+    def test_worker_dashboard_data_includes_public_support_points_when_verified_havens_are_absent(self, mock_public_resources):
+        mock_public_resources.return_value = [
+            {
+                "name": "Night Duty Hospital",
+                "type": "Hospital",
+                "latitude": 11.1005,
+                "longitude": 76.3005,
+                "address": "Main Road, Example City",
+                "phone": "+91-1111111111",
+                "distance_km": 0.22,
+                "is_open_24_7": True,
+                "source": "public-map",
+                "source_label": "Nearby public safety service",
+            },
+            {
+                "name": "Town Police Station",
+                "type": "Police Station",
+                "latitude": 11.1010,
+                "longitude": 76.3010,
+                "address": "Station Road, Example City",
+                "phone": "+91-2222222222",
+                "distance_km": 0.36,
+                "is_open_24_7": True,
+                "source": "public-map",
+                "source_label": "Nearby public safety service",
+            },
+        ]
+
+        response = self.client.get(reverse("api_worker_dashboard_data"), {"lat": 11.1000, "lng": 76.3000})
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["status"], "success")
+        self.assertEqual(payload["nearby_safe_havens"][0]["name"], "Night Duty Hospital")
+        self.assertEqual(payload["nearby_safe_havens"][0]["source"], "public-map")
+        self.assertEqual(payload["nearby_safe_havens"][1]["type"], "Police Station")
 
     def test_worker_shift_start_and_checkin_flow(self):
         start_response = self.client.post(

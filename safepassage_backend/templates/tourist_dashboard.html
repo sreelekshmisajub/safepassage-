@@ -408,7 +408,7 @@
             <div class="card-risk metric-card border-start border-4 border-primary">
                 <p class="text-muted small fw-800 text-uppercase mb-3">Safety Infrastructure</p>
                 <div class="list-stack" id="resourceList">
-                    <div class="empty-state">Verified safe havens near your current location will appear here.</div>
+                    <div class="empty-state">Nearby hospitals, police stations, and verified safe points will appear here.</div>
                 </div>
                 <a href="{% url 'tourist_map_hub' %}" class="btn btn-outline-primary w-100 resource-cta">Open Live Safety Map</a>
             </div>
@@ -432,7 +432,7 @@
     </div>
 
     <div class="row g-3 mb-4">
-        <div class="col-xxl-9 col-xl-8">
+        <div class="col-12">
             <div class="card-risk map-card mb-4">
                 <div id="touristLiveMap"></div>
                 <div class="map-overlay">
@@ -444,18 +444,6 @@
             </div>
         </div>
 
-        <div class="col-xxl-3 col-xl-4">
-            <div class="card-risk mb-4">
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h5 class="fw-800 mb-0">Live Situation</h5>
-                    <span class="badge bg-danger rounded-pill">LIVE</span>
-                </div>
-                <div class="list-stack" id="liveAlertsList">
-                    <div class="empty-state">Live alerts will populate after location sync.</div>
-                </div>
-            </div>
-
-        </div>
     </div>
 </div>
 {% endblock %}
@@ -469,6 +457,12 @@
         resourceLayers: [],
         lastRefreshAt: 0,
         lastCoords: null,
+        lastMapCoords: null,
+        hasCenteredMap: false,
+        livePlaceLabel: '',
+        liveAreaLabel: '',
+        reverseGeocodeSeq: 0,
+        liveLocationCache: {},
         translatedText: '',
         contactCount: Number(document.getElementById('touristDashboardRoot').dataset.contactCount || 0),
     };
@@ -561,10 +555,93 @@
         return elapsedMs > 45000 || movedKm > 0.15;
     }
 
+    function locationCacheKey(lat, lng) {
+        return `${lat.toFixed(4)},${lng.toFixed(4)}`;
+    }
+
+    function buildLiveLocationLabel(payload, fallback) {
+        const address = payload && payload.address ? payload.address : {};
+        const parts = [
+            address.suburb || address.neighbourhood || address.city_district || address.road,
+            address.city || address.town || address.village || address.county,
+            address.state,
+        ];
+        const cleaned = [];
+        parts.forEach((part) => {
+            if (!part) return;
+            const normalized = part.trim();
+            if (!normalized) return;
+            if (cleaned.some((existing) => existing.toLowerCase() === normalized.toLowerCase())) return;
+            cleaned.push(normalized);
+        });
+        if (cleaned.length) return cleaned.slice(0, 2).join(', ');
+        const displayName = payload && payload.display_name ? payload.display_name : '';
+        const displayParts = displayName.split(',').map((part) => part.trim()).filter(Boolean);
+        return displayParts.length ? displayParts.slice(0, 2).join(', ') : fallback;
+    }
+
+    function updateMarkerPosition(lat, lng, label, forceCenter = false) {
+        if (!state.map) return;
+        const resolvedLabel = formatLocationLabel(label || state.livePlaceLabel || state.liveAreaLabel, lat, lng, 'Current coordinates');
+        if (!state.userMarker) state.userMarker = L.marker([lat, lng]).addTo(state.map);
+        state.userMarker.setLatLng([lat, lng]).bindPopup(`<strong>You are here</strong><br>${escapeHtml(resolvedLabel)}`);
+
+        const currentLatLng = L.latLng(lat, lng);
+        const movedKm = state.lastMapCoords ? haversineKm(state.lastMapCoords.lat, state.lastMapCoords.lng, lat, lng) : Infinity;
+        const bounds = state.map.getBounds();
+        const outsideView = !bounds || !bounds.pad(-0.35).contains(currentLatLng);
+        if (!state.hasCenteredMap || forceCenter || outsideView || movedKm > 0.05) {
+            const currentZoom = state.map.getZoom ? state.map.getZoom() : 14;
+            state.map.setView([lat, lng], Math.max(currentZoom, 15), { animate: state.hasCenteredMap });
+            state.hasCenteredMap = true;
+        }
+        state.lastMapCoords = { lat, lng };
+    }
+
+    function reverseGeocodeLiveLocation(lat, lng, accuracy) {
+        const cacheKey = locationCacheKey(lat, lng);
+        if (state.liveLocationCache[cacheKey]) {
+            state.livePlaceLabel = state.liveLocationCache[cacheKey];
+            updateLocation(lat, lng, accuracy, state.livePlaceLabel);
+            updateMarkerPosition(lat, lng, state.livePlaceLabel);
+            return Promise.resolve(state.livePlaceLabel);
+        }
+
+        const requestId = ++state.reverseGeocodeSeq;
+        const query = new URLSearchParams({
+            format: 'jsonv2',
+            lat: lat.toFixed(6),
+            lon: lng.toFixed(6),
+            zoom: '16',
+            addressdetails: '1',
+        });
+
+        return fetch(`https://nominatim.openstreetmap.org/reverse?${query.toString()}`, {
+            headers: { Accept: 'application/json' },
+        }).then((response) => {
+            if (!response.ok) throw new Error(`Reverse geocode failed: ${response.status}`);
+            return response.json();
+        }).then((payload) => {
+            if (requestId !== state.reverseGeocodeSeq) return null;
+            const label = buildLiveLocationLabel(payload, null);
+            if (!label) return null;
+            state.liveLocationCache[cacheKey] = label;
+            state.livePlaceLabel = label;
+            updateLocation(lat, lng, accuracy, label);
+            updateMarkerPosition(lat, lng, label);
+            return label;
+        }).catch(() => null);
+    }
+
     function updateLocation(lat, lng, accuracy, label) {
-        const locationLabel = formatLocationLabel(label, lat, lng, 'Live location detected');
+        const locationLabel = formatLocationLabel(label || state.livePlaceLabel || state.liveAreaLabel, lat, lng, 'Live location detected');
+        const accuracyLabel = accuracy
+            ? accuracy > 500
+                ? `GPS approximate (${Math.round(accuracy)} m)`
+                : `GPS locked (${Math.round(accuracy)} m)`
+            : 'GPS locked';
         setText('liveLocationLabel', locationLabel);
-        setText('gpsLockBadge', accuracy ? `GPS locked (${Math.round(accuracy)} m)` : 'GPS locked');
+        setText('gpsLockBadge', accuracyLabel);
         setText('coordinateLabel', `Lat ${lat.toFixed(5)}, Lng ${lng.toFixed(5)}${accuracy ? `, accuracy ${Math.round(accuracy)} m` : ''}`);
         setText('mapLocationStatus', `${locationLabel} | ${lat.toFixed(4)}, ${lng.toFixed(4)}`);
         setText('readinessStatus', `Protection active for ${locationLabel}. Emergency contacts on file: ${state.contactCount}.`);
@@ -572,7 +649,7 @@
 
     function renderResources(resources) {
         if (!resources || !resources.length) {
-            setHtml('resourceList', '<div class="empty-state">No verified safe havens are stored near your location yet.</div>');
+            setHtml('resourceList', '<div class="empty-state">No nearby hospitals, police stations, or verified safety services were found for this location yet.</div>');
             setText('mapResourceCount', 'Resources: 0 nearby');
             return;
         }
@@ -596,16 +673,6 @@
             setText('primaryAlertMeta', distanceText(primary.distance_km));
             setText('primaryAlertTitle', primary.title || 'Nearby alert');
             setText('primaryAlertDescription', primary.description || 'No description available.');
-            setHtml('liveAlertsList', alerts.map((alert) => `
-                <div class="list-card">
-                    <div class="d-flex justify-content-between gap-3 mb-2">
-                        <span class="severity-pill ${riskClass(formatRiskLabel(alert.severity))}">${escapeHtml(formatRiskLabel(alert.severity))}</span>
-                        <span class="small text-muted">${escapeHtml(distanceText(alert.distance_km))}</span>
-                    </div>
-                    <h6 class="fw-800 mb-1">${escapeHtml(alert.title || 'Nearby alert')}</h6>
-                    <p class="x-small text-muted mb-0">${escapeHtml(alert.description || 'No details available')}</p>
-                </div>
-            `).join(''));
             return;
         }
 
@@ -623,7 +690,6 @@
             )
         );
         setText('primaryAlertDescription', 'No active incidents or stored hotspot alerts are currently linked to this position.');
-        setHtml('liveAlertsList', '<div class="empty-state">No active incidents or hotspot alerts are stored near your position.</div>');
     }
 
     function renderEmbassy(data) {
@@ -651,8 +717,7 @@
 
     function renderMap(riskData, lat, lng) {
         clearMapLayers();
-        if (!state.userMarker) state.userMarker = L.marker([lat, lng]).addTo(state.map);
-        state.userMarker.setLatLng([lat, lng]).bindPopup(`<strong>You are here</strong><br>${escapeHtml(formatLocationLabel(riskData.location, lat, lng, 'Current coordinates'))}`);
+        updateMarkerPosition(lat, lng, state.livePlaceLabel || riskData.location || state.liveAreaLabel, true);
 
         (riskData.nearby_hotspots || []).forEach((hotspot) => {
             let color = '#10b981';
@@ -670,8 +735,6 @@
             }).addTo(state.map).bindPopup(`<strong>${escapeHtml(resource.name)}</strong><br>${escapeHtml(resource.type)}<br><small>${escapeHtml(distanceText(resource.distance_km))}</small>`);
             state.resourceLayers.push(layer);
         });
-
-        state.map.setView([lat, lng], 14);
     }
 
     function syncLocation(lat, lng) {
@@ -746,7 +809,8 @@
             fetchJson(`/api/cultural-advice/?${params.toString()}`),
             fetchJson(`/api/embassy-info/?${params.toString()}`),
         ]).then(([risk, incidents, weather, culture, embassy]) => {
-            updateLocation(lat, lng, accuracy, risk.location);
+            state.liveAreaLabel = risk.location || state.liveAreaLabel;
+            updateLocation(lat, lng, accuracy, state.livePlaceLabel || state.liveAreaLabel);
             setRiskVisual(risk.risk_score, formatRiskLabel(risk.risk_label));
             setText('riskAdvice', risk.advice || 'No risk advice available.');
             setText('syncTime', `Last synced ${new Date().toLocaleTimeString()}`);
@@ -765,12 +829,16 @@
     }
 
     function onLocationError(error) {
+        if (state.lastCoords) {
+            setText('gpsLockBadge', 'GPS signal lost');
+            setText('coordinateLabel', `${error && error.message ? error.message : 'Unable to refresh live location.'} Showing last known position.`);
+            return;
+        }
         setText('liveLocationLabel', 'Location permission required');
         setText('gpsLockBadge', 'GPS unavailable');
         setText('coordinateLabel', error && error.message ? error.message : 'Unable to access live location from this browser.');
         setRiskVisual(null, 'UNAVAILABLE');
         setText('readinessStatus', `Enable location to load live risk details. Emergency contacts on file: ${state.contactCount}.`);
-        setHtml('liveAlertsList', '<div class="empty-state">Location access is required to load live incidents, risk zones, and route details.</div>');
     }
 
     function initMap() {
@@ -785,17 +853,23 @@
             return;
         }
 
-        navigator.geolocation.watchPosition((position) => {
+        const trackingOptions = { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 };
+
+        const handlePosition = (position) => {
             const lat = position.coords.latitude;
             const lng = position.coords.longitude;
             const accuracy = position.coords.accuracy;
+            updateLocation(lat, lng, accuracy, state.livePlaceLabel || state.liveAreaLabel);
+            updateMarkerPosition(lat, lng, state.livePlaceLabel || state.liveAreaLabel);
+            reverseGeocodeLiveLocation(lat, lng, accuracy);
             if (!shouldRefresh(lat, lng)) {
-                updateLocation(lat, lng, accuracy, document.getElementById('liveLocationLabel').textContent);
-                if (state.userMarker) state.userMarker.setLatLng([lat, lng]);
                 return;
             }
             refreshDashboard(lat, lng, accuracy);
-        }, onLocationError, { enableHighAccuracy: true, maximumAge: 15000, timeout: 20000 });
+        };
+
+        navigator.geolocation.getCurrentPosition(handlePosition, onLocationError, trackingOptions);
+        navigator.geolocation.watchPosition(handlePosition, onLocationError, trackingOptions);
     }
 
     document.addEventListener('DOMContentLoaded', () => {

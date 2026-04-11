@@ -243,15 +243,11 @@
         </a>
         <a href="{% url 'worker_shift_management' %}"
             class="sidebar-item {% if request.resolver_match.url_name == 'worker_shift_management' or request.resolver_match.url_name == 'worker_checkins' or request.resolver_match.url_name == 'worker_checkin' %}active{% endif %}">
-            <i class="bi bi-clock-history"></i> Shift Management
+            <i class="bi bi-clock-history"></i> Shifts & Check-ins
         </a>
         <a href="{% url 'worker_safe_havens' %}"
             class="sidebar-item {% if request.resolver_match.url_name == 'worker_safe_havens' %}active{% endif %}">
             <i class="bi bi-shield-shaded"></i> Safe Havens
-        </a>
-        <a href="{% url 'worker_checkin' %}"
-            class="sidebar-item {% if request.resolver_match.url_name == 'worker_checkin' or request.resolver_match.url_name == 'worker_checkins' or request.resolver_match.url_name == 'worker_shift_management' %}active{% endif %}">
-            <i class="bi bi-check-circle-fill"></i> Check-ins
         </a>
         <a href="{% url 'worker_map' %}"
             class="sidebar-item {% if request.resolver_match.url_name == 'worker_map' or request.resolver_match.url_name == 'worker_safe_route' or request.resolver_match.url_name == 'worker_route_planner' %}active{% endif %}">

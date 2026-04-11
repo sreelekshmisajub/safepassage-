@@ -108,6 +108,46 @@
         border-radius: 20px;
         font-weight: 700;
     }
+
+    .journey-location-status {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 10px 14px;
+        border-radius: 12px;
+        background: #eff6ff;
+        border: 1px solid rgba(59, 130, 246, 0.14);
+        color: #1e3a8a;
+        font-size: 0.86rem;
+        margin-top: 10px;
+    }
+
+    .journey-location-status.is-loading {
+        background: #fff7ed;
+        border-color: rgba(249, 115, 22, 0.18);
+        color: #9a3412;
+    }
+
+    .journey-location-status.is-error {
+        background: #fef2f2;
+        border-color: rgba(239, 68, 68, 0.16);
+        color: #991b1b;
+    }
+
+    .journey-location-status.is-live {
+        background: #ecfdf5;
+        border-color: rgba(16, 185, 129, 0.16);
+        color: #065f46;
+    }
+
+    .journey-location-refresh {
+        border: 0;
+        background: transparent;
+        color: inherit;
+        font-weight: 700;
+        white-space: nowrap;
+    }
 </style>
 {% endblock %}
 
@@ -285,7 +325,13 @@
                     <div class="col-md-12">
                         <label class="form-label-small">Current Location</label>
                         <input type="text" name="current_location" class="form-control form-control-custom"
-                               value="{{ journey.current_location }}" placeholder="Auto-updated from live GPS or enter manually" required>
+                               value="{{ current_location_display|default:journey.current_location }}" placeholder="Auto-updated from live GPS or enter manually" required>
+                        <div class="journey-location-status" id="journeyLocationStatus">
+                            <span id="journeyLocationStatusText">{{ current_location_status }}</span>
+                            <button type="button" class="journey-location-refresh" id="refreshJourneyLocationButton">
+                                <i class="bi bi-geo-alt-fill me-1"></i>Refresh live location
+                            </button>
+                        </div>
                     </div>
                     <div class="col-md-12">
                         <label class="form-label-small">Hotel / Stay Address</label>
@@ -441,6 +487,119 @@
 </div>
 
 <script>
+const journeyLocationState = {
+    watchId: null,
+    lastUpdateAt: 0,
+};
+
+function setJourneyLocationStatus(message, state = 'default') {
+    const statusNode = document.getElementById('journeyLocationStatus');
+    const textNode = document.getElementById('journeyLocationStatusText');
+    if (!statusNode || !textNode) return;
+    statusNode.className = 'journey-location-status';
+    if (state === 'loading') statusNode.classList.add('is-loading');
+    if (state === 'error') statusNode.classList.add('is-error');
+    if (state === 'live') statusNode.classList.add('is-live');
+    textNode.textContent = message;
+}
+
+function formatJourneyCoordinate(lat, lng) {
+    return `${Number(lat).toFixed(5)}, ${Number(lng).toFixed(5)}`;
+}
+
+function syncJourneyLocationLabel(lat, lng, locationName) {
+    const input = document.querySelector('#journeyForm [name="current_location"]');
+    if (!input) return;
+    const formattedCoordinates = formatJourneyCoordinate(lat, lng);
+    const displayLabel = locationName && locationName !== formattedCoordinates
+        ? `${locationName} (${formattedCoordinates})`
+        : formattedCoordinates;
+    input.value = displayLabel;
+}
+
+async function updateJourneyLocationFromCoordinates(latitude, longitude) {
+    const csrfToken = getCookie('csrftoken');
+    const locationUrl = '/update-location/';
+    const riskUrl = `/api/predict-risk/?lat=${encodeURIComponent(latitude)}&lng=${encodeURIComponent(longitude)}`;
+
+    await fetch(locationUrl, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken,
+        },
+        body: JSON.stringify({
+            latitude: latitude,
+            longitude: longitude,
+        }),
+    });
+
+    const riskResponse = await fetch(riskUrl);
+    if (!riskResponse.ok) {
+        throw new Error('Could not resolve live location');
+    }
+
+    const riskPayload = await riskResponse.json();
+    const locationName = riskPayload.location || '';
+    syncJourneyLocationLabel(latitude, longitude, locationName);
+    setJourneyLocationStatus(
+        `Live current location updated to ${locationName || formatJourneyCoordinate(latitude, longitude)}.`,
+        'live'
+    );
+}
+
+function requestJourneyLocationUpdate() {
+    if (!navigator.geolocation) {
+        setJourneyLocationStatus('Live location is not supported in this browser.', 'error');
+        return;
+    }
+
+    setJourneyLocationStatus('Updating your current journey location from live GPS...', 'loading');
+    navigator.geolocation.getCurrentPosition(
+        (position) => {
+            updateJourneyLocationFromCoordinates(position.coords.latitude, position.coords.longitude)
+                .catch(() => {
+                    syncJourneyLocationLabel(position.coords.latitude, position.coords.longitude, '');
+                    setJourneyLocationStatus(
+                        `Location coordinates updated, but the place name could not be resolved yet.`,
+                        'error'
+                    );
+                });
+        },
+        () => {
+            setJourneyLocationStatus('Location permission is needed to update the current journey field automatically.', 'error');
+        },
+        {
+            enableHighAccuracy: true,
+            maximumAge: 0,
+            timeout: 10000,
+        }
+    );
+}
+
+function startJourneyLocationWatch() {
+    if (!navigator.geolocation || !navigator.geolocation.watchPosition) {
+        return;
+    }
+
+    journeyLocationState.watchId = navigator.geolocation.watchPosition(
+        (position) => {
+            const now = Date.now();
+            if (now - journeyLocationState.lastUpdateAt < 30000) {
+                return;
+            }
+            journeyLocationState.lastUpdateAt = now;
+            updateJourneyLocationFromCoordinates(position.coords.latitude, position.coords.longitude).catch(() => {});
+        },
+        () => {},
+        {
+            enableHighAccuracy: true,
+            maximumAge: 15000,
+            timeout: 12000,
+        }
+    );
+}
+
 function saveAllForms() {
     // Save personal details
     const personalForm = document.getElementById('personalForm');
@@ -587,5 +746,14 @@ function showAlert(message, type) {
     // Simple alert - you can replace with a better notification system
     alert(message);
 }
+
+document.addEventListener('DOMContentLoaded', () => {
+    const refreshLocationButton = document.getElementById('refreshJourneyLocationButton');
+    if (refreshLocationButton) {
+        refreshLocationButton.addEventListener('click', requestJourneyLocationUpdate);
+    }
+    requestJourneyLocationUpdate();
+    startJourneyLocationWatch();
+});
 </script>
 {% endblock %}

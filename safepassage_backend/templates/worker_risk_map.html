@@ -848,9 +848,27 @@
         { enableHighAccuracy: true, maximumAge: 15000, timeout: 20000 });
     }
 
+    function loadSafeHavenPins(lat, lng) {
+        const params = (lat != null && lng != null) ? `?lat=${lat}&lng=${lng}` : '';
+        fetch(`/api/worker/safe-havens/${params}`)
+            .then(r => r.json())
+            .then(data => {
+                (data.havens || []).forEach(r => {
+                    if (r.latitude == null || r.longitude == null) return;
+                    const l = L.circleMarker([r.latitude, r.longitude], {
+                        radius: 8, color: '#2563eb', fillColor: '#60a5fa', fillOpacity: 0.95, weight: 2,
+                    }).addTo(ws.map).bindPopup(`<strong>${escapeHtml(r.name)}</strong><br>${escapeHtml(r.type || '')}`);
+                    ws.riskLayers.push(l);
+                });
+            })
+            .catch(() => {});
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
         initMap();
         startTracking();
+        // Load safe haven pins immediately, regardless of GPS availability
+        loadSafeHavenPins(null, null);
 
         const destInput = document.getElementById('routeDestInput');
         destInput.addEventListener('input', () => {
